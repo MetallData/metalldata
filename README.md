@@ -24,8 +24,8 @@ If one prefers to use Spack to install the libraries, type `spack install [packa
 - Boost C++ Libraries 1.77.0 or more (available in Spack, always required)
 - Metall (available in Spack, always required)
 - cereal (tested with v1.3.0, available in Spack, required by YGM)
-- YGM (required by distributed-memory programs)
-- Clippy-cpp (required by Clippy applications)
+- YGM (required)
+- Clippy-cpp (required)
 
 
 ## License
@@ -37,3 +37,5 @@ All new contributions must be made under the MIT license.
 See [LICENSE](LICENSE), [NOTICE](NOTICE), and [COPYRIGHT](COPYRIGHT) for details.
 
 SPDX-License-Identifier: MIT
+
+LLNL-CODE-835154
