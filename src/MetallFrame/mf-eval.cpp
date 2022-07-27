@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-/// \brief Demonstrates how to run Json expression predicates on a JsonFrame
+/// \brief Demonstrates how to run Json expression predicates on a MetallFrame
 
 #include <iostream>
 #include <fstream>

@@ -104,7 +104,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     updateColumn(vec, selectedRows, columnName, columnExpr, mgr.get_allocator());
     world.barrier(); // necessary?
 
-    const int              totalUpdated = world.all_reduce_sum(selectedRows.size());
+    const int                   totalUpdated = world.all_reduce_sum(selectedRows.size());
 
     if (world.rank() == 0)
     {

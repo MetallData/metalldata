@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-/// \brief Implements the construction of a JsonFrame object.
+/// \brief Implements the construction of a MetallFrame object.
 
 #include <ygm/comm.hpp>
 #include <clippy/clippy.hpp>
@@ -15,7 +15,7 @@ namespace
 {
   const std::string METHOD_NAME = "__init__";
 
-  const std::string METHOD_DOCSTRING = "Initializes a JsonFrame object\n"
+  const std::string METHOD_DOCSTRING = "Initializes a MetallFrame object\n"
                                      "creates a new physical object on disk "
                                      "only if it does not already exist.";
 
@@ -51,7 +51,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
       const auto*                 vec = mgr.construct<vector_json_type>(metall::unique_instance)(mgr.get_allocator());
 
       if (vec == nullptr)
-        throw std::runtime_error("unable to allocate a JsonFrame-Object in Metall");
+        throw std::runtime_error("unable to allocate a MetallFrame-Object in Metall");
     }
 
     world.barrier();

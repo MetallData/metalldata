@@ -3,13 +3,14 @@
 //
 // SPDX-License-Identifier: MIT
 
-/// \brief Implements joining two JsonFrame data sets.
+/// \brief Implements joining two MetallFrame data sets.
 
 #include <iostream>
 #include <fstream>
 #include <numeric>
 #include <limits>
 #include <functional>
+//~ #include <bit>
 
 #include <boost/json.hpp>
 #include <boost/functional/hash.hpp>
@@ -69,13 +70,47 @@ namespace
   template <class T, typename ...argts>
   T
   valueAt(bj::object& value, const argts&... keys)
+  try
   {
-    return bj::value_to<T>(valueOf(value, keys...));
+    static constexpr bool requires_container = ::clippy::is_container<T>::value;
+
+    return bj::value_to<T>(::clippy::asContainer(valueOf(value, keys...), requires_container));
   }
+  catch (...)
+  {
+    return T();
+  }
+
+
+  //
+  // hash_combine: https://stackoverflow.com/a/50978188
+  inline
+  std::uint64_t
+  xorShift(std::uint64_t n, int i) {
+    return n^(n>>i);
+  }
+
+  // a hash function with another name as to not confuse with std::hash
+  inline
+  std::uint64_t
+  stableHashDistribute(std::uint64_t n)
+  {
+    std::uint64_t p = 0x5555555555555555ull;  // pattern of alternating 0 and 1
+    std::uint64_t c = 17316035218449499591ull;// random uneven integer constant;
+    return c*xorShift(p*xorShift(n,32),32);
+  }
+
+  std::uint64_t
+  stableHashCombine(std::uint64_t seed, std::uint64_t comp)
+  {
+    return boost::hash_combine(seed, comp), seed;
+    //~ return std::rotl(seed, std::numeric_limits<std::uint64_t>::digits/3) ^ stableHashDistribute(comp);
+  }
+
 
   template <typename _allocator_type>
   std::size_t
-  hash_code(const mtljsn::value<_allocator_type>& val)
+  hashCode(const mtljsn::value<_allocator_type>& val)
   {
     if (val.is_null())   return std::hash<nullptr_t>{}(nullptr);
     if (val.is_bool())   return std::hash<bool>{}(val.as_bool());
@@ -98,8 +133,8 @@ namespace
 
       for (const auto& el : obj)
       {
-        boost::hash_combine(res, std::hash<std::string_view>{}(el.key()));
-        boost::hash_combine(res, hash_code(el.value()));
+        stableHashCombine(res, std::hash<std::string_view>{}(el.key()));
+        stableHashCombine(res, hashCode(el.value()));
       }
 
       return res;
@@ -111,7 +146,7 @@ namespace
 
     // \todo should an element's position be taken into account for the computed hash value?
     for (const auto& el: val.as_array())
-      boost::hash_combine(res, hash_code(el));
+      stableHashCombine(res, hashCode(el));
 
     return res;
   }
@@ -331,19 +366,22 @@ namespace
       {
         const mtljsn::value<_allocator_type>& sub = pos->value();
 
-        boost::hash_combine(res, hash_code(sub));
+        stableHashCombine(res, hashCode(sub));
       }
     }
 
     return res;
   }
 
-  void computeMergeInfo(ygm::comm& world, vector_json_type& vec, const ColumnSelector& sel, JoinSide which)
+  void computeMergeInfo(ygm::comm& world, vector_json_type& vec, JsonExpression pred, const ColumnSelector& colsel, JoinSide which)
   {
-    const int N = vec.size();
+    auto fn = [&world, &colsel, which]
+              (int rownum, const vector_json_type::value_type& row) -> void
+              {
+                commJoinHash(world, which, computeHash(row, colsel), rownum);
+              };
 
-    for (int i = 0; i < N; ++i)
-      commJoinHash(world, which, computeHash(vec.at(i), sel), i);
+    forAllSelected(fn, vec, std::move(pred));
   }
 
   template <class JsonObject, class JsonValue>
@@ -425,6 +463,11 @@ namespace
   {
     return mtljsn::value_from(orig, _allocator_type{});
   }
+
+  JsonExpression selectionCriteria(bj::object& obj)
+  {
+    return valueAt<JsonExpression>(obj, "__clippy_type__", "state", ST_SELECTED);
+  }
 }
 
 
@@ -437,14 +480,14 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   //~ clip.member_of(CLASS_NAME, "A " + CLASS_NAME + " class");
 
   // required arguments
-  clip.add_required<bj::object>(ARG_OUTPUT,     "result JsonFrame object; any existing data will be overwritten");
-  clip.add_required<bj::object>(ARG_LEFT,       "right hand side JsonFrame object");
-  clip.add_required<bj::object>(ARG_RIGHT,      "left hand side JsonFrame object");
+  clip.add_required<bj::object>(ARG_OUTPUT,     "result MetallFrame object; any existing data will be overwritten");
+  clip.add_required<bj::object>(ARG_LEFT,       "right hand side MetallFrame object");
+  clip.add_required<bj::object>(ARG_RIGHT,      "left hand side MetallFrame object");
 
   // future optional arguments
   // \todo should these be json expressions
-  clip.add_required<ColumnSelector>(ARG_LEFT_ON,  "list of columns on which to join left JsonFrame");
-  clip.add_required<ColumnSelector>(ARG_RIGHT_ON, "list of columns on which to join right JsonFrame");
+  clip.add_required<ColumnSelector>(ARG_LEFT_ON,  "list of columns on which to join left MetallFrame");
+  clip.add_required<ColumnSelector>(ARG_RIGHT_ON, "list of columns on which to join right MetallFrame");
 
   // currently unsupported optional arguments
   // clip.add_optional(ARG_HOW, "join method: {'left'|'right'|'outer'|'inner'|'cross']} default: inner", DEFAULT_HOW);
@@ -469,10 +512,12 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     const bj::string&           lhsLoc = valueAt<bj::string>(lhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
     mtlutil::metall_mpi_adaptor lhsMgr(metall::open_only, lhsLoc.c_str(), MPI_COMM_WORLD);
     vector_json_type&           lhsVec = jsonVector(lhsMgr);
+    JsonExpression              lhsSel = selectionCriteria(lhsObj);
 
     const bj::string&           rhsLoc = valueAt<bj::string>(rhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
     mtlutil::metall_mpi_adaptor rhsMgr(metall::open_only, rhsLoc.c_str(), MPI_COMM_WORLD);
     vector_json_type&           rhsVec = jsonVector(rhsMgr);
+    JsonExpression              rhsSel = selectionCriteria(rhsObj);
 
     if (DEBUG_TRACE)
       std::cerr << "phase 0: @" << world.rank()
@@ -483,12 +528,12 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     //   left:
     //     open left object
     //     compute hash and send to designated node
-    computeMergeInfo(world, lhsVec, lhsOn, lhsData);
+    computeMergeInfo(world, lhsVec, lhsSel, lhsOn, lhsData);
 
     //   right:
     //     open right object
     //     compute hash and send to designated node
-    computeMergeInfo(world, rhsVec, rhsOn, rhsData);
+    computeMergeInfo(world, rhsVec, rhsSel, rhsOn, rhsData);
 
     world.barrier();
 
@@ -503,7 +548,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     std::sort( local.joinIndex[lhsData].begin(), local.joinIndex[lhsData].end(), ByHashOwner{} );
     std::sort( local.joinIndex[rhsData].begin(), local.joinIndex[rhsData].end(), ByHashOwner{} );
 
-    //       b) send owners of right side information of join candidates on left side
+    //       b) send information of join candidates on left side to owners of right side
     JoinIndex::const_iterator       lsbeg = local.joinIndex[lhsData].begin();
     const JoinIndex::const_iterator lslim = local.joinIndex[lhsData].end();
     JoinIndex::const_iterator       rsbeg = local.joinIndex[rhsData].begin();

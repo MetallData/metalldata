@@ -3,12 +3,13 @@
 //
 // SPDX-License-Identifier: MIT
 
-/// \brief Implements head function to return N entries from a JsonFrame.
+/// \brief Implements head function to return N entries from a MetallFrame
 
 #include <iostream>
 #include <fstream>
 #include <numeric>
 #include <limits>
+#include <ranges>
 
 #include <boost/json.hpp>
 #include "clippy/clippy.hpp"

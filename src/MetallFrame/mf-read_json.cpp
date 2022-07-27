@@ -23,7 +23,7 @@ const std::string METHOD_NAME  = "read_json";
 int ygm_main(ygm::comm& world, int argc, char** argv)
 {
   int             error_code = 0;
-  clippy::clippy  clip{METHOD_NAME, "Imports Json Data from files into the JsonFrame object."};
+  clippy::clippy  clip{METHOD_NAME, "Imports Json Data from files into the MetallFrame object."};
 
   clip.member_of(CLASS_NAME, "A " + CLASS_NAME + " class");
 

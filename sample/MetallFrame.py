@@ -109,14 +109,14 @@ config.cmd_prefix = 'srun -N 1 -n 4 -A hpcgeda -p pbatch'
 clippy_import("/PATH/TO/metallData-22/build/examples/MetallFrame")
 
 # B) open three MetallFrame
-places = MetallFrame("./places-1_4")
+places = MetallFrame("./test/places-1_4")
 places.read_json("/PATH/TO/metallData-22/sample/data/places.json")
 
-names = MetallFrame("./names-1_4")
+names = MetallFrame("./test./names-1_4")
 names.read_json("/PATH/TO/metallData-22/sample/data/names.json")
 
 # the output frame
-result = MetallFrame("./combined-1_4")
+result = MetallFrame("./test/combined-1_4")
 
 # C) execute merge computes an inner joins
 #    @arg-1: result, the output jsonframe. all existing data will be deleted
@@ -131,13 +131,13 @@ result = MetallFrame("./combined-1_4")
 #          merge computes an inner join of arg-2 with arg-3 on the columns specified
 #          by arg-4 and arg-5 respectively.
 #    @note the selection filter is currently ignored, and the join is executed on the full table.
-merge(result, places, names, "id", "id")
+merge(result, places, names[names.keys.name > "Pat"], "id", "id")
 
 # possible future extensions
+- use selection criteria to subset the data to be joined
 - add optional parameters to specify suffixes
 - use computed join columns (e.g., to allow uppercase joins)
 - select the columns from each side that should be selected
-- use selection criteria to subset the data to be joined
 - support left-, right-, outer-, and full outer-joins
 
 # end join example

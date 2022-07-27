@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-/// \brief This file contains common code for the JsonFrame implementation
+/// \brief This file contains common code for the MetallFrame implementation
 
 #pragma once
 
@@ -32,7 +32,7 @@ using ColumnSelector = std::vector<std::string>;
 
 namespace
 {
-  const std::string CLASS_NAME = "JsonFrame";
+  const std::string CLASS_NAME = "MetallFrame";
   const std::string ST_METALL_LOCATION = "metall_location";
   const std::string ST_SELECTED = "selected";
   const std::string SELECTOR = "keys";
@@ -46,7 +46,7 @@ namespace
     if (res == nullptr)
     {
       CXX_UNLIKELY;
-      throw std::runtime_error("Unable to open JsonFrame");
+      throw std::runtime_error("Unable to open MetallFrame");
     }
 
     return *res;
@@ -67,14 +67,34 @@ namespace
     return json_logic::toValueExpr(boost::json::string(str.begin(), str.end()));
   }
 
+
   std::vector<int>
-  computeSelected(const vector_json_type& dataset, JsonExpression& jsonExpression, int numrows = std::numeric_limits<int>::max())
+  generateIndexN(std::vector<int> v, int count)
   {
-    std::vector<int> res;
+    v.reserve(count);
+    std::generate_n( std::back_inserter(v), count,
+                     [i=-1]() mutable -> int { return ++i; }
+                   );
+
+    return v;
+  }
+
+  /// Calls \fn(row, \dataset[row]) for all rows of \dataset, where all \predicates hold.
+  /// \param Fn         a functor that is called with an integer and a row of \dataset.
+  /// \param dataset    the data store
+  /// \param predicates a vector of JSON expressions that are evaluated for each row
+  /// \param numrows    max number times that fn is called on a given rank
+  /// \details
+  ///   the order of calls to \fn is unspecified.
+  template <class Fn>
+  inline
+  void
+  forAllSelected(Fn fn, const vector_json_type& dataset, JsonExpression predicates = {}, int numrows = std::numeric_limits<int>::max())
+  {
     std::vector<json_logic::AnyExpr> queries;
 
     // prepare AST
-    for (boost::json::object& jexp : jsonExpression)
+    for (boost::json::object& jexp : predicates)
     {
       auto [ast, vars, hasComputedVarNames] = json_logic::translateNode(jexp["rule"]);
 
@@ -127,27 +147,29 @@ namespace
 
       if (pos == lim)
       {
-        res.push_back(rownum);
+        fn(rownum, row);
 
-        if (int(res.size()) == numrows) { CXX_UNLIKELY; break; }
+        if (0 == --numrows) { CXX_UNLIKELY; break; }
       }
 
       ++rownum;
     }
+  }
+
+  std::vector<int>
+  computeSelected(const vector_json_type& dataset, JsonExpression jsonExpression, int numrows = std::numeric_limits<int>::max())
+  {
+    std::vector<int> res;
+
+    forAllSelected( [&res](int rownum, const auto&) -> void { res.push_back(rownum); },
+                    dataset,
+                    std::move(jsonExpression),
+                    numrows
+                  );
 
     return res;
   }
 
-  std::vector<int>
-  generateIndexN(std::vector<int> v, int count)
-  {
-    v.reserve(count);
-    std::generate_n( std::back_inserter(v), count,
-                     [i=-1]() mutable -> int { return ++i; }
-                   );
-
-    return v;
-  }
 
   inline
   std::vector<int>
@@ -161,8 +183,54 @@ namespace
 
     JsonExpression jsonExpression = clip.get_state<JsonExpression>(ST_SELECTED);
 
-    return computeSelected(vec, jsonExpression, numrows);
+    return computeSelected(vec, std::move(jsonExpression), numrows);
   }
+
+
+#if 0
+  template <class FilteredIterator>
+  struct SelectionIterator
+  {
+      using iterator_category = std::forward_iterator_tag;
+      using difference_type   = typename FilteredIterator::difference_type;
+      using value_type        = typename FilteredIterator::value_type;
+      using pointer           = typename FilteredIterator::pointer;
+      using reference         = typename FilteredIterator::reference;
+
+      explicit
+      SelectionIterator(FilteredIterator pos)
+      : it(std::move(pos))
+      {}
+
+      SelectionIterator()                                    = default;
+      ~SelectionIterator()                                   = default;
+      SelectionIterator(SelectionIterator&&)                 = default;
+      SelectionIterator(const SelectionIterator&)            = default;
+      SelectionIterator* operator=(SelectionIterator&&)      = default;
+      SelectionIterator& operator=(const SelectionIterator&) = default;
+
+      SelectionIterator& operator++() { ++it; return *this; }
+
+      SelectionIterator operator++(int)
+      {
+        SelectionIterator tmp{*this};
+
+        ++it;
+        return tmp;
+      }
+
+      friend
+      bool operator==(const SelectionIterator& lhs, const SelectionIterator& rhs)
+      {
+        return lhs.it == rhs.it;
+      }
+
+    private:
+      FilteredIterator it;
+  };
+#endif
+
+
 }
 
 int ygm_main(ygm::comm& world, int argc, char** argv);

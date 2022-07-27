@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-/// \brief Implements JsonFrame selector function (getItem).
+/// \brief Implements MetallFrame selector function (getItem).
 
 #include <iostream>
 #include <boost/json.hpp>
