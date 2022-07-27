@@ -131,13 +131,16 @@ result = MetallFrame("./test/combined-1_4")
 #          merge computes an inner join of arg-2 with arg-3 on the columns specified
 #          by arg-4 and arg-5 respectively.
 #    @note the selection filter is currently ignored, and the join is executed on the full table.
+merge(result, places, names, "id", "id")
+
+# joins on subselections can be computed by using selectors
 merge(result, places, names[names.keys.name > "Pat"], "id", "id")
 
+
 # possible future extensions
-- use selection criteria to subset the data to be joined
+- select the columns from each side that should be selected
 - add optional parameters to specify suffixes
 - use computed join columns (e.g., to allow uppercase joins)
-- select the columns from each side that should be selected
 - support left-, right-, outer-, and full outer-joins
 
 # end join example
