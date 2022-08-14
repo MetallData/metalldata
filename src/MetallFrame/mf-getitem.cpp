@@ -1,4 +1,4 @@
-// Copyright 2022 Lawrence Livermore National Security, LLC and other CLIPPy Project Developers.
+// Copyright 2022 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
 // See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
@@ -14,9 +14,11 @@
 namespace bjsn    = boost::json;
 namespace mtljsn  = metall::container::experimental::json;
 
-static const std::string methodName = "__getitem__";
-
-static const std::string expr = "expressions";
+namespace
+{
+const std::string methodName = "__getitem__";
+const std::string expr = "expressions";
+} // anonymous
 
 void append(std::vector<boost::json::object>& lhs, std::vector<boost::json::object> rhs)
 {

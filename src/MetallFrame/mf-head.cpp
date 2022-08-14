@@ -1,4 +1,4 @@
-// Copyright 2022 Lawrence Livermore National Security, LLC and other CLIPPy Project Developers.
+// Copyright 2022 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
 // See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
@@ -24,8 +24,8 @@ namespace jl      = json_logic;
 namespace
 {
 
-static const std::string methodName = "head";
-static const std::string ARG_MAX_ROWS = "num";
+const std::string methodName = "head";
+const std::string ARG_MAX_ROWS = "num";
 
 struct ProcessData
 {
@@ -35,7 +35,8 @@ struct ProcessData
 };
 
 ProcessData local;
-}
+
+} // anonymous
 
 
 struct RowResponse

@@ -4,7 +4,7 @@
 from clippy import clippy_import, config
 
 # on mammoth: config.cmd_prefix = 'srun -N NODES -n TASKS -A hpcgeda -p pbatch'
-config.cmd_prefix = 'srun -N 1 -n 4 -A hpcgeda -p pbatch'
+config.cmd_prefix = 'srun -N 1 -n 4 -A hpcgeda -p pbatch --mpibind=off'
 
 clippy_import("/PATH/TO/metallData-22/build/examples/MetallFrame")
 
@@ -149,3 +149,6 @@ merge(result, places, names[names.keys.name > "Pat"], "id", "id")
 ## POSSIBLE FUTURE EXTENSIONS
 
 # compute new entry based on existing entries
+
+###
+

@@ -3,7 +3,12 @@
 #
 # SPDX-License-Identifier: MIT
 
-set(CMAKE_BUILD_TYPE Debug)
+if (NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Debug)
+endif()
+
+set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
 
 # include_directories(${Boost_INCLUDE_DIRS})
 
@@ -22,10 +27,10 @@ setup_metall_target(mf-getitem)
 setup_ygm_target(mf-getitem)
 setup_clippy_target(mf-getitem)
 
-add_metalldata_executable(mf-eval mf-eval.cpp)
-setup_metall_target(mf-eval)
-setup_ygm_target(mf-eval)
-setup_clippy_target(mf-eval)
+add_metalldata_executable(mf-count mf-count.cpp)
+setup_metall_target(mf-count)
+setup_ygm_target(mf-count)
+setup_clippy_target(mf-count)
 
 add_metalldata_executable(mf-head mf-head.cpp)
 setup_metall_target(mf-head)

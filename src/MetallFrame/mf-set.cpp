@@ -1,4 +1,7 @@
-
+// Copyright 2022 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
+// See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: MIT
 
 #include <iostream>
 #include <fstream>
@@ -18,63 +21,13 @@ namespace mtlutil = metall::utility;
 namespace mtljsn  = metall::container::experimental::json;
 namespace jl      = json_logic;
 
-static const std::string methodName     = "set";
-static const std::string ARG_COLUMN     = "column";
-static const std::string ARG_EXPRESSION = "expression";
-
-/*
-template <typename allocator_type>
-bjsn::object
-to_boost_object(const mj::object<allocator_type> &input) {
-  bj::object object;
-  for (const auto &elem : input) {
-    object[elem.key().data()] = ;
-  }
-  return bj::serialize(object);
-}
-*/
-
-template <class Alloc>
-void
-updateColumn(vector_json_type& dataset, const std::vector<int>& rows, const std::string& columnName, bjsn::object& jexp, Alloc alloc)
+namespace
 {
-  auto [ast, vars, hasComputedVarNames] = json_logic::translateNode(jexp["rule"]);
+const std::string methodName     = "set";
+const std::string ARG_COLUMN     = "column";
+const std::string ARG_EXPRESSION = "expression";
+} // anonymous
 
-  if (hasComputedVarNames) throw std::runtime_error("unable to work with computed variable names");
-
-  for (std::int64_t rownum : rows)
-  {
-    auto&     rowobj = dataset.at(rownum).as_object();
-    const int selLen = (SELECTOR.size() + 1);
-    auto      varLookup = [&rowobj,selLen,rownum](const bjsn::string& colname, int) -> jl::ValueExpr
-                          {
-                            // \todo match selector instead of skipping it
-                            std::string_view col{colname.begin() + selLen, colname.size() - selLen};
-                            auto             pos = rowobj.find(col);
-
-                            if (pos == rowobj.end())
-                            {
-                              CXX_UNLIKELY;
-                              return (col == "rowid") ? jl::toValueExpr(rownum)
-                                                      : jl::toValueExpr(nullptr);
-                            }
-
-                            return toValueExpr(pos->value());
-                          };
-
-    jl::ValueExpr exp = jl::calculate(ast, varLookup);
-
-    std::stringstream jstr;
-
-    jstr << exp;
-
-    // return metall::container::experimental::json::value_from(std::move(bj_value), allocator);
-    rowobj[columnName] = mtljsn::parse(jstr.str(), alloc);
-    //~ std::cerr << "G" << rownum << std::endl;
-    //~ auto vvv = mtljsn::parse(jstr.str(), alloc);
-    //~ std::cerr << "H" << rownum << " " << vvv << std::endl;
-  }
-}
 
 
 int ygm_main(ygm::comm& world, int argc, char** argv)
@@ -98,13 +51,61 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     bjsn::object                columnExpr = clip.get<bjsn::object>(ARG_EXPRESSION);
     mtlutil::metall_mpi_adaptor manager(metall::open_only, dataLocation.c_str(), MPI_COMM_WORLD);
     vector_json_type&           vec = jsonVector(manager);
-    const std::vector<int>      selectedRows = getSelectedRows(clip, vec);
     auto&                       mgr = manager.get_local_manager();
+    auto [ast, vars, hasComputedVarNames] = jl::translateNode(columnExpr["rule"]);
 
-    updateColumn(vec, selectedRows, columnName, columnExpr, mgr.get_allocator());
+    if (hasComputedVarNames) throw std::runtime_error("unable to work with computed variable names");
+
+    int                         updCount = 0;
+
+    auto updateFn = [&updCount, &ast, objalloc{mgr.get_allocator()}, columnName{std::move(columnName)}]
+                    (int rownum, const vector_json_type::value_type& rowval) -> void
+                    {
+                      ++updCount;
+
+                      auto& rowobj     = const_cast<vector_json_type::value_type&>(rowval).as_object();
+                      const int selLen = (SELECTOR.size() + 1);
+                      auto  varLookup  = [&rowobj,selLen,rownum]
+                                         (const bjsn::string& colname, int) -> jl::ValueExpr
+                                         {
+                                           // \todo match selector instead of skipping it
+                                           std::string_view col{colname.begin() + selLen, colname.size() - selLen};
+                                           auto             pos = rowobj.find(col);
+
+                                           if (pos == rowobj.end())
+                                           {
+                                             CXX_UNLIKELY;
+                                             return (col == "rowid") ? jl::toValueExpr(std::int64_t{rownum})
+                                                                     : jl::toValueExpr(nullptr);
+                                           }
+
+                                           return toValueExpr(pos->value());
+                                         };
+
+                      std::stringstream jstr;
+                      jl::ValueExpr     exp = jl::calculate(ast, varLookup);
+
+                      jstr << exp;
+
+                      // return metall::container::experimental::json::value_from(std::move(bj_value), allocator);
+                      rowobj[columnName] = mtljsn::parse(jstr.str(), objalloc);
+                    };
+
+
+    if (!clip.has_state(ST_SELECTED))
+      std::for_each( vec.begin(), vec.end(),
+                     [updateFn{std::move(updateFn)}, rownum{0}]
+                     (const vector_json_type::value_type& row) mutable->void
+                     {
+                       updateFn(++rownum, row);
+                     }
+                   );
+    else
+      forAllSelected( updateFn, vec, clip.get_state<JsonExpression>(ST_SELECTED) );
+
     world.barrier(); // necessary?
 
-    const int                   totalUpdated = world.all_reduce_sum(selectedRows.size());
+    const int totalUpdated = world.all_reduce_sum(updCount);
 
     if (world.rank() == 0)
     {

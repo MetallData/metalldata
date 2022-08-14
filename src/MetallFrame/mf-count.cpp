@@ -1,4 +1,4 @@
-// Copyright 2022 Lawrence Livermore National Security, LLC and other CLIPPy Project Developers.
+// Copyright 2022 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
 // See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
@@ -18,8 +18,8 @@ namespace mtlutil = metall::utility;
 
 namespace
 {
-const std::string methodName = "eval";
-}
+const std::string methodName = "count";
+} // anonymous
 
 
 
@@ -43,10 +43,11 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
     if (clip.has_state(ST_SELECTED))
     {
-      JsonExpression   jsonExpression = clip.get_state<JsonExpression>(ST_SELECTED);
-      std::vector<int> selectedRows = computeSelected(vec, jsonExpression);
-
-      numSelected = selectedRows.size();
+      numSelected = 0;
+      forAllSelected( [&numSelected](int, const vector_json_type::value_type&) -> void { ++numSelected; },
+                      vec,
+                      clip.get_state<JsonExpression>(ST_SELECTED)
+                    );
     }
 
     world.barrier(); // necessary?

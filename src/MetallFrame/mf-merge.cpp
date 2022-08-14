@@ -1,4 +1,4 @@
-// Copyright 2022 Lawrence Livermore National Security, LLC and other CLIPPy Project Developers.
+// Copyright 2022 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
 // See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
@@ -43,7 +43,7 @@ namespace
   const std::string    ARG_LEFT_ON      = "left_on";
   const std::string    ARG_RIGHT_ON     = "right_on";
   const ColumnSelector DEFAULT_ON       = {};
-}
+} // anonymous
 //~ static const std::string ARG_SUFFIXES     = "column";
 //~ static const std::vector<std::string> DEFAULT_SUFFIXES{"_x", "_y"};
 
