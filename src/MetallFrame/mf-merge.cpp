@@ -373,7 +373,12 @@ namespace
     return res;
   }
 
-  void computeMergeInfo(ygm::comm& world, vector_json_type& vec, JsonExpression pred, const ColumnSelector& colsel, JoinSide which)
+  void computeMergeInfo( ygm::comm& world,
+                         const vector_json_type& vec,
+                         JsonExpression pred,
+                         const ColumnSelector& colsel,
+                         JoinSide which
+                       )
   {
     auto fn = [&world, &colsel, which]
               (int rownum, const vector_json_type::value_type& row) -> void
@@ -510,13 +515,13 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
     // phase 1: build index on corresponding nodes for merge operations
     const bj::string&           lhsLoc = valueAt<bj::string>(lhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
-    mtlutil::metall_mpi_adaptor lhsMgr(metall::open_only, lhsLoc.c_str(), MPI_COMM_WORLD);
-    vector_json_type&           lhsVec = jsonVector(lhsMgr);
+    mtlutil::metall_mpi_adaptor lhsMgr(metall::open_read_only, lhsLoc.c_str(), MPI_COMM_WORLD);
+    const vector_json_type&     lhsVec = jsonVector(lhsMgr);
     JsonExpression              lhsSel = selectionCriteria(lhsObj);
 
     const bj::string&           rhsLoc = valueAt<bj::string>(rhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
-    mtlutil::metall_mpi_adaptor rhsMgr(metall::open_only, rhsLoc.c_str(), MPI_COMM_WORLD);
-    vector_json_type&           rhsVec = jsonVector(rhsMgr);
+    mtlutil::metall_mpi_adaptor rhsMgr(metall::open_read_only, rhsLoc.c_str(), MPI_COMM_WORLD);
+    const vector_json_type&     rhsVec = jsonVector(rhsMgr);
     JsonExpression              rhsSel = selectionCriteria(rhsObj);
 
     if (DEBUG_TRACE)

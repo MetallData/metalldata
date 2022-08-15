@@ -47,3 +47,8 @@ setup_metall_target(mf-merge)
 setup_ygm_target(mf-merge)
 setup_clippy_target(mf-merge)
 
+add_metalldata_executable(mf-clear mf-clear.cpp)
+setup_metall_target(mf-clear)
+setup_ygm_target(mf-clear)
+setup_clippy_target(mf-clear)
+

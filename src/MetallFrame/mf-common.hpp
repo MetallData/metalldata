@@ -86,10 +86,10 @@ namespace
   /// \param numrows    max number times that fn is called on a given rank
   /// \details
   ///   the order of calls to \fn is unspecified.
-  template <class Fn>
+  template <class Fn, class JsonSequence>
   inline
   void
-  forAllSelected(Fn fn, const vector_json_type& dataset, JsonExpression predicates = {}, int numrows = std::numeric_limits<int>::max())
+  forAllSelected(Fn fn, JsonSequence& dataset, JsonExpression predicates = {}, int numrows = std::numeric_limits<int>::max())
   {
     std::vector<json_logic::AnyExpr> queries;
 
