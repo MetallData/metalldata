@@ -19,6 +19,15 @@ namespace mtlutil = metall::utility;
 namespace
 {
 const std::string methodName = "count";
+
+struct ProcessData
+{
+  vector_json_type* vec = nullptr;
+  std::uint64_t     selected = 0;
+};
+
+ProcessData local;
+
 } // anonymous
 
 
@@ -38,21 +47,22 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   {
     std::string                 dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
     mtlutil::metall_mpi_adaptor manager(metall::open_only, dataLocation.c_str(), MPI_COMM_WORLD);
-    vector_json_type&           vec = jsonVector(manager);
-    int                         numSelected = vec.size();
+
+    local.vec      = &jsonVector(manager);
+    local.selected = local.vec->size();
 
     if (clip.has_state(ST_SELECTED))
     {
-      numSelected = 0;
-      forAllSelected( [&numSelected](int, const vector_json_type::value_type&) -> void { ++numSelected; },
-                      vec,
+      local.selected = 0;
+      forAllSelected( [](int, const vector_json_type::value_type&) -> void { ++local.selected; },
+                      *local.vec,
                       clip.get_state<JsonExpression>(ST_SELECTED)
                     );
     }
 
     world.barrier(); // necessary?
 
-    int totalSelected = world.all_reduce_sum(numSelected);
+    int totalSelected = world.all_reduce_sum(local.selected);
 
     if (world.rank() == 0)
     {

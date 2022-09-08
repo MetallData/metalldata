@@ -94,7 +94,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     std::string                 dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
     const int                   numrows      = clip.get<int>(ARG_MAX_ROWS);
     //~ std::string      key = clip.get_state<std::string>(ST_JSONLINES_KEY);
-    mtlutil::metall_mpi_adaptor manager(metall::open_only, dataLocation.c_str(), MPI_COMM_WORLD);
+    mtlutil::metall_mpi_adaptor manager(metall::open_read_only, dataLocation.c_str(), MPI_COMM_WORLD);
 
     local.vec = &jsonVector(manager);
     local.selectedRows = getSelectedRows(clip, *local.vec, numrows);

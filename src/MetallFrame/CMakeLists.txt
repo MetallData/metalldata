@@ -12,6 +12,8 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
 
 # include_directories(${Boost_INCLUDE_DIRS})
 
+include_directories(${PROJECT_SOURCE_DIR}/src/MetallFrame/)
+
 add_metalldata_executable(mf-init mf-init.cpp)
 setup_metall_target(mf-init)
 setup_ygm_target(mf-init)

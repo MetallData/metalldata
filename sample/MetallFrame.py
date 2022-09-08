@@ -6,7 +6,11 @@ from clippy import clippy_import, config
 # on mammoth: config.cmd_prefix = 'srun -N NODES -n TASKS -A hpcgeda -p pbatch'
 config.cmd_prefix = 'srun -N 1 -n 4 -A hpcgeda -p pbatch --mpibind=off'
 
-clippy_import("/PATH/TO/metallData-22/build/examples/MetallFrame")
+# on pascal
+config.cmd_prefix = 'srun -N 1 -n 4 -p pvis --mpibind=off'
+
+clippy_import("/PATH/TO/metallData-22/build/src/MetallFrame")
+clippy_import("/g/g92/peterp/git/metallData-22/build-rel/src/MetallFrame")
 
 
 ## open jsonlines object and import data

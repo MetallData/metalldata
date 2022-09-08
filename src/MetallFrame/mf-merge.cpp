@@ -31,6 +31,8 @@ namespace
 {
   const bool DEBUG_TRACE = false;
 
+  using StringVector = std::vector<std::string>;
+
   const std::string    methodName       = "merge";
   const std::string    ARG_OUTPUT       = "output";
   const std::string    ARG_LEFT         = "left";
@@ -43,9 +45,10 @@ namespace
   const std::string    ARG_LEFT_ON      = "left_on";
   const std::string    ARG_RIGHT_ON     = "right_on";
   const ColumnSelector DEFAULT_ON       = {};
+
+  //~ const std::string    ARG_SUFFIXES     = "suffixes";
+  //~ const StringVector   DEFAULT_SUFFIXES{"_x", "_y"};
 } // anonymous
-//~ static const std::string ARG_SUFFIXES     = "column";
-//~ static const std::vector<std::string> DEFAULT_SUFFIXES{"_x", "_y"};
 
 namespace
 {
@@ -491,25 +494,37 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   // future optional arguments
   // \todo should these be json expressions
-  clip.add_required<ColumnSelector>(ARG_LEFT_ON,  "list of columns on which to join left MetallFrame");
-  clip.add_required<ColumnSelector>(ARG_RIGHT_ON, "list of columns on which to join right MetallFrame");
+  clip.add_optional<ColumnSelector>(ARG_ON,       "list of column names on which to join on (trumped by left_on/right_on)", DEFAULT_ON);
+  clip.add_optional<ColumnSelector>(ARG_LEFT_ON,  "list of columns on which to join left MetallFrame", DEFAULT_ON);
+  clip.add_optional<ColumnSelector>(ARG_RIGHT_ON, "list of columns on which to join right MetallFrame", DEFAULT_ON);
 
   // currently unsupported optional arguments
   // clip.add_optional(ARG_HOW, "join method: {'left'|'right'|'outer'|'inner'|'cross']} default: inner", DEFAULT_HOW);
-  // clip.add_optional(ARG_ON,  "set of column names on which to join on: default: {}", DEFAULT_ON);
 
   if (clip.parse(argc, argv)) { return 0; }
 
   try
   {
+    // argument processing
     bj::object   outObj = clip.get<bj::object>(ARG_OUTPUT);
     bj::object   lhsObj = clip.get<bj::object>(ARG_LEFT);
     bj::object   rhsObj = clip.get<bj::object>(ARG_RIGHT);
 
-    ColumnSelector lhsOn  = clip.get<ColumnSelector>(ARG_LEFT_ON);
-    ColumnSelector rhsOn  = clip.get<ColumnSelector>(ARG_RIGHT_ON);
+    ColumnSelector argsOn   = clip.get<ColumnSelector>(ARG_ON);
+    ColumnSelector argLhsOn = clip.get<ColumnSelector>(ARG_LEFT_ON);
+    ColumnSelector argRhsOn = clip.get<ColumnSelector>(ARG_RIGHT_ON);
 
-    // move into pre-test
+    // argument error checking
+    //   \todo move to validation
+    if (argLhsOn.empty() && argsOn.empty())
+      throw std::runtime_error{"on-columns unspecified for left frame."};
+
+    if (argRhsOn.empty() && argsOn.empty())
+      throw std::runtime_error{"on-columns unspecified for right frame."};
+
+    const ColumnSelector& lhsOn = argLhsOn.empty() ? argsOn : argLhsOn;
+    const ColumnSelector& rhsOn = argRhsOn.empty() ? argsOn : argRhsOn;
+
     if (lhsOn.size() != rhsOn.size())
       throw std::runtime_error{"Number of columns of Left_On and Right_on differ"};
 

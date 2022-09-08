@@ -123,7 +123,7 @@ find_package(CLIPPy QUIET)
 if (NOT CLIPPy_FOUND)
     FetchContent_Declare(CLIPPy
             GIT_REPOSITORY https://github.com/LLNL/clippy-cpp.git
-            GIT_TAG feature/oo
+            GIT_TAG master
             )
     FetchContent_GetProperties(CLIPPy)
     if (NOT clippy_POPULATED)
