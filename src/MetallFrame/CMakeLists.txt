@@ -54,3 +54,8 @@ setup_metall_target(mf-clear)
 setup_ygm_target(mf-clear)
 setup_clippy_target(mf-clear)
 
+
+#add_metalldata_executable(mf-info mf-info.cpp)
+#setup_metall_target(mf-info)
+#setup_ygm_target(mf-info)
+#setup_clippy_target(mf-info)
