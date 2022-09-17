@@ -7,8 +7,8 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug)
 endif()
 
-set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
+set(CMAKE_CXX_FLAGS_DEBUG "-Wall -Wextra -pedantic -O0 -g")
+set(CMAKE_CXX_FLAGS_RELEASE "-Wall -Wextra -O3 -march=native")
 
 # include_directories(${Boost_INCLUDE_DIRS})
 

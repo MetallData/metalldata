@@ -1,10 +1,10 @@
-{"id" : 1, "name":"Tim"}
-{"id" : 2, "name":"Kim"}
-{"id" : 3, "name":"Pam"}
-{"id" : 4, "name":"Tom"}
-{"id" : 5, "name":"Pat"}
-{"id" : 6, "name":"Sam"}
-{"id" : 7, "name":"Zoe"}
-{"id" : 8, "name":"Ana"}
-{"id" : 9, "name":"Ian"}
-{"id" : 10, "name":"Ike"}
+{"id" : 1,  "name":"Tim", "home" : 3}
+{"id" : 2,  "name":"Kim", "home" : 5}
+{"id" : 3,  "name":"Pam", "home" : 6}
+{"id" : 4,  "name":"Tom", "home" : 5}
+{"id" : 5,  "name":"Pat", "home" : 9}
+{"id" : 6,  "name":"Sam", "home" : 4}
+{"id" : 7,  "name":"Zoe", "home" : 7}
+{"id" : 8,  "name":"Ana" }
+{"id" : 9,  "name":"Ian", "home" : 9}
+{"id" : 10, "name":"Ike", "home" : 5}

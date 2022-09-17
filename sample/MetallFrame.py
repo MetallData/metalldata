@@ -5,6 +5,7 @@ from clippy import clippy_import, config
 
 # on mammoth: config.cmd_prefix = 'srun -N NODES -n TASKS -A hpcgeda -p pbatch'
 config.cmd_prefix = 'srun -N 1 -n 4 -A hpcgeda -p pbatch --mpibind=off'
+config.cmd_prefix = 'mpirun -np 4'
 
 # on pascal
 config.cmd_prefix = 'srun -N 1 -n 4 -p pvis --mpibind=off'

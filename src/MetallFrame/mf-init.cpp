@@ -47,8 +47,11 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     if (overwrite || !mtlutil::metall_mpi_adaptor::consistent(dataLocation.c_str(), MPI_COMM_WORLD))
     {
       mtlutil::metall_mpi_adaptor manager(metall::create_only, dataLocation.c_str(), MPI_COMM_WORLD);
+      std::cerr << "manager" << std::endl;
       auto&                       mgr = manager.get_local_manager();
+      std::cerr << "local manager" << std::endl;
       const auto*                 vec = mgr.construct<vector_json_type>(metall::unique_instance)(mgr.get_allocator());
+      std::cerr << "local manager:construct" << std::endl;
 
       if (vec == nullptr)
         throw std::runtime_error("unable to allocate a MetallFrame-Object in Metall");
