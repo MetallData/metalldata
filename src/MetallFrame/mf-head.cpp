@@ -24,14 +24,18 @@ namespace jl      = json_logic;
 namespace
 {
 
-const std::string methodName = "head";
-const std::string ARG_MAX_ROWS = "num";
+const std::string    methodName      = "head";
+const std::string    ARG_MAX_ROWS    = "num";
+const std::string    COLUMNS         = "columns";
+const ColumnSelector DEFAULT_COLUMNS = {};
+
 
 struct ProcessData
 {
   vector_json_type*        vec = nullptr;
   std::vector<int>         selectedRows;
   std::vector<std::string> remoteRows;
+  ColumnSelector           projlist;
 };
 
 ProcessData local;
@@ -68,7 +72,9 @@ struct RowRequest
     {
       std::stringstream serial;
 
-      serial << local.vec->at(local.selectedRows.at(i)) << std::flush;
+
+
+      serial << projectJsonEntry(local.vec->at(local.selectedRows.at(i)), local.projlist) << std::flush;
 
       local.remoteRows.emplace_back(serial.str());
     }
@@ -85,6 +91,8 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   clip.member_of(CLASS_NAME, "A " + CLASS_NAME + " class");
 
   clip.add_optional<int>(ARG_MAX_ROWS, "Max number of rows returned", 5);
+  clip.add_optional<ColumnSelector>(COLUMNS, "projection list (list of columns to put out)", DEFAULT_COLUMNS);
+
   clip.add_required_state<std::string>(ST_METALL_LOCATION, "Metall storage location");
 
   if (clip.parse(argc, argv)) { return 0; }
@@ -93,11 +101,14 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   {
     std::string                 dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
     const int                   numrows      = clip.get<int>(ARG_MAX_ROWS);
+    ColumnSelector              projlist     = clip.get<ColumnSelector>(COLUMNS);
     //~ std::string      key = clip.get_state<std::string>(ST_JSONLINES_KEY);
     mtlutil::metall_mpi_adaptor manager(metall::open_read_only, dataLocation.c_str(), MPI_COMM_WORLD);
 
     local.vec = &jsonVector(manager);
     local.selectedRows = getSelectedRows(clip, *local.vec, numrows);
+    local.projlist = std::move(projlist);
+
     world.barrier();
 
     const int                   numSelectedRows = local.selectedRows.size();
@@ -111,7 +122,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     if (world.rank() == 0)
     {
       for (int i : local.selectedRows)
-        res.emplace_back(mtljsn::value_to<bjsn::value>(local.vec->at(i)));
+        res.emplace_back(projectJsonEntry(local.vec->at(i), local.projlist));
     }
 
     world.barrier();

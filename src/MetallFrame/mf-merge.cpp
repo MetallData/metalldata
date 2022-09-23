@@ -413,16 +413,6 @@ namespace
     }
   }
 
-  template <class JsonObject>
-  auto
-  if_contains(const JsonObject& obj, const std::string& name) -> decltype(&obj.at(name))
-  {
-    auto pos = obj.find(name);
-
-    return (pos == obj.end()) ? nullptr : &pos->value();
-  }
-
-
   template <class JsonObject, class JsonValue>
   void
   appendFields(JsonObject& rec, const JsonValue& other, const ColumnSelector& projlst, const std::string& other_suffix)
@@ -451,21 +441,22 @@ namespace
   void
   joinRecords( mtljsn::value<_allocator_type>& res,
                const mtljsn::value<_allocator_type>& lhs,
-               const ColumnSelector& projlstLeft,
+               const ColumnSelector& projlstLHS,
                const mtljsn::value<_allocator_type>& rhs,
+               const ColumnSelector& projlstRHS,
                const std::string& lsuf = "_l",
                const std::string& rsuf = "_r"
              )
   {
     mtljsn::object<_allocator_type>& obj = res.emplace_object();
 
-    appendFields(obj, lhs, projlstLeft, lsuf);
-    appendFields(obj, rhs, rsuf);
+    appendFields(obj, lhs, projlstLHS, lsuf);
+    appendFields(obj, rhs, projlstRHS, rsuf);
   }
 
   template <class _allocator_type>
   void computeJoin( const mtljsn::value<_allocator_type>& lhs, const ColumnSelector& lhsOn, const ColumnSelector& projlstLeft,
-                    const mtljsn::value<_allocator_type>& rhs, const ColumnSelector& rhsOn,
+                    const mtljsn::value<_allocator_type>& rhs, const ColumnSelector& rhsOn, const ColumnSelector& projlstRight,
                     vector_json_type& res
                   )
   {
@@ -491,7 +482,7 @@ namespace
     }
 
     res.emplace_back();
-    joinRecords(res.back(), lhs, projlstLeft, rhs, "_l", "_r");
+    joinRecords(res.back(), lhs, projlstLeft, rhs, projlstRight, "_l", "_r");
   }
 
 
@@ -524,29 +515,6 @@ namespace
                    }
                  );
   }
-
-
-  template <class JsonValue>
-  bj::value
-  projectJsonEntry(const JsonValue& frentry, const ColumnSelector& projlst)
-  //~ projectJsonEntry(const mtljsn::value& frentry, const ColumnSelector& projlst)
-  {
-    if (projlst.empty())
-      return mtljsn::value_to<bj::value>(frentry);
-
-    assert (frentry.is_object());
-    const auto& frobj = frentry.as_object();
-
-    bj::object obj;
-
-    for (const std::string& col : projlst)
-    {
-      if (const auto* fld = if_contains(obj, col))
-        obj.emplace(col, *fld);
-    }
-
-    return obj;
-  }
 }
 
 
@@ -570,8 +538,8 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   clip.add_optional<ColumnSelector>(ARG_RIGHT_ON,  "list of columns on which to join right MetallFrame", DEFAULT_COLUMNS);
 
   // columns to join on
-  clip.add_optional<ColumnSelector>(COLUMNS_LEFT,  "projection list of the left input frame (join columns are implicitly added)", DEFAULT_COLUMNS);
-  clip.add_optional<ColumnSelector>(COLUMNS_RIGHT, "projection list of the right input frame (join columns are implicitly added)", DEFAULT_COLUMNS);
+  clip.add_optional<ColumnSelector>(COLUMNS_LEFT,  "projection list of the left input frame", DEFAULT_COLUMNS);
+  clip.add_optional<ColumnSelector>(COLUMNS_RIGHT, "projection list of the right input frame", DEFAULT_COLUMNS);
 
   // currently unsupported optional arguments
   // clip.add_optional(ARG_HOW, "join method: {'left'|'right'|'outer'|'inner'|'cross']} default: inner", DEFAULT_HOW);
@@ -589,8 +557,8 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     ColumnSelector argLhsOn = clip.get<ColumnSelector>(ARG_LEFT_ON);
     ColumnSelector argRhsOn = clip.get<ColumnSelector>(ARG_RIGHT_ON);
 
-    ColumnSelector projLhs = clip.get<ColumnSelector>(ARG_LEFT_ON);
-    ColumnSelector projRhs = clip.get<ColumnSelector>(ARG_RIGHT_ON);
+    ColumnSelector projLhs = clip.get<ColumnSelector>(COLUMNS_LEFT);
+    ColumnSelector projRhs = clip.get<ColumnSelector>(COLUMNS_RIGHT);
 
     // argument error checking
     //   \todo move to validation
@@ -606,8 +574,10 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     if (lhsOn.size() != rhsOn.size())
       throw std::runtime_error{"Number of columns of Left_On and Right_on differ"};
 
-    addJoinColumnsToOutput(lhsOn, projLhs);
-    addJoinColumnsToOutput(rhsOn, projRhs);
+    // addJoinColumnsToOutput(lhsOn, projLhs);
+    ColumnSelector sendListRhs = projRhs;
+
+    addJoinColumnsToOutput(rhsOn, sendListRhs);
 
     // phase 1: build index on corresponding nodes for merge operations
     const bj::string&           lhsLoc = valueAt<bj::string>(lhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
@@ -717,7 +687,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
       // project the entry according the projection list and send it to the lhs
       for (int idx : m.local_data())
-        jsdata.emplace_back(projectJsonEntry(rhsVec.at(idx), projRhs));
+        jsdata.emplace_back(projectJsonEntry(rhsVec.at(idx), sendListRhs));
 
       // send to all potential owners
       iterator beg = m.remote_data().begin();
@@ -775,7 +745,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
           {
             metall_json_value rhsObj = mtljsn::value_from(remoteObj, outMgr.get_local_manager().get_allocator());
 
-            computeJoin(lhsObj, lhsOn, projLhs, rhsObj, rhsOn, outVec);
+            computeJoin(lhsObj, lhsOn, projLhs, rhsObj, projRhs, rhsOn, outVec);
           }
         }
       }

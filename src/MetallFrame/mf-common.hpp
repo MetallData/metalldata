@@ -230,7 +230,36 @@ namespace
   };
 #endif
 
+  template <class JsonObject>
+  auto
+  if_contains(const JsonObject& obj, const std::string& name) -> decltype(&obj.at(name))
+  {
+    auto pos = obj.find(name);
 
+    return (pos == obj.end()) ? nullptr : &pos->value();
+  }
+
+
+  template <class JsonValue>
+  boost::json::value
+  projectJsonEntry(const JsonValue& frentry, const ColumnSelector& projlst)
+  {
+    if (projlst.empty())
+      return metall::container::experimental::json::value_to<boost::json::value>(frentry);
+
+    assert (frentry.is_object());
+    const auto& frobj = frentry.as_object();
+
+    boost::json::object obj;
+
+    for (const std::string& col : projlst)
+    {
+      if (const auto* fld = if_contains(obj, col))
+        obj.emplace(col, *fld);
+    }
+
+    return obj;
+  }
 }
 
 int ygm_main(ygm::comm& world, int argc, char** argv);
