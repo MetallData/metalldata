@@ -12,9 +12,9 @@
 #include <ranges>
 
 #include <boost/json.hpp>
-#include "clippy/clippy.hpp"
-#include "clippy/clippy-eval.hpp"
+
 #include "mf-common.hpp"
+#include "clippy/clippy-eval.hpp"
 
 namespace bjsn    = boost::json;
 namespace mtljsn  = metall::container::experimental::json;
@@ -95,7 +95,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   clip.add_required_state<std::string>(ST_METALL_LOCATION, "Metall storage location");
 
-  if (clip.parse(argc, argv)) { return 0; }
+  if (clip.parse(argc, argv, world)) { return 0; }
 
   try
   {
@@ -106,7 +106,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     mtlutil::metall_mpi_adaptor manager(metall::open_read_only, dataLocation.c_str(), MPI_COMM_WORLD);
 
     local.vec = &jsonVector(manager);
-    local.selectedRows = getSelectedRows(clip, *local.vec, numrows);
+    local.selectedRows = getSelectedRows(world.rank(), clip, *local.vec, numrows);
     local.projlist = std::move(projlist);
 
     world.barrier();

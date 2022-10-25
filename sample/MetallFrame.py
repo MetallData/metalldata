@@ -22,26 +22,26 @@ mf.read_json("/p/lustre3/llamag/reddit/comments/RC_2007-01")
 
 ## select subset of data
 
-q = mf[vec.keys.score > 5]
-q.eval()
+q = mf[mf.keys.score > 5]
+q.count()
 # > 'Selected 15710 rows.'
 
 q = mf[mf.keys.score > 5, mf.keys.controversiality == 1]
-q.eval()
+q.count()
 # > 'Selected 216 rows.'
 
 # alternative 1:
 q = mf[mf.keys.score > 5][mf.keys.controversiality == 1]
-q.eval()
+q.count()
 # > 'Selected 216 rows.'
 
 # alternative 2:
 q = mf[(mf.keys.score > 5) & (mf.keys.controversiality == 1)]
-q.eval()
+q.count()
 # > 'Selected 216 rows.'
 
 q = mf[mf.keys.subreddit == 'programming']
-q.eval()
+q.count()
 # > 'Selected 7650 rows.'
 
 ## using contains and head
@@ -52,7 +52,7 @@ q.head()
 
 # use regex and print the first 10 matching lines (default is 5)
 q = mf[mf.keys.subreddit.contains('prog.*g', True)]
-q.eval()
+q.count()
 # > 'Selected 0 rows.'
 
 q.head(num = 10)
@@ -60,7 +60,7 @@ q.head(num = 10)
 #
 # update elements
 q = mf[mf.keys.author == "[deleted]"]
-q.eval()
+q.count()
 # > 'Selected 22387 rows.'
 
 # print first entries
@@ -75,7 +75,7 @@ q.head()
 
 # so try
 q = m[m.keys.author.contains("[deleted]")]
-q.eval()
+q.count()
 # > 'Selected 22387 rows.'
 
 q.head()
@@ -88,7 +88,7 @@ q.head()
 
 # CANNOT USE LOGICAL OPERATORS
 q = mf[mf.keys.score > 5 and mf.rows.controversiality == 1]
-q.eval() -- the left-hand-side condition gets dropped on the Python side
+q.count() -- the left-hand-side condition gets dropped on the Python side
 
 # Reason: "and" is the logical short circuit operator and cannot
 #         be overloaded.
@@ -127,19 +127,23 @@ result = MetallFrame("./test/combined-1_4")
 #    @arg-1: result, the output jsonframe. all existing data will be deleted
 #    @arg-2: places, the left hand side data
 #    @arg-3: names, the right hand side data
-#    @arg-4: "id", left column selection, the column(s) to join the left hand side data on
-#    @arg-5: "id", right column selection, the column(s) to join the right hand side data on
-#    @pre the number of columns in arg-4 and arg-5 must be the same.
+#    kwargs
+#    on, left_on, right_on: define the join columns (i.e., fields in the json object);
+#                           left_on, right_on supersede any list defined by on
+#    left_columns, right_columns: projection list of columns that will be copied to output. If
+#                                 undefined, every field is copied.
+#    @pre the number of join columns in arg-4 and arg-5 must be the same.
 #    @post the result contains all joined records, where columns have an _l and _r
 #          suffix depending whether they stemmed from arg-2 (left) or arg-3 (right) input.
 #    @details
 #          merge computes an inner join of arg-2 with arg-3 on the columns specified
-#          by arg-4 and arg-5 respectively.
+#          by on, left_on, right_on respectively. The output consists of the combined fields as
+#          defined by left_columns, right_columns.
 #    @note the selection filter is currently ignored, and the join is executed on the full table.
-merge(result, places, names, "id", "id")
+merge(result, places, names, on="id")
 
 # joins on subselections can be computed by using selectors
-merge(result, places, names[names.keys.name > "Pat"], "id", "id")
+merge(result, places, names[names.keys.name > "Pat"], on="id")
 
 
 # possible future extensions

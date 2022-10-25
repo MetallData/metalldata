@@ -16,9 +16,8 @@
 #include <boost/functional/hash.hpp>
 #include <metall/container/experimental/json/parse.hpp>
 
-#include "clippy/clippy.hpp"
-#include "clippy/clippy-eval.hpp"
 #include "mf-common.hpp"
+#include "clippy/clippy.hpp"
 
 
 namespace bj      = boost::json;
@@ -29,7 +28,7 @@ namespace jl      = json_logic;
 
 namespace
 {
-  const bool DEBUG_TRACE = false;
+  const bool DEBUG_TRACE = true;
 
   using StringVector = std::vector<std::string>;
 
@@ -247,6 +246,15 @@ namespace
   storeElem(JoinSide which, std::uint64_t h, int rank, int idx)
   {
     local.joinIndex[which].emplace_back(h, rank, idx);
+
+    if (DEBUG_TRACE && ((local.joinIndex[which].size() % (1<<12)) == 0))
+    {
+      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+
+      logfile << "storeElem: @" << which << " - " << local.joinIndex[which].size()
+              << "  from: " << rank << '.' << idx
+              << std::endl;
+    }
   }
 
   void
@@ -390,10 +398,28 @@ namespace
     auto fn = [&world, &colsel, which]
               (int rownum, const vector_json_type::value_type& row) -> void
               {
-                commJoinHash(world, which, computeHash(row, colsel), rownum);
+                std::uint64_t hval = computeHash(row, colsel);
+
+                if (DEBUG_TRACE && ((rownum % (1<<12)) == 0))
+                {
+                  std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+
+                  logfile << "@computeMergeInfo " << which << " " << rownum << ":" << hval
+                          << std::endl;
+                }
+
+                commJoinHash(world, which, hval, rownum);
               };
 
-    forAllSelected(fn, vec, std::move(pred));
+    forAllSelected(fn, world.rank(), vec, std::move(pred));
+
+    if (DEBUG_TRACE)
+    {
+      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+
+      logfile << "@computeMergeInfo " << which
+              << std::endl;
+    }
   }
 
   template <class JsonObject, class JsonValue>
@@ -544,7 +570,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   // currently unsupported optional arguments
   // clip.add_optional(ARG_HOW, "join method: {'left'|'right'|'outer'|'inner'|'cross']} default: inner", DEFAULT_HOW);
 
-  if (clip.parse(argc, argv)) { return 0; }
+  if (clip.parse(argc, argv, world)) { return 0; }
 
   try
   {
@@ -591,28 +617,50 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     JsonExpression              rhsSel = selectionCriteria(rhsObj);
 
     if (DEBUG_TRACE)
-      std::cerr << "phase 0: @" << world.rank()
-                << " *l: " << lhsVec.size() << " @" << lhsLoc
-                << " *r: " << rhsVec.size() << " @" << rhsLoc
-                << std::endl;
+    {
+      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+
+      logfile << "phase 0: @" << world.rank()
+              << " *l: " << lhsVec.size() << " @" << lhsLoc
+              << " *r: " << rhsVec.size() << " @" << rhsLoc
+              << std::endl;
+    }
 
     //   left:
     //     open left object
     //     compute hash and send to designated node
     computeMergeInfo(world, lhsVec, lhsSel, lhsOn, lhsData);
 
+    if (DEBUG_TRACE)
+    {
+      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+
+      logfile << "@done left now right" << std::endl;
+    }
+
     //   right:
     //     open right object
     //     compute hash and send to designated node
     computeMergeInfo(world, rhsVec, rhsSel, rhsOn, rhsData);
 
+    if (DEBUG_TRACE)
+    {
+      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+
+      logfile << "@barrier 0" << std::endl;
+    }
+
     world.barrier();
 
     if (DEBUG_TRACE)
-      std::cerr << "phase 1: @" << world.rank()
-                << "  L: " << local.joinIndex[lhsData].size()
-                << "  R: " << local.joinIndex[rhsData].size()
-                << std::endl;
+    {
+      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+
+      logfile << "phase 1: @" << world.rank()
+              << "  L: " << local.joinIndex[lhsData].size()
+              << "  R: " << local.joinIndex[rhsData].size()
+              << std::endl;
+    }
 
     // phase 2: perform preliminary merge based on hash
     //       a) sort the two indices
@@ -671,12 +719,19 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
       }
     }
 
+    local.joinIndex[lhsData].clear();
+    local.joinIndex[rhsData].clear();
+
     world.barrier(); // not needed
 
     if (DEBUG_TRACE)
-      std::cerr << "phase 2: @" << world.rank()
-                << "  M: " << local.mergeCandidates.size()
-                << std::endl;
+    {
+      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+
+      logfile << "phase 2: @" << world.rank()
+              << "  M: " << local.mergeCandidates.size()
+              << std::endl;
+    }
 
     // phase 3: send data to node that computes the join
     for (const MergeCandidates& m : local.mergeCandidates)
@@ -720,9 +775,13 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     world.barrier();
 
     if (DEBUG_TRACE)
-      std::cerr << "phase 3: @" << world.rank()
-                << "  J: " << local.joinData.size()
-                << std::endl;
+    {
+      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+
+      logfile << "phase 3: @" << world.rank()
+              << "  J: " << local.joinData.size()
+              << std::endl;
+    }
 
     const bj::string&           outLoc = valueAt<bj::string>(outObj, "__clippy_type__", "state", ST_METALL_LOCATION);
     mtlutil::metall_mpi_adaptor outMgr(metall::open_only, outLoc.c_str(), MPI_COMM_WORLD);
@@ -745,7 +804,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
           {
             metall_json_value rhsObj = mtljsn::value_from(remoteObj, outMgr.get_local_manager().get_allocator());
 
-            computeJoin(lhsObj, lhsOn, projLhs, rhsObj, projRhs, rhsOn, outVec);
+            computeJoin(lhsObj, lhsOn, projLhs, rhsObj, rhsOn, projRhs, outVec);
           }
         }
       }
@@ -754,9 +813,13 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     world.barrier();
 
     if (DEBUG_TRACE)
-      std::cerr << "phase Z: @" << world.rank()
-                << " *o: " << outVec.size()
-                << std::endl;
+    {
+      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+
+      logfile << "phase Z: @" << world.rank()
+              << " *o: " << outVec.size()
+              << std::endl;
+    }
 
     // done
 

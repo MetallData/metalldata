@@ -7,7 +7,7 @@
 
 #include <iostream>
 #include <boost/json.hpp>
-#include "clippy/clippy.hpp"
+
 #include "mf-common.hpp"
 
 
@@ -39,7 +39,8 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   clip.add_selector<std::string>(SELECTOR, "Row Selector");
   clip.add_required_state<std::string>(ST_METALL_LOCATION, "Metall storage location");
 
-  if (clip.parse(argc, argv)) { return 0; }
+  // \note running on rank 0 suffices
+  if ((world.rank() == 0) && clip.parse(argc, argv)) { return 0; }
 
   // the real thing
   try

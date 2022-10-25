@@ -18,6 +18,9 @@
 #include <ygm/comm.hpp>
 
 #include <experimental/cxx-compat.hpp>
+
+#define WITH_YGM 1
+
 #include <clippy/clippy.hpp>
 #include <clippy/clippy-eval.hpp>
 
@@ -89,7 +92,12 @@ namespace
   template <class Fn, class JsonSequence>
   inline
   void
-  forAllSelected(Fn fn, JsonSequence& dataset, JsonExpression predicates = {}, int numrows = std::numeric_limits<int>::max())
+  forAllSelected( Fn fn,
+                  int rank,
+                  JsonSequence& dataset,
+                  JsonExpression predicates = {},
+                  int numrows = std::numeric_limits<int>::max()
+                )
   {
     std::vector<json_logic::AnyExpr> queries;
 
@@ -119,7 +127,8 @@ namespace
 
       const auto& rowobj = row.as_object();
       const int   selLen = (SELECTOR.size() + 1);
-      auto varLookup = [&rowobj,selLen,rownum](const boost::json::string& colname, int) -> json_logic::ValueExpr
+      auto varLookup = [&rowobj,selLen,rownum,rank]
+                       (const boost::json::string& colname, int) -> json_logic::ValueExpr
                        {
                          // \todo match selector instead of skipping it
                          std::string_view col{colname.begin() + selLen, colname.size() - selLen};
@@ -128,8 +137,10 @@ namespace
                          if (pos == rowobj.end())
                          {
                            CXX_UNLIKELY;
-                           return (col == "rowid") ? json_logic::toValueExpr(rownum)
-                                                   : json_logic::toValueExpr(nullptr);
+                           if (col == "rowid") return json_logic::toValueExpr(rownum);
+                           if (col == "mpiid") return json_logic::toValueExpr(std::int64_t(rank));
+
+                           return json_logic::toValueExpr(nullptr);
                          }
 
                          return toValueExpr(pos->value());
@@ -157,11 +168,16 @@ namespace
   }
 
   std::vector<int>
-  computeSelected(const vector_json_type& dataset, JsonExpression jsonExpression, int numrows = std::numeric_limits<int>::max())
+  computeSelected( int rank,
+                   const vector_json_type& dataset,
+                   JsonExpression jsonExpression,
+                   int numrows = std::numeric_limits<int>::max()
+                 )
   {
     std::vector<int> res;
 
     forAllSelected( [&res](int rownum, const auto&) -> void { res.push_back(rownum); },
+                    rank,
                     dataset,
                     std::move(jsonExpression),
                     numrows
@@ -173,7 +189,7 @@ namespace
 
   inline
   std::vector<int>
-  getSelectedRows(const clippy::clippy& clip, const vector_json_type& vec, int numrows = std::numeric_limits<int>::max())
+  getSelectedRows(int rank, const clippy::clippy& clip, const vector_json_type& vec, int numrows = std::numeric_limits<int>::max())
   {
     if (!clip.has_state(ST_SELECTED))
     {
@@ -183,52 +199,9 @@ namespace
 
     JsonExpression jsonExpression = clip.get_state<JsonExpression>(ST_SELECTED);
 
-    return computeSelected(vec, std::move(jsonExpression), numrows);
+    return computeSelected(rank, vec, std::move(jsonExpression), numrows);
   }
 
-
-#if 0
-  template <class FilteredIterator>
-  struct SelectionIterator
-  {
-      using iterator_category = std::forward_iterator_tag;
-      using difference_type   = typename FilteredIterator::difference_type;
-      using value_type        = typename FilteredIterator::value_type;
-      using pointer           = typename FilteredIterator::pointer;
-      using reference         = typename FilteredIterator::reference;
-
-      explicit
-      SelectionIterator(FilteredIterator pos)
-      : it(std::move(pos))
-      {}
-
-      SelectionIterator()                                    = default;
-      ~SelectionIterator()                                   = default;
-      SelectionIterator(SelectionIterator&&)                 = default;
-      SelectionIterator(const SelectionIterator&)            = default;
-      SelectionIterator* operator=(SelectionIterator&&)      = default;
-      SelectionIterator& operator=(const SelectionIterator&) = default;
-
-      SelectionIterator& operator++() { ++it; return *this; }
-
-      SelectionIterator operator++(int)
-      {
-        SelectionIterator tmp{*this};
-
-        ++it;
-        return tmp;
-      }
-
-      friend
-      bool operator==(const SelectionIterator& lhs, const SelectionIterator& rhs)
-      {
-        return lhs.it == rhs.it;
-      }
-
-    private:
-      FilteredIterator it;
-  };
-#endif
 
   template <class JsonObject>
   auto

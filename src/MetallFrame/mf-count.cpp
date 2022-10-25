@@ -41,7 +41,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   clip.member_of(CLASS_NAME, "A " + CLASS_NAME + " class");
   clip.add_required_state<std::string>(ST_METALL_LOCATION, "Metall storage location");
 
-  if (clip.parse(argc, argv)) { return 0; }
+  if (clip.parse(argc, argv, world)) { return 0; }
 
   try
   {
@@ -55,6 +55,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     {
       local.selected = 0;
       forAllSelected( [](int, const vector_json_type::value_type&) -> void { ++local.selected; },
+                      world.rank(),
                       *local.vec,
                       clip.get_state<JsonExpression>(ST_SELECTED)
                     );

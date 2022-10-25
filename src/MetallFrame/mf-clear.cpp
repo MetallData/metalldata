@@ -6,10 +6,7 @@
 /// \brief Implements distributed processing of a json file
 ///        based on the distributed YGM line parser.
 
-#include "clippy/clippy.hpp"
-
 #include "mf-common.hpp"
-#include <ygm/io/csv_parser.hpp>
 
 namespace mtlutil = metall::utility;
 namespace mtljsn  = metall::container::experimental::json;
@@ -28,7 +25,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   clip.add_required_state<std::string>(ST_METALL_LOCATION, "Metall storage location");
 
-  if (clip.parse(argc, argv)) { return 0; }
+  if (clip.parse(argc, argv, world)) { return 0; }
 
   try
   {

@@ -11,9 +11,8 @@
 #include <boost/json.hpp>
 #include <metall/container/experimental/json/parse.hpp>
 
-#include "clippy/clippy.hpp"
-#include "clippy/clippy-eval.hpp"
 #include "mf-common.hpp"
+#include "clippy/clippy-eval.hpp"
 
 
 namespace bjsn    = boost::json;
@@ -42,7 +41,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   clip.add_required_state<std::string>(ST_METALL_LOCATION, "Metall storage location");
 
-  if (clip.parse(argc, argv)) { return 0; }
+  if (clip.parse(argc, argv, world)) { return 0; }
 
   try
   {
@@ -101,7 +100,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
                      }
                    );
     else
-      forAllSelected( updateFn, vec, clip.get_state<JsonExpression>(ST_SELECTED) );
+      forAllSelected( updateFn, world.rank(), vec, clip.get_state<JsonExpression>(ST_SELECTED) );
 
     world.barrier(); // necessary?
 
