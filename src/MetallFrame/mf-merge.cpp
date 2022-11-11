@@ -28,7 +28,7 @@ namespace jl      = json_logic;
 
 namespace
 {
-  const bool DEBUG_TRACE = true;
+  const bool DEBUG_TRACE = false;
 
   using StringVector = std::vector<std::string>;
 
@@ -139,8 +139,8 @@ namespace
 
       for (const auto& el : obj)
       {
-        stableHashCombine(res, std::hash<std::string_view>{}(el.key()));
-        stableHashCombine(res, hashCode(el.value()));
+        res = stableHashCombine(res, std::hash<std::string_view>{}(el.key()));
+        res = stableHashCombine(res, hashCode(el.value()));
       }
 
       return res;
@@ -152,7 +152,7 @@ namespace
 
     // \todo should an element's position be taken into account for the computed hash value?
     for (const auto& el: val.as_array())
-      stableHashCombine(res, hashCode(el));
+      res = stableHashCombine(res, hashCode(el));
 
     return res;
   }
@@ -249,9 +249,9 @@ namespace
 
     if (DEBUG_TRACE && ((local.joinIndex[which].size() % (1<<12)) == 0))
     {
-      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+      //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-      logfile << "storeElem: @" << which << " - " << local.joinIndex[which].size()
+      std::cerr << "storeElem: @" << which << " - " << local.joinIndex[which].size()
               << "  from: " << rank << '.' << idx
               << std::endl;
     }
@@ -262,6 +262,8 @@ namespace
   {
     const int rank = w.rank();
     const int dest = h % w.size();
+
+    assert(dest < 4);
 
     if (w.rank() == dest)
     {
@@ -366,7 +368,7 @@ namespace
 
   template <typename _allocator_type>
   std::uint64_t
-  computeHash(const mtljsn::value<_allocator_type>& val, const ColumnSelector& sel)
+  computeHash(const mtljsn::value<_allocator_type>& val, const ColumnSelector& sel, ygm::comm& w)
   {
     assert(val.is_object());
 
@@ -381,7 +383,7 @@ namespace
       {
         const mtljsn::value<_allocator_type>& sub = pos->value();
 
-        stableHashCombine(res, hashCode(sub));
+        res = stableHashCombine(res, hashCode(sub));
       }
     }
 
@@ -398,14 +400,14 @@ namespace
     auto fn = [&world, &colsel, which]
               (int rownum, const vector_json_type::value_type& row) -> void
               {
-                std::uint64_t hval = computeHash(row, colsel);
+                std::uint64_t hval = computeHash(row, colsel, world);
 
                 if (DEBUG_TRACE && ((rownum % (1<<12)) == 0))
                 {
-                  std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+                  //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-                  logfile << "@computeMergeInfo " << which << " " << rownum << ":" << hval
-                          << std::endl;
+                  std::cerr << "@computeMergeInfo r:" << world.rank() << ' ' << which << ' ' << rownum << ':' << hval
+                            << std::endl;
                 }
 
                 commJoinHash(world, which, hval, rownum);
@@ -415,9 +417,9 @@ namespace
 
     if (DEBUG_TRACE)
     {
-      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+      //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-      logfile << "@computeMergeInfo " << which
+      std::cerr << "@computeMergeInfo " << which
               << std::endl;
     }
   }
@@ -426,16 +428,41 @@ namespace
   void
   appendFields(JsonObject& rec, const JsonValue& other, const std::string& other_suffix)
   {
+    //~ static std::uint64_t CNT = 0;
+
     assert(other.is_object());
+
+    //~ ++CNT;
     const JsonObject& that = other.as_object();
 
     for (const auto& x : that)
     {
       const std::string_view& key = x.key();
       std::string             newkey(key.begin(), key.end());
+      int                     len = 0;
 
       newkey += other_suffix;
       rec[newkey] = x.value();
+
+/*
+      if (x.value().is_string())
+      {
+        const auto& str = x.value().as_string();
+
+        len = str.size();
+      }
+
+      if (len < 24)
+      {
+        if (DEBUG_TRACE)
+        {
+          std::cerr << CNT << " [" << newkey << "] = " << x.value()
+                    << std::endl;
+        }
+
+        rec[newkey] = x.value();
+      }
+*/
     }
   }
 
@@ -486,6 +513,8 @@ namespace
                     vector_json_type& res
                   )
   {
+    static std::uint64_t CNT = 0;
+
     const int N = lhsOn.size();
     assert(N == int(rhsOn.size()));
     assert(lhs.is_object());
@@ -505,6 +534,14 @@ namespace
 
       if ((*lhsSub) != (*rhsSub))
         return;
+    }
+
+    if (DEBUG_TRACE)
+    {
+      if (((CNT % (1 << 12)) == 0) || (CNT == 1))
+        std::cerr << "+out = " << CNT;
+
+      ++CNT;
     }
 
     res.emplace_back();
@@ -541,11 +578,33 @@ namespace
                    }
                  );
   }
+
+/*
+  void testOutput(bj::object& outObj)
+  {
+    const bj::string&           outLoc = valueAt<bj::string>(outObj, "__clippy_type__", "state", ST_METALL_LOCATION);
+    mtlutil::metall_mpi_adaptor outMgr(metall::open_only, outLoc.c_str(), MPI_COMM_WORLD);
+    vector_json_type&           outVec = jsonVector(outMgr);
+
+    outVec.clear();
+
+    outVec.emplace_back();
+
+    auto& val = outVec.back();
+    auto& obj = val.emplace_object();
+
+    obj["test"] = 1;
+
+    std::cerr << "out success " << outLoc << std::endl;
+  }
+*/
 }
 
 
 int ygm_main(ygm::comm& world, int argc, char** argv)
 {
+  using time_point = std::chrono::time_point<std::chrono::system_clock>;
+
   int            error_code = 0;
   clippy::clippy clip{methodName, "For all selected rows, set a field to a (computed) value."};
 
@@ -618,13 +677,16 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
     if (DEBUG_TRACE)
     {
-      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+      //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-      logfile << "phase 0: @" << world.rank()
+      std::cerr << "phase 0: @" << world.rank()
               << " *l: " << lhsVec.size() << " @" << lhsLoc
               << " *r: " << rhsVec.size() << " @" << rhsLoc
               << std::endl;
     }
+
+    time_point     starttime_P1 = std::chrono::system_clock::now();
+
 
     //   left:
     //     open left object
@@ -633,9 +695,9 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
     if (DEBUG_TRACE)
     {
-      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+      //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-      logfile << "@done left now right" << std::endl;
+      std::cerr << "@done left now right" << std::endl;
     }
 
     //   right:
@@ -645,18 +707,23 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
     if (DEBUG_TRACE)
     {
-      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+      //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-      logfile << "@barrier 0" << std::endl;
+      time_point     endtime_P1 = std::chrono::system_clock::now();
+      int            elapsedtime = std::chrono::duration_cast<std::chrono::milliseconds>(endtime_P1-starttime_P1).count();
+
+      std::cerr << "@barrier 0: elapsedTime: " << elapsedtime << "ms : "
+                << ((lhsVec.size() + rhsVec.size()) / (elapsedtime / 1000.0)) << " rec/s"
+                << std::endl;
     }
 
     world.barrier();
 
     if (DEBUG_TRACE)
     {
-      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+      //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-      logfile << "phase 1: @" << world.rank()
+      std::cerr << "phase 1: @" << world.rank()
               << "  L: " << local.joinIndex[lhsData].size()
               << "  R: " << local.joinIndex[rhsData].size()
               << std::endl;
@@ -726,9 +793,9 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
     if (DEBUG_TRACE)
     {
-      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+      //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-      logfile << "phase 2: @" << world.rank()
+      std::cerr << "phase 2: @" << world.rank()
               << "  M: " << local.mergeCandidates.size()
               << std::endl;
     }
@@ -772,13 +839,15 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
       } while (beg != lim);
     }
 
+    local.mergeCandidates.clear();
+
     world.barrier();
 
     if (DEBUG_TRACE)
     {
-      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+      //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-      logfile << "phase 3: @" << world.rank()
+      std::cerr << "phase 3: @" << world.rank()
               << "  J: " << local.joinData.size()
               << std::endl;
     }
@@ -810,13 +879,14 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
       }
     }
 
+    local.joinData.clear();
     world.barrier();
 
     if (DEBUG_TRACE)
     {
-      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+      //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-      logfile << "phase Z: @" << world.rank()
+      std::cerr << "phase Z: @" << world.rank()
               << " *o: " << outVec.size()
               << std::endl;
     }
