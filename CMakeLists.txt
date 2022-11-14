@@ -72,7 +72,7 @@ if (NOT Metall_FOUND)
     set(JUST_INSTALL_METALL_HEADER TRUE)
     FetchContent_Declare(Metall
             GIT_REPOSITORY https://github.com/LLNL/metall.git
-            GIT_TAG d2c17bbae0ddf9a11e6d25256923a0c365b3eee2
+            GIT_TAG master
             )
     FetchContent_MakeAvailable(Metall)
 endif ()
