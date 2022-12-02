@@ -7,7 +7,7 @@ Contents:
 
 ## Required
 
-- GCC 8.1 or more (8.3 or more is recommended due to early implementation of the Filesystem library).
+- GCC 9.3 or more is required.
 - MPI (for MPI programs)
 - CMake 3.14 or more
 
