@@ -57,7 +57,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
     int                         updCount = 0;
 
-    auto updateFn = [&updCount, &ast, objalloc{mgr.get_allocator()}, columnName{std::move(columnName)}]
+    auto updateFn = [&updCount, &ast, &columnName, objalloc{mgr.get_allocator()}]
                     (int rownum, const vector_json_type::value_type& rowval) -> void
                     {
                       ++updCount;
