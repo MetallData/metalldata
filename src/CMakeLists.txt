@@ -4,6 +4,6 @@
 # SPDX-License-Identifier: MIT
 
 add_subdirectory(MetallFrame)
-#add_subdirectory(MetallFrame2)
+add_subdirectory(MetallFrame2)
 #~ add_subdirectory(util)
 

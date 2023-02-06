@@ -13,18 +13,14 @@
 //~ #include <bit>
 
 #include <boost/json.hpp>
-#include <boost/functional/hash.hpp>
-#include <metall/container/experimental/json/parse.hpp>
 
-#include "mf-common.hpp"
+#include "df-common.hpp"
 #include "clippy/clippy-eval.hpp"
 
 
 namespace bj      = boost::json;
-namespace mtlutil = metall::utility;
-namespace mtljsn  = metall::container::experimental::json;
 namespace jl      = json_logic;
-
+namespace xpr     = experimental;
 
 namespace
 {
@@ -33,16 +29,20 @@ const std::string    methodName       = "info";
 
 struct ProcessData
 {
-  std::vector<int>         rawresult;
+  using count_t  = std::size_t;
+  using vector_t = std::vector<count_t>;
+
+  vector_t rawresult;
 };
 
 ProcessData local;
 
 struct InfoReduction
 {
-  std::vector<int> operator()(const std::vector<int>& lhs, const std::vector<int>& rhs) const
+  ProcessData::vector_t
+  operator()(const ProcessData::vector_t& lhs, const ProcessData::vector_t& rhs) const
   {
-    std::vector<int> res{lhs.begin(), lhs.end()};
+    ProcessData::vector_t res{lhs.begin(), lhs.end()};
 
     res.insert(res.end(), rhs.begin(), rhs.end());
     return res;
@@ -58,37 +58,31 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   clippy::clippy clip{methodName, "Returns information about the vector storage."};
 
   clip.member_of(CLASS_NAME, "A " + CLASS_NAME + " class");
-
   clip.add_required_state<std::string>(ST_METALL_LOCATION, "Metall storage location");
+  clip.add_required_state<std::string>(ST_METALLFRAME_NAME, "Metallframe2 key");
 
   if (clip.parse(argc, argv, world)) { return 0; }
 
   try
   {
-    std::string                 dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
-    mtlutil::metall_mpi_adaptor manager(metall::open_read_only, dataLocation.c_str(), MPI_COMM_WORLD);
+    std::string                     location = clip.get_state<std::string>(ST_METALL_LOCATION);
+    std::string                     key      = clip.get_state<std::string>(ST_METALLFRAME_NAME);
+    std::unique_ptr<xpr::DataFrame> dfp      = makeDataFrame(false /* existing */, location, key);
 
-    vector_json_type*           vec = &jsonVector(manager);
-
-    int total    = vec->size();
-    int selected = total;
+    ProcessData::count_t            total    = dfp->rows();
+    ProcessData::count_t            selected = total;
 
     if (clip.has_state(ST_SELECTED))
     {
       selected = 0;
-      forAllSelected( [&selected](int, const vector_json_type::value_type&) -> void { ++selected; },
+      forAllSelected( [&selected](std::int64_t) -> void { ++selected; },
                       world.rank(),
-                      *vec,
+                      *dfp,
                       clip.get_state<JsonExpression>(ST_SELECTED)
                     );
     }
 
-    //~ bj::object res;
-
-    //~ res["rank"]     = world.rank();
-    //~ res["total"]    = local.total;
-    //~ res["selected"] = local.selected;
-    std::vector<int> res = { int(world.rank()), int(total), int(selected) };
+    ProcessData::vector_t res = { ProcessData::count_t(world.rank()), total, selected };
 
     res = world.all_reduce(res, InfoReduction{});
 
@@ -102,7 +96,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
       {
         bj::object obj;
 
-        obj["rank"]  = res.at(i);
+        obj["rank"]     = res.at(i);
         obj["elements"] = res.at(i+1);
         obj["selected"] = res.at(i+2);
 
