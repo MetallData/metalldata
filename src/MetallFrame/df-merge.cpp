@@ -14,16 +14,14 @@
 
 #include <boost/json.hpp>
 #include <boost/functional/hash.hpp>
-#include <metall/container/experimental/json/parse.hpp>
 
-#include "mf-common.hpp"
+#include "df-common.hpp"
 #include "clippy/clippy.hpp"
 
 
 namespace bj      = boost::json;
-namespace mtlutil = metall::utility;
-namespace mtljsn  = metall::container::experimental::json;
 namespace jl      = json_logic;
+namespace xpr     = experimental;
 
 
 namespace
@@ -113,7 +111,7 @@ namespace
     //~ return std::rotl(seed, std::numeric_limits<std::uint64_t>::digits/3) ^ stableHashDistribute(comp);
   }
 
-
+#if OBSOLETE_CODE
   template <typename _allocator_type>
   std::size_t
   hashCode(const mtljsn::value<_allocator_type>& val)
@@ -156,6 +154,30 @@ namespace
 
     return res;
   }
+#endif /* OBSOLETE_CODE */
+
+  std::uint64_t
+  hashCode(xpr::ColumnVariant::pointer_variant_t ptr)
+  {
+    if (xpr::string_t** s = std::get_if<xpr::string_t*>(&ptr))
+    {
+      const xpr::string_t& str = **s;
+
+      return std::hash<std::string_view>{}(std::string_view{&*str.begin(), str.size()});
+    }
+
+    if (xpr::int_t** i = std::get_if<xpr::int_t*>(&ptr))
+      return std::hash<xpr::int_t>{}(**i);
+
+    if (xpr::uint_t** u = std::get_if<xpr::uint_t*>(&ptr))
+      return std::hash<xpr::uint_t>{}(**u);
+
+    if (xpr::real_t** r = std::get_if<xpr::real_t*>(&ptr))
+      return std::hash<xpr::real_t>{}(**r);
+
+    throw std::runtime_error{"unknown column type"};
+  }
+
 
   /// define data held locally
 
@@ -218,15 +240,15 @@ namespace
   };
 
 
-  struct JoinData : std::tuple< std::vector<int>, bj::array>
+  struct JoinData : std::tuple< std::vector<int>, std::vector<std::string> >
   {
-    using base = std::tuple< std::vector<int>, bj::array>;
+    using base = std::tuple< std::vector<int>, std::vector<std::string> >;
     using base::base;
 
-    std::vector<int>&         indices()       { return std::get<0>(*this); }
-    const std::vector<int>&   indices() const { return std::get<0>(*this); }
-    bj::array&                data()          { return std::get<1>(*this); }
-    const bj::array&          data()    const { return std::get<1>(*this); }
+    std::vector<int>&               indices()       { return std::get<0>(*this); }
+    const std::vector<int>&         indices() const { return std::get<0>(*this); }
+    std::vector<std::string>&       data()          { return std::get<1>(*this); }
+    const std::vector<std::string>& data()    const { return std::get<1>(*this); }
   };
 
   using JoinIndex = std::vector<JoinRegistry>;
@@ -262,8 +284,6 @@ namespace
   {
     const int rank = w.rank();
     const int dest = h % w.size();
-
-    assert(dest < 4);
 
     if (w.rank() == dest)
     {
@@ -337,55 +357,36 @@ namespace
            );
   }
 
-  void storeJoinData(const std::vector<int>& indices, const bj::array& data)
+  void storeJoinData(const std::vector<int>& indices, std::vector<std::string>&& data)
   {
-    local.joinData.emplace_back(indices, data);
+    local.joinData.emplace_back(indices, std::move(data));
   }
 
-  void commJoinData(ygm::comm& w, int dest, const std::vector<int>& indices, bj::array& data)
+  void commJoinData(ygm::comm& w, int dest, const std::vector<int>& indices, std::vector<std::string>&& data)
   {
     if (w.rank() == dest)
     {
-      storeJoinData(indices, data);
+      storeJoinData(indices, std::move(data));
       return;
     }
 
-    std::stringstream buf;
-
-    buf << data;
     w.async( dest,
-             [](const std::vector<int>& idx, const std::string& data) -> void
+             [](const std::vector<int>& idx, std::string&& data) -> void
              {
-               bj::value jsdata = bj::parse(data);
-
-               assert(jsdata.is_array());
-
-               storeJoinData(idx, jsdata.as_array());
+               storeJoinData(idx, std::move(data));
              },
-             indices, buf.str()
+             indices, data
            );
   }
 
-  template <typename _allocator_type>
+
   std::uint64_t
-  computeHash(const mtljsn::value<_allocator_type>& val, const ColumnSelector& sel, ygm::comm& w)
+  computeHash(const std::vector<xpr::ColumnVariant>& colaccess, std::int64_t rownum, ygm::comm& w)
   {
-    assert(val.is_object());
+    std::uint64_t res{0};
 
-    const mtljsn::object<_allocator_type>& obj = val.as_object();
-    std::uint64_t                          res{0};
-
-    for (const ColumnSelector::value_type& col : sel)
-    {
-      auto pos = obj.find(col);
-
-      if (pos != obj.end())
-      {
-        const mtljsn::value<_allocator_type>& sub = pos->value();
-
-        res = stableHashCombine(res, hashCode(sub));
-      }
-    }
+    for (const xpr::ColumnVariant& col : colaccess)
+      res = stableHashCombine(res, hashCode(col.at_variant(rownum)));
 
     return res;
   }
@@ -397,10 +398,12 @@ namespace
                          JoinSide which
                        )
   {
-    auto fn = [&world, &colsel, which]
-              (int rownum, const vector_json_type::value_type& row) -> void
+    std::vector<xpr::ColumnVariant> colaccess = vec.get_column_variants_std(colsel);
+
+    auto fn = [&world, &colaccess, which]
+              (int rownum) -> void
               {
-                std::uint64_t hval = computeHash(row, colsel, world);
+                std::uint64_t hval = computeHash(colaccess, rownum, world);
 
                 if (DEBUG_TRACE && ((rownum % (1<<12)) == 0))
                 {
@@ -507,21 +510,18 @@ namespace
     appendFields(obj, rhs, projlstRHS, rsuf);
   }
 
-  template <class _allocator_type>
-  void computeJoin( const mtljsn::value<_allocator_type>& lhs, const ColumnSelector& lhsOn, const ColumnSelector& projlstLeft,
-                    const mtljsn::value<_allocator_type>& rhs, const ColumnSelector& rhsOn, const ColumnSelector& projlstRight,
-                    vector_json_type& res
+  // computeJoin(*lhsVec, lhsIdx, lhsOn, projLhs, rhsObj, rhsOn, projRhs, outVec);
+
+  void computeJoin( const xpr::DataFrame& lhsFrame, std::uint64_t idx,
+                    const ColumnSelector& lhsOn, const ColumnSelector& projlstLeft,
+                    const std::vector<std::string>& rhsRow, const ColumnSelector& rhsOn, const ColumnSelector& projlstRight,
+                    xpr::DataFrame& res
                   )
   {
     static std::uint64_t CNT = 0;
 
     const int N = lhsOn.size();
     assert(N == int(rhsOn.size()));
-    assert(lhs.is_object());
-    assert(rhs.is_object());
-
-    const mtljsn::object<_allocator_type>& lhsObj = lhs.as_object();
-    const mtljsn::object<_allocator_type>& rhsObj = rhs.as_object();
 
     for (int i = 0; i < N; ++i)
     {
@@ -634,9 +634,9 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   try
   {
     // argument processing
-    bj::object   outObj = clip.get<bj::object>(ARG_OUTPUT);
-    bj::object   lhsObj = clip.get<bj::object>(ARG_LEFT);
-    bj::object   rhsObj = clip.get<bj::object>(ARG_RIGHT);
+    bj::object     outObj = clip.get<bj::object>(ARG_OUTPUT);
+    bj::object     lhsObj = clip.get<bj::object>(ARG_LEFT);
+    bj::object     rhsObj = clip.get<bj::object>(ARG_RIGHT);
 
     ColumnSelector argsOn   = clip.get<ColumnSelector>(ARG_ON);
     ColumnSelector argLhsOn = clip.get<ColumnSelector>(ARG_LEFT_ON);
@@ -665,33 +665,35 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     addJoinColumnsToOutput(rhsOn, sendListRhs);
 
     // phase 1: build index on corresponding nodes for merge operations
-    const bj::string&           lhsLoc = valueAt<bj::string>(lhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
-    mtlutil::metall_mpi_adaptor lhsMgr(metall::open_read_only, lhsLoc.c_str(), MPI_COMM_WORLD);
-    const vector_json_type&     lhsVec = jsonVector(lhsMgr);
-    JsonExpression              lhsSel = selectionCriteria(lhsObj);
+    clip.add_required_state<std::string>(ST_METALL_LOCATION, "Metall storage location");
+    clip.add_required_state<std::string>(ST_METALLFRAME_NAME, "Metallframe2 key");
 
-    const bj::string&           rhsLoc = valueAt<bj::string>(rhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
-    mtlutil::metall_mpi_adaptor rhsMgr(metall::open_read_only, rhsLoc.c_str(), MPI_COMM_WORLD);
-    const vector_json_type&     rhsVec = jsonVector(rhsMgr);
-    JsonExpression              rhsSel = selectionCriteria(rhsObj);
+    std::string                     lhsLoc = valueAt<std::string>(lhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
+    std::string                     lhsKey = valueAt<std::string>(lhsObj, "__clippy_type__", "state", ST_METALLFRAME_NAME);
+    std::unique_ptr<xpr::DataFrame> lhsVec = makeDataFrame(false /* existing */, lhsLoc, lhsKey);
+    JsonExpression                  lhsSel = selectionCriteria(lhsObj);
+
+    std::string                     rhsLoc = valueAt<std::string>(rhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
+    std::string                     rhsKey = valueAt<std::string>(rhsObj, "__clippy_type__", "state", ST_METALLFRAME_NAME);
+    std::unique_ptr<xpr::DataFrame> rhsVec = makeDataFrame(false /* existing */, rhsLoc, rhsKey);
+    JsonExpression                  rhsSel = selectionCriteria(rhsObj);
 
     if (DEBUG_TRACE)
     {
       //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
       std::cerr << "phase 0: @" << world.rank()
-              << " *l: " << lhsVec.size() << " @" << lhsLoc
-              << " *r: " << rhsVec.size() << " @" << rhsLoc
+              << " *l: " << lhsVec->rows() << " @" << lhsLoc
+              << " *r: " << rhsVec->rows() << " @" << rhsLoc
               << std::endl;
     }
 
     time_point     starttime_P1 = std::chrono::system_clock::now();
 
-
     //   left:
     //     open left object
     //     compute hash and send to designated node
-    computeMergeInfo(world, lhsVec, lhsSel, lhsOn, lhsData);
+    computeMergeInfo(world, *lhsVec, lhsSel, lhsOn, lhsData);
 
     if (DEBUG_TRACE)
     {
@@ -703,7 +705,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     //   right:
     //     open right object
     //     compute hash and send to designated node
-    computeMergeInfo(world, rhsVec, rhsSel, rhsOn, rhsData);
+    computeMergeInfo(world, *rhsVec, rhsSel, rhsOn, rhsData);
 
     if (DEBUG_TRACE)
     {
@@ -713,7 +715,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
       int            elapsedtime = std::chrono::duration_cast<std::chrono::milliseconds>(endtime_P1-starttime_P1).count();
 
       std::cerr << "@barrier 0: elapsedTime: " << elapsedtime << "ms : "
-                << ((lhsVec.size() + rhsVec.size()) / (elapsedtime / 1000.0)) << " rec/s"
+                << ((lhsVec->rows() + rhsVec->rows()) / (elapsedtime / 1000.0)) << " rec/s"
                 << std::endl;
     }
 
@@ -786,6 +788,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
       }
     }
 
+    // free up space
     local.joinIndex[lhsData].clear();
     local.joinIndex[rhsData].clear();
 
@@ -805,11 +808,11 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     {
       using iterator = std::vector<JoinLeftInfo>::const_iterator;
 
-      bj::array jsdata;
+      std::vector<std::string> mrgdata;
 
-      // project the entry according the projection list and send it to the lhs
+      // project the entry according to the projection list and send it to the lhs
       for (int idx : m.local_data())
-        jsdata.emplace_back(projectJsonEntry(rhsVec.at(idx), sendListRhs));
+        projectData(*rhsVec, idx, sendListRhs));
 
       // send to all potential owners
       iterator beg = m.remote_data().begin();
@@ -833,12 +836,13 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
                         [](const JoinLeftInfo& el) -> int { return el.index(); }
                       );
 
-        commJoinData(world, beg->owner(), indices, jsdata);
+        commJoinData(world, beg->owner(), indices, mrgdata);
 
         beg = nxt;
       } while (beg != lim);
     }
 
+    // free up space
     local.mergeCandidates.clear();
 
     world.barrier();
@@ -852,31 +856,21 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
               << std::endl;
     }
 
-    const bj::string&           outLoc = valueAt<bj::string>(outObj, "__clippy_type__", "state", ST_METALL_LOCATION);
-    mtlutil::metall_mpi_adaptor outMgr(metall::open_only, outLoc.c_str(), MPI_COMM_WORLD);
-    vector_json_type&           outVec = jsonVector(outMgr);
+    std::string                     outLoc = valueAt<std::string>(outObj, "__clippy_type__", "state", ST_METALL_LOCATION);
+    std::string                     outKey = valueAt<std::string>(outObj, "__clippy_type__", "state", ST_METALLFRAME_NAME);
+    std::unique_ptr<xpr::DataFrame> outVec = makeDataFrame(false /* existing */, outLoc, outKey);
 
-    outVec.clear();
+    outVec->clear();
 
     // phase 4:
     //   process the join data and perform the actual joins
     {
       using metall_json_value = vector_json_type::value_type;
 
-      for (const JoinData& el : local.joinData)
-      {
+      for (JoinData& el : local.joinData)
         for (int lhsIdx : el.indices())
-        {
-          const metall_json_value& lhsObj = lhsVec.at(lhsIdx);
-
-          for (const bj::value& remoteObj : el.data())
-          {
-            metall_json_value rhsObj = mtljsn::value_from(remoteObj, outMgr.get_local_manager().get_allocator());
-
-            computeJoin(lhsObj, lhsOn, projLhs, rhsObj, rhsOn, projRhs, outVec);
-          }
-        }
-      }
+          for (std::vector& rhsObj : el.data())
+            computeJoin(*lhsVec, lhsIdx, lhsOn, projLhs, rhsObj, rhsOn, projRhs, outVec);
     }
 
     local.joinData.clear();
