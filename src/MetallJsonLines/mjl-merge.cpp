@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-/// \brief Implements joining two MetallFrame data sets.
+/// \brief Implements joining two MetallJsonLines data sets.
 
 #include <iostream>
 #include <fstream>
@@ -14,13 +14,14 @@
 
 #include <boost/json.hpp>
 #include <boost/functional/hash.hpp>
+#include <metall/container/experimental/json/parse.hpp>
 
-#include "df-common.hpp"
+#include "mjl-common.hpp"
 #include "clippy/clippy.hpp"
 
-
+namespace xpr     = experimental;
 namespace bj      = boost::json;
-namespace jl      = json_logic;
+namespace mtljsn  = metall::container::experimental::json;
 
 
 namespace
@@ -260,8 +261,6 @@ namespace
     const int rank = w.rank();
     const int dest = h % w.size();
 
-    assert(dest < 4);
-
     if (w.rank() == dest)
     {
       storeElem(which, h, rank, idx);
@@ -388,36 +387,35 @@ namespace
   }
 
   void computeMergeInfo( ygm::comm& world,
-                         const vector_json_type& vec,
-                         JsonExpression pred,
+                         const xpr::MetallJsonLines& vec,
                          const ColumnSelector& colsel,
                          JoinSide which
                        )
   {
-    auto fn = [&world, &colsel, which]
-              (int rownum, const vector_json_type::value_type& row) -> void
-              {
-                std::uint64_t hval = computeHash(row, colsel, world);
+    vec.forAllSelected( [&world, &colsel, which]
+                        (std::size_t rownum, const xpr::MetallJsonLines::value_type& row) -> void
+                        {
+                          std::uint64_t hval = computeHash(row, colsel, world);
 
-                if (DEBUG_TRACE && ((rownum % (1<<12)) == 0))
-                {
-                  //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+                          if (DEBUG_TRACE && ((rownum % (1<<12)) == 0))
+                          {
+                            //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-                  std::cerr << "@computeMergeInfo r:" << world.rank() << ' ' << which << ' ' << rownum << ':' << hval
-                            << std::endl;
-                }
+                            std::cerr << "@computeMergeInfo r:" << world.rank()
+                                      << ' ' << which << ' ' << rownum << ':' << hval
+                                      << std::endl;
+                          }
 
-                commJoinHash(world, which, hval, rownum);
-              };
-
-    forAllSelected(fn, world.rank(), vec, std::move(pred));
+                          commJoinHash(world, which, hval, rownum);
+                        }
+                      );
 
     if (DEBUG_TRACE)
     {
       //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
       std::cerr << "@computeMergeInfo " << which
-              << std::endl;
+                << std::endl;
     }
   }
 
@@ -478,7 +476,7 @@ namespace
 
     for (std::string key : projlst)
     {
-      if (const JsonValue* entry = if_contains(that, key))
+      if (const JsonValue* entry = ifContains(that, key))
       {
         key += other_suffix;
         rec[key] = *entry;
@@ -507,7 +505,7 @@ namespace
   template <class _allocator_type>
   void computeJoin( const mtljsn::value<_allocator_type>& lhs, const ColumnSelector& lhsOn, const ColumnSelector& projlstLeft,
                     const mtljsn::value<_allocator_type>& rhs, const ColumnSelector& rhsOn, const ColumnSelector& projlstRight,
-                    vector_json_type& res
+                    xpr::MetallJsonLines& res
                   )
   {
     static std::uint64_t CNT = 0;
@@ -524,8 +522,8 @@ namespace
     {
       const ColumnSelector::value_type&     lhsCol = lhsOn[i];
       const ColumnSelector::value_type&     rhsCol = rhsOn[i];
-      const mtljsn::value<_allocator_type>* lhsSub = if_contains(lhsObj, lhsCol);
-      const mtljsn::value<_allocator_type>* rhsSub = if_contains(rhsObj, rhsCol);
+      const mtljsn::value<_allocator_type>* lhsSub = ifContains(lhsObj, lhsCol);
+      const mtljsn::value<_allocator_type>* rhsSub = ifContains(rhsObj, rhsCol);
 
       assert(lhsSub && rhsSub);
 
@@ -541,8 +539,7 @@ namespace
       ++CNT;
     }
 
-    res.emplace_back();
-    joinRecords(res.back(), lhs, projlstLeft, rhs, projlstRight, "_l", "_r");
+    joinRecords(res.append_local(), lhs, projlstLeft, rhs, projlstRight, "_l", "_r");
   }
 
 
@@ -551,11 +548,6 @@ namespace
   convertJsonTypeTo(const bj::value& orig, const mtljsn::value<_allocator_type>& /*model*/)
   {
     return mtljsn::value_from(orig, _allocator_type{});
-  }
-
-  JsonExpression selectionCriteria(bj::object& obj)
-  {
-    return valueAt<JsonExpression>(obj, "__clippy_type__", "state", ST_SELECTED);
   }
 
   void addJoinColumnsToOutput(const ColumnSelector& joincol, ColumnSelector& output)
@@ -576,25 +568,11 @@ namespace
                  );
   }
 
-/*
-  void testOutput(bj::object& outObj)
+  JsonExpression selectionCriteria(bj::object& obj)
   {
-    const bj::string&           outLoc = valueAt<bj::string>(outObj, "__clippy_type__", "state", ST_METALL_LOCATION);
-    mtlutil::metall_mpi_adaptor outMgr(metall::open_only, outLoc.c_str(), MPI_COMM_WORLD);
-    vector_json_type&           outVec = jsonVector(outMgr);
-
-    outVec.clear();
-
-    outVec.emplace_back();
-
-    auto& val = outVec.back();
-    auto& obj = val.emplace_object();
-
-    obj["test"] = 1;
-
-    std::cerr << "out success " << outLoc << std::endl;
+    return valueAt<JsonExpression>(obj, "__clippy_type__", "state", ST_SELECTED);
   }
-*/
+
 }
 
 
@@ -609,15 +587,15 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   //~ clip.member_of(CLASS_NAME, "A " + CLASS_NAME + " class");
 
   // required arguments
-  clip.add_required<bj::object>(ARG_OUTPUT,     "result MetallFrame object; any existing data will be overwritten");
-  clip.add_required<bj::object>(ARG_LEFT,       "right hand side MetallFrame object");
-  clip.add_required<bj::object>(ARG_RIGHT,      "left hand side MetallFrame object");
+  clip.add_required<bj::object>(ARG_OUTPUT,     "result MetallJsonLines object; any existing data will be overwritten");
+  clip.add_required<bj::object>(ARG_LEFT,       "right hand side MetallJsonLines object");
+  clip.add_required<bj::object>(ARG_RIGHT,      "left hand side MetallJsonLines object");
 
   // future optional arguments
   // \todo should these be json expressions
   clip.add_optional<ColumnSelector>(ARG_ON,        "list of column names on which to join on (overruled by left_on/right_on)", DEFAULT_COLUMNS);
-  clip.add_optional<ColumnSelector>(ARG_LEFT_ON,   "list of columns on which to join left MetallFrame", DEFAULT_COLUMNS);
-  clip.add_optional<ColumnSelector>(ARG_RIGHT_ON,  "list of columns on which to join right MetallFrame", DEFAULT_COLUMNS);
+  clip.add_optional<ColumnSelector>(ARG_LEFT_ON,   "list of columns on which to join left MetallJsonLines", DEFAULT_COLUMNS);
+  clip.add_optional<ColumnSelector>(ARG_RIGHT_ON,  "list of columns on which to join right MetallJsonLines", DEFAULT_COLUMNS);
 
   // columns to join on
   clip.add_optional<ColumnSelector>(COLUMNS_LEFT,  "projection list of the left input frame", DEFAULT_COLUMNS);
@@ -662,33 +640,30 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     addJoinColumnsToOutput(rhsOn, sendListRhs);
 
     // phase 1: build index on corresponding nodes for merge operations
-    const bj::string&           lhsLoc = valueAt<bj::string>(lhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
-    mtlutil::metall_mpi_adaptor lhsMgr(metall::open_read_only, lhsLoc.c_str(), MPI_COMM_WORLD);
-    const vector_json_type&     lhsVec = jsonVector(lhsMgr);
-    JsonExpression              lhsSel = selectionCriteria(lhsObj);
+    const bj::string&     lhsLoc = valueAt<bj::string>(lhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
+    xpr::MetallJsonLines  lhsVec{world, metall::open_read_only, lhsLoc.c_str(), MPI_COMM_WORLD};
+    lhsVec.filter(filter(world.rank(), selectionCriteria(lhsObj)));
 
-    const bj::string&           rhsLoc = valueAt<bj::string>(rhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
-    mtlutil::metall_mpi_adaptor rhsMgr(metall::open_read_only, rhsLoc.c_str(), MPI_COMM_WORLD);
-    const vector_json_type&     rhsVec = jsonVector(rhsMgr);
-    JsonExpression              rhsSel = selectionCriteria(rhsObj);
+    const bj::string&     rhsLoc = valueAt<bj::string>(rhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
+    xpr::MetallJsonLines  rhsVec{world, metall::open_read_only, rhsLoc.c_str(), MPI_COMM_WORLD};
+    rhsVec.filter(filter(world.rank(), selectionCriteria(rhsObj)));
 
     if (DEBUG_TRACE)
     {
       //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
       std::cerr << "phase 0: @" << world.rank()
-              << " *l: " << lhsVec.size() << " @" << lhsLoc
-              << " *r: " << rhsVec.size() << " @" << rhsLoc
+              << " *l: " << lhsVec.countAllLocal() << " @" << lhsLoc
+              << " *r: " << rhsVec.countAllLocal() << " @" << rhsLoc
               << std::endl;
     }
 
     time_point     starttime_P1 = std::chrono::system_clock::now();
 
-
     //   left:
     //     open left object
     //     compute hash and send to designated node
-    computeMergeInfo(world, lhsVec, lhsSel, lhsOn, lhsData);
+    computeMergeInfo(world, lhsVec, lhsOn, lhsData);
 
     if (DEBUG_TRACE)
     {
@@ -700,7 +675,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     //   right:
     //     open right object
     //     compute hash and send to designated node
-    computeMergeInfo(world, rhsVec, rhsSel, rhsOn, rhsData);
+    computeMergeInfo(world, rhsVec, rhsOn, rhsData);
 
     if (DEBUG_TRACE)
     {
@@ -710,7 +685,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
       int            elapsedtime = std::chrono::duration_cast<std::chrono::milliseconds>(endtime_P1-starttime_P1).count();
 
       std::cerr << "@barrier 0: elapsedTime: " << elapsedtime << "ms : "
-                << ((lhsVec.size() + rhsVec.size()) / (elapsedtime / 1000.0)) << " rec/s"
+                << ((lhsVec.countAllLocal() + rhsVec.countAllLocal()) / (elapsedtime / 1000.0)) << " rec/s"
                 << std::endl;
     }
 
@@ -798,15 +773,17 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     }
 
     // phase 3: send data to node that computes the join
+    xpr::MetallJsonLines::metall_projector_type projectRow = projector(sendListRhs);
+
     for (const MergeCandidates& m : local.mergeCandidates)
     {
       using iterator = std::vector<JoinLeftInfo>::const_iterator;
 
       bj::array jsdata;
 
-      // project the entry according the projection list and send it to the lhs
+      // project the entry according to the projection list and send it to the lhs
       for (int idx : m.local_data())
-        jsdata.emplace_back(projectJsonEntry(rhsVec.at(idx), sendListRhs));
+        jsdata.emplace_back(projectRow(rhsVec.at(idx)));
 
       // send to all potential owners
       iterator beg = m.remote_data().begin();
@@ -849,26 +826,23 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
               << std::endl;
     }
 
-    const bj::string&           outLoc = valueAt<bj::string>(outObj, "__clippy_type__", "state", ST_METALL_LOCATION);
-    mtlutil::metall_mpi_adaptor outMgr(metall::open_only, outLoc.c_str(), MPI_COMM_WORLD);
-    vector_json_type&           outVec = jsonVector(outMgr);
+    const bj::string&     outLoc = valueAt<bj::string>(outObj, "__clippy_type__", "state", ST_METALL_LOCATION);
+    xpr::MetallJsonLines  outVec{world, metall::open_only, outLoc.c_str(), MPI_COMM_WORLD};
 
     outVec.clear();
 
     // phase 4:
     //   process the join data and perform the actual joins
     {
-      using metall_json_value = vector_json_type::value_type;
-
       for (const JoinData& el : local.joinData)
       {
         for (int lhsIdx : el.indices())
         {
-          const metall_json_value& lhsObj = lhsVec.at(lhsIdx);
+          const xpr::MetallJsonLines::value_type& lhsObj = lhsVec.at(lhsIdx);
 
           for (const bj::value& remoteObj : el.data())
           {
-            metall_json_value rhsObj = mtljsn::value_from(remoteObj, outMgr.get_local_manager().get_allocator());
+            xpr::MetallJsonLines::value_type rhsObj = mtljsn::value_from(remoteObj, outVec.get_allocator());
 
             computeJoin(lhsObj, lhsOn, projLhs, rhsObj, rhsOn, projRhs, outVec);
           }
@@ -884,13 +858,13 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
       //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
       std::cerr << "phase Z: @" << world.rank()
-              << " *o: " << outVec.size()
+              << " *o: " << outVec.countAllLocal()
               << std::endl;
     }
 
     // done
 
-    const int              totalMerged = world.all_reduce_sum(outVec.size());
+    const int              totalMerged = world.all_reduce_sum(outVec.countAllLocal());
 
     if (world.rank() == 0)
     {
