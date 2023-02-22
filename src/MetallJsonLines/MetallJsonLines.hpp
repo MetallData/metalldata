@@ -415,7 +415,8 @@ struct MetallJsonLines
     /// \}
 
     /// appends a single element to the local container
-    value_type&       append_local()            { vector.emplace_back(); return vector.back(); }
+    value_type& append_local()                  { vector.emplace_back(); return vector.back(); }
+    value_type& append_local(value_type&& val)  { vector.emplace_back(std::move(val)); return vector.back(); }
 
     //
     // others
@@ -457,7 +458,7 @@ struct MetallJsonLines
     std::vector<filter_type>            filterfn = {};
 
     bool isMainRank() const { return 0 == ygmcomm.rank(); }
-    bool isLastRank() const { return ygmcomm.rank()+1 < ygmcomm.size(); }
+    bool isLastRank() const { return 1 == ygmcomm.size() - ygmcomm.rank(); }
 
     static constexpr char const* ERR_OPEN = "unable to open MetallJsonLines object";
 
