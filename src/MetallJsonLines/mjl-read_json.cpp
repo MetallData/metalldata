@@ -33,14 +33,11 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     const std::vector<std::string> files = clip.get<std::vector<std::string> >(ARG_IMPORTED);
     const std::string              dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
     xpr::MetallJsonLines           lines{world, metall::open_only, dataLocation, MPI_COMM_WORLD};
-    const std::size_t              imported = lines.readJsonFiles(files);
+    const std::size_t              totalImported = lines.readJsonFiles(files);
 
     if (world.rank() == 0)
     {
-      std::stringstream msg;
-
-      msg << imported << " rows imported" << std::flush;
-      clip.to_return(msg.str());
+      clip.to_return(totalImported);
     }
   }
   catch (const std::exception& err)

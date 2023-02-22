@@ -49,11 +49,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
     if (world.rank() == 0)
     {
-      std::stringstream msg;
-
-      msg << "updated column " << updated << " entries"
-          << std::endl;
-      clip.to_return(msg.str());
+      clip.to_return(updated);
     }
   }
   catch (const std::exception& err)
