@@ -427,6 +427,9 @@ struct MetallJsonLines
       return metallmgr.get_local_manager().get_allocator();
     }
 
+    /// returns the communicator
+    ygm::comm& comm() const { return ygmcomm; }
+
 
     //
     // static creators
