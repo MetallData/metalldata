@@ -423,41 +423,17 @@ namespace
   void
   appendFields(JsonObject& rec, const JsonValue& other, const std::string& other_suffix)
   {
-    //~ static std::uint64_t CNT = 0;
-
     assert(other.is_object());
 
-    //~ ++CNT;
     const JsonObject& that = other.as_object();
 
     for (const auto& x : that)
     {
-      const std::string_view& key = x.key();
-      std::string             newkey(key.begin(), key.end());
-      int                     len = 0;
+      std::string_view key = x.key();
+      std::string      newkey(key.begin(), key.end());
 
       newkey += other_suffix;
       rec[newkey] = x.value();
-
-/*
-      if (x.value().is_string())
-      {
-        const auto& str = x.value().as_string();
-
-        len = str.size();
-      }
-
-      if (len < 24)
-      {
-        if (DEBUG_TRACE)
-        {
-          std::cerr << CNT << " [" << newkey << "] = " << x.value()
-                    << std::endl;
-        }
-
-        rec[newkey] = x.value();
-      }
-*/
     }
   }
 
@@ -536,7 +512,7 @@ namespace
       if (((CNT % (1 << 12)) == 0) || (CNT == 1))
         std::cerr << "+out = " << CNT;
 
-      ++CNT;
+      //~ ++CNT;
     }
 
     joinRecords(res.append_local(), lhs, projlstLeft, rhs, projlstRight, "_l", "_r");
@@ -609,9 +585,8 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   try
   {
     // argument processing
-    bj::object   outObj = clip.get<bj::object>(ARG_OUTPUT);
-    bj::object   lhsObj = clip.get<bj::object>(ARG_LEFT);
-    bj::object   rhsObj = clip.get<bj::object>(ARG_RIGHT);
+    bj::object     lhsObj = clip.get<bj::object>(ARG_LEFT);
+    bj::object     rhsObj = clip.get<bj::object>(ARG_RIGHT);
 
     ColumnSelector argsOn   = clip.get<ColumnSelector>(ARG_ON);
     ColumnSelector argLhsOn = clip.get<ColumnSelector>(ARG_LEFT_ON);
@@ -658,7 +633,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
               << std::endl;
     }
 
-    time_point     starttime_P1 = std::chrono::system_clock::now();
+    time_point     starttime_P0 = std::chrono::system_clock::now();
 
     //   left:
     //     open left object
@@ -681,8 +656,8 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     {
       //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-      time_point     endtime_P1 = std::chrono::system_clock::now();
-      int            elapsedtime = std::chrono::duration_cast<std::chrono::milliseconds>(endtime_P1-starttime_P1).count();
+      time_point     endtime_P0  = std::chrono::system_clock::now();
+      int            elapsedtime = std::chrono::duration_cast<std::chrono::milliseconds>(endtime_P0-starttime_P0).count();
 
       std::cerr << "@barrier 0: elapsedTime: " << elapsedtime << "ms : "
                 << ((lhsVec.countAllLocal() + rhsVec.countAllLocal()) / (elapsedtime / 1000.0)) << " rec/s"
@@ -700,6 +675,8 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
               << "  R: " << local.joinIndex[rhsData].size()
               << std::endl;
     }
+
+    time_point     starttime_P1 = std::chrono::system_clock::now();
 
     // phase 2: perform preliminary merge based on hash
     //       a) sort the two indices
@@ -761,15 +738,25 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     local.joinIndex[lhsData].clear();
     local.joinIndex[rhsData].clear();
 
+    if (DEBUG_TRACE)
+    {
+      time_point     endtime_P1  = std::chrono::system_clock::now();
+      int            elapsedtime = std::chrono::duration_cast<std::chrono::milliseconds>(endtime_P1-starttime_P1).count();
+
+      std::cerr << "@barrier 1: elapsedTime: " << elapsedtime << "ms : "
+                << std::endl;
+    }
+
     world.barrier(); // not needed
+    time_point     starttime_P2  = std::chrono::system_clock::now();
 
     if (DEBUG_TRACE)
     {
       //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
       std::cerr << "phase 2: @" << world.rank()
-              << "  M: " << local.mergeCandidates.size()
-              << std::endl;
+                << "  M: " << local.mergeCandidates.size()
+                << std::endl;
     }
 
     // phase 3: send data to node that computes the join
@@ -815,19 +802,37 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
     local.mergeCandidates.clear();
 
+    if (DEBUG_TRACE)
+    {
+      time_point     endtime_P2  = std::chrono::system_clock::now();
+      int            elapsedtime = std::chrono::duration_cast<std::chrono::milliseconds>(endtime_P2-starttime_P2).count();
+
+      std::cerr << "@barrier 2: elapsedTime: " << elapsedtime << "ms : "
+                << std::endl;
+    }
+
+
     world.barrier();
+
+    time_point        starttime_P3  = std::chrono::system_clock::now();
+    bj::object        outObj = clip.get<bj::object>(ARG_OUTPUT);
+    const bj::string& outLoc = valueAt<bj::string>(outObj, "__clippy_type__", "state", ST_METALL_LOCATION);
 
     if (DEBUG_TRACE)
     {
       //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
       std::cerr << "phase 3: @" << world.rank()
-              << "  J: " << local.joinData.size()
-              << std::endl;
+                << "  J: " << local.joinData.size()
+                << "  output to: " << outLoc.c_str()
+                << std::endl;
     }
 
-    const bj::string&     outLoc = valueAt<bj::string>(outObj, "__clippy_type__", "state", ST_METALL_LOCATION);
-    xpr::MetallJsonLines  outVec{world, metall::open_only, outLoc.c_str(), MPI_COMM_WORLD};
+    xpr::MetallJsonLines outVec = xpr::MetallJsonLines::createOverwrite( world,
+                                                                         std::string_view{outLoc.begin(), outLoc.size()},
+                                                                         MPI_COMM_WORLD
+                                                                       );
+    //~ {world, metall::open_only, outLoc.c_str(), MPI_COMM_WORLD};
 
     outVec.clear();
 
@@ -851,6 +856,16 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     }
 
     local.joinData.clear();
+
+    if (DEBUG_TRACE)
+    {
+      time_point     endtime_P3  = std::chrono::system_clock::now();
+      int            elapsedtime = std::chrono::duration_cast<std::chrono::milliseconds>(endtime_P3-starttime_P3).count();
+
+      std::cerr << "@barrier 3: elapsedTime: " << elapsedtime << "ms : "
+                << std::endl;
+    }
+
     world.barrier();
 
     if (DEBUG_TRACE)
