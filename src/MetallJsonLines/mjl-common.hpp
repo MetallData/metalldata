@@ -65,6 +65,24 @@ toValueExpr(const experimental::MetallJsonLines::value_type& el)
   return json_logic::toValueExpr(boost::json::string(str.begin(), str.end()));
 }
 
+template <class MetallJsonObjectT>
+CXX_MAYBE_UNUSED
+json_logic::ValueExpr
+evalPath(std::string_view path, const MetallJsonObjectT& obj)
+{
+  if (auto pos = obj.find(path); pos != obj.end())
+    return toValueExpr(pos->value());
+
+  std::size_t pos = path.find('.');
+
+  if (pos == std::string::npos)
+    return json_logic::toValueExpr(nullptr);
+
+  std::string_view selector = path.substr(0, pos);
+  std::string_view suffix   = path.substr(pos+1);
+
+  return evalPath(suffix, obj.at(selector).as_object());
+}
 
 
 template <class MetallJsonObjectT>
@@ -77,18 +95,17 @@ auto variableLookup(const MetallJsonObjectT& rowobj, std::size_t rownum, std::si
            // \todo match selector instead of skipping it
            const auto&      colname = colv.as_string();
            std::string_view col{colname.begin() + selLen, colname.size() - selLen};
-           auto             pos = rowobj.find(col);
 
-           if (pos == rowobj.end())
+           if (auto pos = rowobj.find(col); pos != rowobj.end())
            {
-             CXX_UNLIKELY;
-             if (col == "rowid") return json_logic::toValueExpr(rownum);
-             if (col == "mpiid") return json_logic::toValueExpr(std::int64_t(rank));
-
-             return json_logic::toValueExpr(nullptr);
+             CXX_LIKELY;
+             return toValueExpr(pos->value());
            }
 
-           return toValueExpr(pos->value());
+           if (col == "rowid") return json_logic::toValueExpr(rownum);
+           if (col == "mpiid") return json_logic::toValueExpr(std::int64_t(rank));
+
+           return evalPath(col, rowobj);
          };
 }
 
