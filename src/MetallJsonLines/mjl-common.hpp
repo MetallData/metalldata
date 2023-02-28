@@ -72,9 +72,10 @@ CXX_MAYBE_UNUSED
 auto variableLookup(const MetallJsonObjectT& rowobj, std::size_t rownum, std::size_t rank)
 {
   return [&rowobj,rownum,rank,selLen=(SELECTOR.size() + 1)]
-         (const boost::json::string& colname, int) -> json_logic::ValueExpr
+         (const boost::json::value& colv, int) -> json_logic::ValueExpr
          {
            // \todo match selector instead of skipping it
+           const auto&      colname = colv.as_string();
            std::string_view col{colname.begin() + selLen, colname.size() - selLen};
            auto             pos = rowobj.find(col);
 
