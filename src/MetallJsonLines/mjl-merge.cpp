@@ -108,27 +108,22 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
     const bj::string&     lhsLoc = valueAt<bj::string>(lhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
     xpr::MetallJsonLines  lhsVec{world, metall::open_read_only, lhsLoc.c_str(), MPI_COMM_WORLD};
-    lhsVec.filter(filter(world.rank(), selectionCriteria(lhsObj)));
+    lhsVec.filter(filter(world.rank(), selectionCriteria(lhsObj), SELECTOR));
 
     const bj::string&     rhsLoc = valueAt<bj::string>(rhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
     xpr::MetallJsonLines  rhsVec{world, metall::open_read_only, rhsLoc.c_str(), MPI_COMM_WORLD};
-    rhsVec.filter(filter(world.rank(), selectionCriteria(rhsObj)));
+    rhsVec.filter(filter(world.rank(), selectionCriteria(rhsObj), SELECTOR));
 
     bj::object            outObj = clip.get<bj::object>(ARG_OUTPUT);
     const bj::string&     outLoc = valueAt<bj::string>(outObj, "__clippy_type__", "state", ST_METALL_LOCATION);
 
     // \todo overwrite needed?
-    xpr::MetallJsonLines  outVec = xpr::MetallJsonLines::createOverwrite( world,
-                                                                          std::string_view{outLoc.begin(), outLoc.size()},
-                                                                          MPI_COMM_WORLD
-                                                                        );
-    //~ {world, metall::open_only, outLoc.c_str(), MPI_COMM_WORLD};
-
-    const std::size_t totalMerged = xpr::merge( outVec, lhsVec, rhsVec,
-                                                lhsOn, rhsOn,
-                                                std::move(projLhs), std::move(projRhs)
-                                              );
-
+    xpr::MetallJsonLines::createOverwrite(world, std::string_view{outLoc.begin(), outLoc.size()}, MPI_COMM_WORLD);
+    xpr::MetallJsonLines  outVec{world, metall::open_only, outLoc.c_str(), MPI_COMM_WORLD};
+    const std::size_t     totalMerged = xpr::merge( outVec, lhsVec, rhsVec,
+                                                    lhsOn, rhsOn,
+                                                    std::move(projLhs), std::move(projRhs)
+                                                  );
 
     if (world.rank() == 0)
     {

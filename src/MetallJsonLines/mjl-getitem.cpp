@@ -36,7 +36,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   clip.member_of(CLASS_NAME, "A " + CLASS_NAME + " class");
 
   clip.add_required<std::vector<boost::json::object>>(expr, "Expression selection");
-  clip.add_selector<std::string>(SELECTOR, "Row Selector");
+  clip.add_selector<std::string>(SELECTOR, "Row selection predicate");
   clip.add_required_state<std::string>(ST_METALL_LOCATION, "Metall storage location");
 
   // \note running on rank 0 suffices
