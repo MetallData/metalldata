@@ -1,19 +1,15 @@
-// Copyright 2022 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
-//
-// SPDX-License-Identifier: MIT
 
-/// \brief Implements the construction of a MetallJsonLines object.
 
 #include "mjl-common.hpp"
+#include "MetallGraph.hpp"
 
 namespace xpr     = experimental;
 
 namespace
 {
+  const std::string MG_CLASS_NAME = "MetallGraph";
   const std::string METHOD_NAME = "__init__";
-
-  const std::string METHOD_DOCSTRING = "Initializes a MetallJsonLines object\n"
+  const std::string METHOD_DOCSTRING = "Initializes a MetallGraph object\n"
                                        "creates a new physical object on disk "
                                        "only if it does not already exist.";
 
@@ -26,7 +22,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   int            error_code = 0;
   clippy::clippy clip{METHOD_NAME, METHOD_DOCSTRING};
 
-  clip.member_of(CLASS_NAME, "A " + CLASS_NAME + " class");
+  clip.member_of(MG_CLASS_NAME, "A " + MG_CLASS_NAME + " class");
 
   clip.add_required<std::string>(ST_METALL_LOCATION, "Location of the Metall store");
   clip.add_optional<bool>(ARG_ALWAYS_CREATE_NAME, ARG_ALWAYS_CREATE_DESC, false);
@@ -40,9 +36,9 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     // try to create the object
     std::string      dataLocation = clip.get<std::string>(ST_METALL_LOCATION);
     const bool       overwrite    = clip.get<bool>(ARG_ALWAYS_CREATE_NAME);
-    auto             linesCreator = overwrite ? &xpr::MetallJsonLines::createOverwrite
-                                              : &xpr::MetallJsonLines::createNewOnly;
- /* xpr::MetallJsonLines lines = */ linesCreator(world, dataLocation, MPI_COMM_WORLD);
+    auto             graphCreator = overwrite ? &xpr::MetallGraph::createOverwrite
+                                              : &xpr::MetallGraph::createNewOnly;
+ /* xpr::MetallGraph lines = */ graphCreator(world, dataLocation, MPI_COMM_WORLD);
 
     world.barrier();
 

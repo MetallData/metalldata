@@ -31,7 +31,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     const std::string    dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
     xpr::MetallJsonLines lines{world, metall::open_read_only, dataLocation, MPI_COMM_WORLD};
 
-    lines /* \todo .filter(filter(world.rank(), clip)) */
+    lines /* \todo .filter(filter(world.rank(), clip, SELECTOR)) */
          .clear();
 
     assert(lines.count() == 0);

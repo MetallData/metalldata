@@ -435,24 +435,23 @@ struct MetallJsonLines
     // static creators
 
     static
-    MetallJsonLines createOverwrite(ygm::comm& world, std::string_view loc, const MPI_Comm& comm)
+    void createOverwrite(ygm::comm& world, std::string_view loc, const MPI_Comm& comm)
     {
       if (std::filesystem::is_directory(loc.data()))
         std::filesystem::remove_all(loc.data());
 
-      return createInternal(world, loc, comm);
+      createInternal(world, loc, comm);
     }
 
     static
-    MetallJsonLines openOrCreate(ygm::comm& world, std::string_view loc, const MPI_Comm& comm)
+    void createNewOnly(ygm::comm& world, std::string_view loc, const MPI_Comm& comm)
     {
-      if (metall::utility::metall_mpi_adaptor::consistent(loc.data(), MPI_COMM_WORLD))
-        return MetallJsonLines{world, metall::open_only, loc, comm};
-
-      return createInternal(world, loc, comm);
+      if (!metall::utility::metall_mpi_adaptor::consistent(loc.data(), MPI_COMM_WORLD))
+      {
+        // \todo call createOverwrite instead?
+        createInternal(world, loc, comm);
+      }
     }
-
-
 
   private:
     ygm::comm&                          ygmcomm;
@@ -466,23 +465,20 @@ struct MetallJsonLines
     static constexpr char const* ERR_OPEN = "unable to open MetallJsonLines object";
 
     static
-    MetallJsonLines createInternal(ygm::comm& world, std::string_view loc, const MPI_Comm& comm)
+    void createInternal(ygm::comm& world, std::string_view loc, const MPI_Comm& comm)
     {
       {
         metall::utility::metall_mpi_adaptor manager(metall::create_only, loc.data(), MPI_COMM_WORLD);
         auto&                               mgr = manager.get_local_manager();
       /*const auto*                         vec = */ mgr.construct<lines_type>(metall::unique_instance)(mgr.get_allocator());
       }
-
-      return MetallJsonLines{world, metall::open_only, loc, comm};
     }
 
-
     MetallJsonLines()                                  = delete;
-    MetallJsonLines(const MetallJsonLines&)            = delete;
     MetallJsonLines(MetallJsonLines&&)                 = delete;
-    MetallJsonLines& operator=(const MetallJsonLines&) = delete;
+    MetallJsonLines(const MetallJsonLines&)            = delete;
     MetallJsonLines& operator=(MetallJsonLines&&)      = delete;
+    MetallJsonLines& operator=(const MetallJsonLines&) = delete;
 };
 
 }

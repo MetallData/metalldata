@@ -44,8 +44,8 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     const std::string    dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
     xpr::MetallJsonLines lines{world, metall::open_only, dataLocation, MPI_COMM_WORLD};
     auto                 alloc = lines.get_allocator();
-    const std::size_t    updated = lines.filter(filter(world.rank(), clip))
-                                        .set(updater(world.rank(), clip, ARG_COLUMN, ARG_EXPRESSION, alloc));
+    const std::size_t    updated = lines.filter(filter(world.rank(), clip, SELECTOR))
+                                        .set(updater(world.rank(), clip, ARG_COLUMN, ARG_EXPRESSION, SELECTOR, alloc));
 
     if (world.rank() == 0)
     {

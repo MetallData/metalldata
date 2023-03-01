@@ -87,9 +87,9 @@ evalPath(std::string_view path, const MetallJsonObjectT& obj)
 
 template <class MetallJsonObjectT>
 CXX_MAYBE_UNUSED
-auto variableLookup(const MetallJsonObjectT& rowobj, std::size_t rownum, std::size_t rank)
+auto variableLookup(const MetallJsonObjectT& rowobj, std::string_view selectPrefix, std::size_t rownum, std::size_t rank)
 {
-  return [&rowobj,rownum,rank,selLen=(SELECTOR.size() + 1)]
+  return [&rowobj,rownum,rank,selLen=(selectPrefix.size() + 1)]
          (const boost::json::value& colv, int) -> json_logic::ValueExpr
          {
            // \todo match selector instead of skipping it
@@ -110,21 +110,26 @@ auto variableLookup(const MetallJsonObjectT& rowobj, std::size_t rownum, std::si
 }
 
 inline
-auto variableLookup(const experimental::MetallJsonLines::value_type& rowval, std::size_t rownum, std::size_t rank)
-     -> decltype(variableLookup(rowval.as_object(), rownum, rank))
+auto variableLookup( const experimental::MetallJsonLines::value_type& rowval,
+                     std::string_view selectPrefix,
+                     std::size_t rownum,
+                     std::size_t rank
+                   )
+     -> decltype(variableLookup(rowval.as_object(), selectPrefix, rownum, rank))
 {
   if (!rowval.is_object()) throw std::logic_error("Entry is not a json::object");
 
-  return variableLookup(rowval.as_object(), rownum, rank);
+  return variableLookup(rowval.as_object(), selectPrefix, rownum, rank);
 }
 
 CXX_MAYBE_UNUSED
 std::vector<experimental::MetallJsonLines::filter_type>
-filter(std::size_t rank, JsonExpression jsonExpr)
+filter(std::size_t rank, JsonExpression jsonExpr, std::string_view selectPrefix = SELECTOR)
 {
   using ResultType = decltype(filter(rank, jsonExpr));
 
-  ResultType res;
+  ResultType               res;
+  boost::json::string_view boostSelectPrefix(&*selectPrefix.begin(), selectPrefix.size());
 
   // prepare AST
   for (boost::json::object& jexp : jsonExpr)
@@ -136,8 +141,8 @@ filter(std::size_t rank, JsonExpression jsonExpr)
     // check that all free variables are prefixed with SELECTED
     for (const boost::json::string& varname : vars)
     {
-      if (varname.rfind(SELECTOR, 0) != 0) throw std::logic_error("unknown selector");
-      if (varname.find('.') != SELECTOR.size()) throw std::logic_error("unknown selector.");
+      if (varname.rfind(boostSelectPrefix, 0) != 0) throw std::logic_error("unknown selector");
+      if (varname.find('.') != selectPrefix.size()) throw std::logic_error("unknown selector.");
     }
 
     // the repackaging requirement seems to be a deficiency in the C++
@@ -146,10 +151,10 @@ filter(std::size_t rank, JsonExpression jsonExpr)
     json_logic::Expr*                 rawexpr = ast.release();
     std::shared_ptr<json_logic::Expr> pred{rawexpr};
 
-    res.emplace_back( [rank, pred = std::move(pred)]
+    res.emplace_back( [rank, selectPrefix, pred = std::move(pred)]
                       (std::size_t rownum, const experimental::MetallJsonLines::value_type& rowval) mutable -> bool
                       {
-                        auto varLookup = variableLookup(rowval, rownum, rank);
+                        auto varLookup = variableLookup(rowval, selectPrefix, rownum, rank);
 
                         return json_logic::unpackValue<bool>(json_logic::calculate(*pred, varLookup));
                       }
@@ -161,7 +166,7 @@ filter(std::size_t rank, JsonExpression jsonExpr)
 
 inline
 std::vector<experimental::MetallJsonLines::filter_type>
-filter(std::size_t rank, const clippy::clippy& clip)
+filter(std::size_t rank, const clippy::clippy& clip, std::string_view selectPrefix = SELECTOR)
 {
   namespace xpr = experimental;
 
@@ -171,7 +176,7 @@ filter(std::size_t rank, const clippy::clippy& clip)
     return {};
   }
 
-  return filter(rank, clip.get_state<JsonExpression>(ST_SELECTED));
+  return filter(rank, clip.get_state<JsonExpression>(ST_SELECTED), selectPrefix);
 }
 
 CXX_MAYBE_UNUSED
@@ -207,9 +212,9 @@ projector(ColumnSelector projlist)
 
 inline
 experimental::MetallJsonLines::metall_projector_type
-projector(const std::string& selectorName, clippy::clippy& clip)
+projector(const std::string& projectorKey, clippy::clippy& clip)
 {
-  return projector(clip.get<ColumnSelector>(selectorName));
+  return projector(clip.get<ColumnSelector>(projectorKey));
 }
 
 template <class AllocT>
@@ -219,6 +224,7 @@ updater( std::size_t rank,
          clippy::clippy& clip,
          const std::string& colkey,
          const std::string& exprkey,
+         std::string_view selectPrefix,
          AllocT alloc
        )
 {
@@ -236,10 +242,10 @@ updater( std::size_t rank,
   json_logic::Expr*                 rawexpr = ast.release();
   std::shared_ptr<json_logic::Expr> oper{rawexpr};
 
-  return [rank, colName=std::move(columnName), op=std::move(oper), objalloc{alloc}]
+  return [rank, selectPrefix, colName=std::move(columnName), op=std::move(oper), objalloc{alloc}]
          (int rownum, xpr::MetallJsonLines::value_type& rowval) -> void
          {
-           auto                  varLookup = variableLookup(rowval, rownum, rank);
+           auto                  varLookup = variableLookup(rowval, selectPrefix, rownum, rank);
            json_logic::ValueExpr exp       = json_logic::calculate(*op, varLookup);
            auto&                 rowobj    = rowval.as_object();
            std::stringstream     jstr;
