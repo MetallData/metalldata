@@ -3,7 +3,7 @@
 MetallData is an HPC platform for interactive data science applications at HPC-scales.  It provides an ecosystem for persistent distributed data structures, including algorithms, interactivity and storage.
 
 Contents:
-* MetallFrame: an prototype backend for a distributed and persistent data store that can be used from Python, using clippy. MetallFrame builds on Metall, ygm, clippy, and clippy-cpp. 
+* MetallJsonLines: a prototype backend for a distributed and persistent data store that can be used from Python, using clippy. MetallJsonLines builds on Metall, ygm, clippy, and clippy-cpp. 
 
 ## Required
 

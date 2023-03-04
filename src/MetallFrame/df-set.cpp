@@ -56,7 +56,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     int                         updCount = 0;
     const int                   rank = world.rank();
     xpr::DataFrame&             dataset = *dfp;
-    const xpr::ColumnVariant&   colaccess = dfp->get_column_variant(columnName);
+    const xpr::ColumnVariant&   colaccess = dfp->get_column_variant_std(columnName);
     auto updateFn = [&dataset, &updCount, &ast, &colaccess, rank]
                     (std::int64_t row) -> void
                     {
