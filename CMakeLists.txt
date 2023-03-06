@@ -65,15 +65,28 @@ endif ()
 
 
 #
+#  ZSTD
+#
+find_package(zstd QUIET)
+if (NOT zstd_FOUND)
+  FetchContent_Declare(zstd
+          GIT_REPOSITORY https://github.com/facebook/zstd.git
+          GIT_TAG v1.5.4
+          )
+  FetchContent_MakeAvailable(zstd)
+  list(APPEND CMAKE_MODULE_PATH "${zstd_SOURCE_DIR}/build/cmake")
+endif ()
+
+#
 # Privateer
 #
 find_package(Privateer QUIET)
 if (NOT Privateer_FOUND)
-    FetchContent_Declare(Privateer
-            GIT_REPOSITORY https://github.com/LLNL/Privateer.git
-            GIT_TAG feature/sigaction
-            )
-    FetchContent_MakeAvailable(Privateer)
+   FetchContent_Declare(Privateer
+           GIT_REPOSITORY https://github.com/LLNL/Privateer.git
+           GIT_TAG feature/sigaction
+           )
+   FetchContent_MakeAvailable(Privateer)
 endif ()
 
 #
@@ -176,12 +189,17 @@ endfunction()
 function(setup_metall_target exe_name)
     target_include_directories(${exe_name} PRIVATE ${Boost_INCLUDE_DIRS})
     target_include_directories(${exe_name} PRIVATE "${Privateer_SOURCE_DIR}/include")
+
     find_package(OpenSSL)
     target_link_libraries(${exe_name} PRIVATE OpenSSL::SSL)
     target_link_libraries(${exe_name} PRIVATE OpenSSL::Crypto)
     target_link_libraries(${exe_name} PRIVATE rt)
     target_link_libraries(${exe_name} PRIVATE Threads::Threads)
+    target_link_libraries(${exe_name} PRIVATE zstd)
+
+    target_compile_definitions(${exe_name} PRIVATE USE_COMPRESSION)
     target_link_libraries(${exe_name} PRIVATE privateer-static)
+
     target_compile_definitions(${exe_name} PRIVATE METALL_USE_PRIVATEER)
     target_link_libraries(${exe_name} PRIVATE Metall)
 
