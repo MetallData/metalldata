@@ -179,15 +179,27 @@ struct MetallJsonLines
     // ctors
 
     template <class OpenTag = metall::open_read_only_t>
-    MetallJsonLines(ygm::comm& world, OpenTag tag, const char* loc, const MPI_Comm& comm)
+    MetallJsonLines(const MPI_Comm& comm, ygm::comm& world, OpenTag tag, const char* loc)
     : ygmcomm(world),
       metallmgr{tag, loc, comm},
       vector(checked_deref(metallmgr.get_local_manager().find<lines_type>(metall::unique_instance).first, ERR_OPEN))
     {}
 
     template <class OpenTag = metall::open_read_only_t>
-    MetallJsonLines(ygm::comm& world, OpenTag tag, std::string_view loc, const MPI_Comm& comm)
-    : MetallJsonLines(world, tag, loc.data(), comm)
+    MetallJsonLines(const MPI_Comm& comm, ygm::comm& world, OpenTag tag, std::string_view loc)
+    : MetallJsonLines(comm, world, tag, loc.data())
+    {}
+
+    template <class OpenTag = metall::open_read_only_t>
+    MetallJsonLines(const MPI_Comm& comm, ygm::comm& world, OpenTag tag, const char* loc, const char* key)
+    : ygmcomm(world),
+      metallmgr{tag, loc, comm},
+      vector(checked_deref(metallmgr.get_local_manager().find<lines_type>(key).first, ERR_OPEN))
+    {}
+
+    template <class OpenTag = metall::open_read_only_t>
+    MetallJsonLines(const MPI_Comm& comm, ygm::comm& world, OpenTag tag, std::string_view loc, std::string_view key)
+    : MetallJsonLines(comm, world, tag, loc.data(), key.data())
     {}
 
     //
@@ -435,22 +447,54 @@ struct MetallJsonLines
     // static creators
 
     static
-    void createOverwrite(ygm::comm& world, std::string_view loc, const MPI_Comm& comm)
+    void createOverwrite(const MPI_Comm& comm, ygm::comm& world, std::string_view loc)
     {
       if (std::filesystem::is_directory(loc.data()))
         std::filesystem::remove_all(loc.data());
 
-      createInternal(world, loc, comm);
+      createInternal(comm, world, loc);
     }
 
     static
-    void createNewOnly(ygm::comm& world, std::string_view loc, const MPI_Comm& comm)
+    void createOverwrite2(const MPI_Comm& comm, ygm::comm& world, std::string_view loc, std::string_view key)
+    {
+      if (std::filesystem::is_directory(loc.data()))
+        std::filesystem::remove_all(loc.data());
+
+      createInternal2(comm, world, metall::create_only, loc, key);
+    }
+
+    static
+    void createNewOnly(const MPI_Comm& comm, ygm::comm& world, std::string_view loc)
     {
       if (!metall::utility::metall_mpi_adaptor::consistent(loc.data(), MPI_COMM_WORLD))
       {
         // \todo call createOverwrite instead?
-        createInternal(world, loc, comm);
+        createInternal(comm, world, loc);
       }
+    }
+
+    static
+    void createNewOnly2(const MPI_Comm& comm, ygm::comm& world, std::string_view loc, std::string_view key)
+    {
+      if (!metall::utility::metall_mpi_adaptor::consistent(loc.data(), MPI_COMM_WORLD))
+      {
+        // \todo call createOverwrite instead?
+        createInternal2(comm, world, metall::create_only, loc, key);
+      }
+      else
+      {
+        createInternal2(comm, world, metall::open_only, loc, key);
+      }
+    }
+
+    template <class OpenTag>
+    static
+    void createInternal2(const MPI_Comm& comm, ygm::comm& world, OpenTag tag, std::string_view loc, std::string_view key)
+    {
+      metall::utility::metall_mpi_adaptor manager(tag, loc.data(), MPI_COMM_WORLD);
+      auto&                               mgr = manager.get_local_manager();
+    /*const auto*                         vec = */ mgr.construct<lines_type>(key.data())(mgr.get_allocator());
     }
 
   private:
@@ -465,7 +509,7 @@ struct MetallJsonLines
     static constexpr char const* ERR_OPEN = "unable to open MetallJsonLines object";
 
     static
-    void createInternal(ygm::comm& world, std::string_view loc, const MPI_Comm& comm)
+    void createInternal(const MPI_Comm& comm, ygm::comm& world, std::string_view loc)
     {
       {
         metall::utility::metall_mpi_adaptor manager(metall::create_only, loc.data(), MPI_COMM_WORLD);
@@ -473,6 +517,7 @@ struct MetallJsonLines
       /*const auto*                         vec = */ mgr.construct<lines_type>(metall::unique_instance)(mgr.get_allocator());
       }
     }
+
 
     MetallJsonLines()                                  = delete;
     MetallJsonLines(MetallJsonLines&&)                 = delete;

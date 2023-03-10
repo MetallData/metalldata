@@ -32,7 +32,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   int            error_code = 0;
   clippy::clippy clip{methodName, "Returns information about the vector storage."};
 
-  clip.member_of(CLASS_NAME, "A " + CLASS_NAME + " class");
+  clip.member_of(MJL_CLASS_NAME, "A " + MJL_CLASS_NAME + " class");
 
   clip.add_required_state<std::string>(ST_METALL_LOCATION, "Metall storage location");
 
@@ -41,7 +41,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   try
   {
     const std::string    dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
-    xpr::MetallJsonLines lines{world, metall::open_read_only, dataLocation, MPI_COMM_WORLD};
+    xpr::MetallJsonLines lines{MPI_COMM_WORLD, world, metall::open_read_only, dataLocation};
     boost::json::value   res          = lines.filter(filter(world.rank(), clip, SELECTOR))
                                              .info();
 

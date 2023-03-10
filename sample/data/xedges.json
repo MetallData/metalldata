@@ -1,0 +1,10 @@
+{"id1" : 1, "id2" : 11, "rel" : "head"}
+{"id1" : 2, "id2" : 12, "rel" : "head"}
+{"id1" : 3, "id2" : 13, "rel" : "head"}
+{"id1" : 4, "id2" : 14, "rel" : "head"}
+{"id1" : 5, "id2" : 11, "rel" : "planner"}
+{"id1" : 6, "id2" : 12, "rel" : "accountant"}
+{"id1" : 7, "id2" : 13, "rel" : "developer"}
+{"id1" : 8, "id2" : 14, "rel" : "white hat"}
+{"id1" : 9, "id2" : 13, "rel" : "tester"}
+{"id1" : 10, "id2" : 13, "rel" : "developer"}

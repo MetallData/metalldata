@@ -30,7 +30,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   int            error_code = 0;
   clippy::clippy clip{methodName, "For all selected rows, set a field to a (computed) value."};
 
-  clip.member_of(CLASS_NAME, "A " + CLASS_NAME + " class");
+  clip.member_of(MJL_CLASS_NAME, "A " + MJL_CLASS_NAME + " class");
 
   clip.add_required<std::string>(ARG_COLUMN, "output column");
   clip.add_required<boost::json::object>(ARG_EXPRESSION, "output value expression");
@@ -42,7 +42,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   try
   {
     const std::string    dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
-    xpr::MetallJsonLines lines{world, metall::open_only, dataLocation, MPI_COMM_WORLD};
+    xpr::MetallJsonLines lines{MPI_COMM_WORLD, world, metall::open_only, dataLocation};
     auto                 alloc = lines.get_allocator();
     const std::size_t    updated = lines.filter(filter(world.rank(), clip, SELECTOR))
                                         .set(updater(world.rank(), clip, ARG_COLUMN, ARG_EXPRESSION, SELECTOR, alloc));

@@ -26,7 +26,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   int            error_code = 0;
   clippy::clippy clip{METHOD_NAME, METHOD_DOCSTRING};
 
-  clip.member_of(CLASS_NAME, "A " + CLASS_NAME + " class");
+  clip.member_of(MJL_CLASS_NAME, "A " + MJL_CLASS_NAME + " class");
 
   clip.add_required<std::string>(ST_METALL_LOCATION, "Location of the Metall store");
   clip.add_optional<bool>(ARG_ALWAYS_CREATE_NAME, ARG_ALWAYS_CREATE_DESC, false);
@@ -42,7 +42,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     const bool       overwrite    = clip.get<bool>(ARG_ALWAYS_CREATE_NAME);
     auto             linesCreator = overwrite ? &xpr::MetallJsonLines::createOverwrite
                                               : &xpr::MetallJsonLines::createNewOnly;
- /* xpr::MetallJsonLines lines = */ linesCreator(world, dataLocation, MPI_COMM_WORLD);
+ /* xpr::MetallJsonLines lines = */ linesCreator(MPI_COMM_WORLD, world, dataLocation);
 
     world.barrier();
 
