@@ -69,44 +69,44 @@ sed -i "s|/PATH/TO/METALLDATA|$REPODIR|g" *.json
 
 #~ set -o xtrace
 
-echo "$BUILDDIR/src/MetallJsonLines/mjl-init <mjl-init-names.json"
-$BUILDDIR/src/MetallJsonLines/mjl-init <mjl-init-names.json >mjl-init-names.out
+echo "mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-init <mjl-init-names.json"
+mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-init <mjl-init-names.json >mjl-init-names.out
 cmp --silent mjl-init-names.out expected/mjl-init-names.out || echo '** FAILED'
 
-echo "$BUILDDIR/src/MetallJsonLines/mjl-read_json <mjl-read_json-names.json"
-$BUILDDIR/src/MetallJsonLines/mjl-read_json <mjl-read_json-names.json >mjl-read_json-places.out
+echo "mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-read_json <mjl-read_json-names.json"
+mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-read_json <mjl-read_json-names.json >mjl-read_json-places.out
 cmp --silent mjl-read_json-places.out expected/mjl-read_json-places.out || echo '** FAILED'
 
-echo "$BUILDDIR/src/MetallJsonLines/mjl-init <mjl-init-places.json"
-$BUILDDIR/src/MetallJsonLines/mjl-init <mjl-init-places.json >mjl-init-places.out
+echo "mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-init <mjl-init-places.json"
+mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-init <mjl-init-places.json >mjl-init-places.out
 cmp --silent mjl-init-places.out expected/mjl-init-places.out || echo '** FAILED'
 
-echo "$BUILDDIR/src/MetallJsonLines/mjl-read_json <mjl-read_json-places.json"
-$BUILDDIR/src/MetallJsonLines/mjl-read_json <mjl-read_json-places.json >mjl-read_json-places.out
+echo "mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-read_json <mjl-read_json-places.json"
+mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-read_json <mjl-read_json-places.json >mjl-read_json-places.out
 cmp --silent mjl-read_json-places.out expected/mjl-read_json-places.out || echo '** FAILED'
 
-echo "$BUILDDIR/src/MetallJsonLines/mjl-init <mjl-init-results.json"
-$BUILDDIR/src/MetallJsonLines/mjl-init <mjl-init-results.json >mjl-init-results.out
+echo "mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-init <mjl-init-results.json"
+mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-init <mjl-init-results.json >mjl-init-results.out
 cmp --silent mjl-init-results.out expected/mjl-init-results.out || echo '** FAILED'
 
-echo "$BUILDDIR/src/MetallJsonLines/mjl-count <mjl-count-names.json"
-$BUILDDIR/src/MetallJsonLines/mjl-count <mjl-count-names.json >mjl-count-names.out
+echo "mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-count <mjl-count-names.json"
+mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-count <mjl-count-names.json >mjl-count-names.out
 cmp --silent mjl-count-names.out expected/mjl-count-names.out || echo '** FAILED'
 
-echo "$BUILDDIR/src/MetallJsonLines/mjl-head <mjl-head-names.json"
-$BUILDDIR/src/MetallJsonLines/mjl-head <mjl-head-names.json >mjl-head-names.out
+echo "mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-head <mjl-head-names.json"
+mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-head <mjl-head-names.json >mjl-head-names.out
 #~ cmp --silent mjl-head-names.out expected/mjl-head-names.out || echo '** FAILED'
 
-echo "$BUILDDIR/src/MetallJsonLines/mjl-head <mjl-head-selected_places.json"
-$BUILDDIR/src/MetallJsonLines/mjl-head <mjl-head-selected_places.json >mjl-head-selected_places.out
+echo "mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-head <mjl-head-selected_places.json"
+mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-head <mjl-head-selected_places.json >mjl-head-selected_places.out
 #~ cmp --silent mjl-head-selected_places.out expected/mjl-head-selected_places.out || echo '** FAILED'
 
-echo "$BUILDDIR/src/MetallJsonLines/mjl-info <mjl-info-selected_places.json"
-$BUILDDIR/src/MetallJsonLines/mjl-info <mjl-info-selected_places.json >mjl-info-selected_places.out
+echo "mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-info <mjl-info-selected_places.json"
+mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-info <mjl-info-selected_places.json >mjl-info-selected_places.out
 #~ cmp --silent mjl-info-selected_places.out expected/mjl-info-selected_places.out || echo '** FAILED'
 
-echo "$BUILDDIR/src/MetallJsonLines/mjl-merge <mjl-merge.json"
-$BUILDDIR/src/MetallJsonLines/mjl-merge <mjl-merge.json >mjl-merge.out
+echo "mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-merge <mjl-merge.json"
+mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-merge <mjl-merge.json >mjl-merge.out
 cmp --silent mjl-merge.out expected/mjl-merge.out || echo '** FAILED'
 
 echo "qed."
