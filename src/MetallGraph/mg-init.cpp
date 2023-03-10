@@ -1,13 +1,16 @@
+// Copyright 2022 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
+// See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: MIT
 
+/// \brief Implements MetallGraph constructor (__init__).
 
-#include "mjl-common.hpp"
-#include "MetallGraph.hpp"
+#include "mg-common.hpp"
 
 namespace xpr     = experimental;
 
 namespace
 {
-  const std::string MG_CLASS_NAME = "MetallGraph";
   const std::string METHOD_NAME = "__init__";
   const std::string METHOD_DOCSTRING = "Initializes a MetallGraph object\n"
                                        "creates a new physical object on disk "
@@ -38,7 +41,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     const bool       overwrite    = clip.get<bool>(ARG_ALWAYS_CREATE_NAME);
     auto             graphCreator = overwrite ? &xpr::MetallGraph::createOverwrite
                                               : &xpr::MetallGraph::createNewOnly;
- /* xpr::MetallGraph lines = */ graphCreator(world, dataLocation, MPI_COMM_WORLD);
+ /* xpr::MetallGraph lines = */ graphCreator(MPI_COMM_WORLD, world, dataLocation);
 
     world.barrier();
 

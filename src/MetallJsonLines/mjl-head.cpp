@@ -35,7 +35,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   int            error_code = 0;
   clippy::clippy clip{methodName, "Returns n arbitrary rows for which the predicate evaluates to true."};
 
-  clip.member_of(CLASS_NAME, "A " + CLASS_NAME + " class");
+  clip.member_of(MJL_CLASS_NAME, "A " + MJL_CLASS_NAME + " class");
 
   clip.add_optional<int>(ARG_MAX_ROWS, "Max number of rows returned", 5);
   clip.add_optional<ColumnSelector>(COLUMNS, "projection list (list of columns to put out)", DEFAULT_COLUMNS);
@@ -47,7 +47,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   {
     const std::string    dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
     const std::size_t    numrows      = clip.get<int>(ARG_MAX_ROWS);
-    xpr::MetallJsonLines lines{world, metall::open_read_only, dataLocation, MPI_COMM_WORLD};
+    xpr::MetallJsonLines lines{MPI_COMM_WORLD, world, metall::open_read_only, dataLocation};
     boost::json::value   res          = lines.filter(filter(world.rank(), clip, SELECTOR))
                                              .head(numrows, projector(COLUMNS, clip));
 

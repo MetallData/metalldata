@@ -1,0 +1,1 @@
+{"_state": {"metall_location": "/PATH/TO/DATASTORE/m_places", "selected": [{"expression_type": "jsonlogic", "rule": {"and": [{">=": [{"var": "keys.place"}, "Elk"]}, {"<": [{"var": "keys.id"}, 100]}]}}]}}
