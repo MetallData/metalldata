@@ -30,6 +30,7 @@ while [ : ]; do
         echo "  -b --builddir the build directory (default: $DEFAULT_BUILDDIR)"
         echo "  -d --datastore the root directory for metall data data stores (default: $DEFAULT_DATASTORE)"
         echo "  -p --np number of processes (default: $DEFAULT_NP)"
+        echo "  -r --repo root directory of MetallData repo (default: $DEFAULT_REPODIR)"
         shift
         ;;
     -b | --builddir)
@@ -60,7 +61,7 @@ done
 cp inputs/*.json .
 
 sed -i "s|/PATH/TO/DATASTORE|$DATASTORE|g" *.json
-sed -i "s|/PATH/TO/METALLDATA|$REPODIR|g" *.json
+sed -i "s|/PATH/TO/METALLDATA|$REPODIR/..|g" *.json
 
 #
 # run the tests
@@ -74,8 +75,8 @@ mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-init <mjl-init-names.json >mjl-
 cmp --silent mjl-init-names.out expected/mjl-init-names.out || echo '** FAILED'
 
 echo "mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-read_json <mjl-read_json-names.json"
-mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-read_json <mjl-read_json-names.json >mjl-read_json-places.out
-cmp --silent mjl-read_json-places.out expected/mjl-read_json-places.out || echo '** FAILED'
+mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-read_json <mjl-read_json-names.json >mjl-read_json-names.out
+cmp --silent mjl-read_json-names.out expected/mjl-read_json-names.out || echo '** FAILED'
 
 echo "mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-init <mjl-init-places.json"
 mpirun -np $NP $BUILDDIR/src/MetallJsonLines/mjl-init <mjl-init-places.json >mjl-init-places.out
