@@ -111,12 +111,12 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     const bj::string&     lhsLoc = valueAt<bj::string>(lhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
     metall_manager        lhsMgr{metall::open_read_only, lhsLoc.data(), MPI_COMM_WORLD};
     xpr::MetallJsonLines  lhsVec{lhsMgr, world};
-    lhsVec.filter(filter(world.rank(), selectionCriteria(lhsObj), SELECTOR));
+    lhsVec.filter(filter(world.rank(), selectionCriteria(lhsObj), KEYS_SELECTOR));
 
     const bj::string&     rhsLoc = valueAt<bj::string>(rhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
     metall_manager        rhsMgr{metall::open_read_only, rhsLoc.data(), MPI_COMM_WORLD};
     xpr::MetallJsonLines  rhsVec{rhsMgr, world};
-    rhsVec.filter(filter(world.rank(), selectionCriteria(rhsObj), SELECTOR));
+    rhsVec.filter(filter(world.rank(), selectionCriteria(rhsObj), KEYS_SELECTOR));
 
     bj::object            outObj = clip.get<bj::object>(ARG_OUTPUT);
     const bj::string&     outLoc = valueAt<bj::string>(outObj, "__clippy_type__", "state", ST_METALL_LOCATION);

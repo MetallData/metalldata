@@ -37,7 +37,7 @@ namespace
 const std::string MJL_CLASS_NAME     = "MetallJsonLines";
 const std::string ST_METALL_LOCATION = "metall_location";
 const std::string ST_SELECTED        = "selected";
-const std::string SELECTOR           = "keys";
+const std::string KEYS_SELECTOR      = "keys";
 
 template <class JsonObject>
 inline
@@ -124,7 +124,7 @@ auto variableLookup( const experimental::MetallJsonLines::value_type& rowval,
 
 CXX_MAYBE_UNUSED
 std::vector<experimental::MetallJsonLines::filter_type>
-filter(std::size_t rank, JsonExpression jsonExpr, std::string_view selectPrefix = SELECTOR)
+filter(std::size_t rank, JsonExpression jsonExpr, std::string_view selectPrefix = KEYS_SELECTOR)
 {
   using ResultType = decltype(filter(rank, jsonExpr, selectPrefix));
   using BJVectorIterator = std::vector<boost::json::string>::iterator;
@@ -172,7 +172,7 @@ filter(std::size_t rank, JsonExpression jsonExpr, std::string_view selectPrefix 
 
 inline
 std::vector<experimental::MetallJsonLines::filter_type>
-filter(std::size_t rank, const clippy::clippy& clip, std::string_view selectPrefix = SELECTOR)
+filter(std::size_t rank, const clippy::clippy& clip, std::string_view selectPrefix = KEYS_SELECTOR)
 {
   if (!clip.has_state(ST_SELECTED))
   {

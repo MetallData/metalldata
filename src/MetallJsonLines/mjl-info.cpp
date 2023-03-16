@@ -45,7 +45,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     const std::string    dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
     metall_manager       mm{metall::open_read_only, dataLocation.data(), MPI_COMM_WORLD};
     xpr::MetallJsonLines lines{mm, world};
-    boost::json::value   res          = lines.filter(filter(world.rank(), clip, SELECTOR))
+    boost::json::value   res          = lines.filter(filter(world.rank(), clip, KEYS_SELECTOR))
                                              .info();
 
     if (world.rank() == 0) clip.to_return(std::move(res));
