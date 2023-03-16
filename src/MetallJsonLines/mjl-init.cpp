@@ -36,13 +36,30 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   try
   {
+    using metall_manager = xpr::MetallJsonLines::metall_manager_type;
+
   // the real thing
     // try to create the object
     std::string      dataLocation = clip.get<std::string>(ST_METALL_LOCATION);
     const bool       overwrite    = clip.get<bool>(ARG_ALWAYS_CREATE_NAME);
-    auto             linesCreator = overwrite ? &xpr::MetallJsonLines::createOverwrite
-                                              : &xpr::MetallJsonLines::createNewOnly;
- /* xpr::MetallJsonLines lines = */ linesCreator(MPI_COMM_WORLD, world, dataLocation);
+
+    if (overwrite)
+    {
+      if (std::filesystem::is_directory(dataLocation))
+        std::filesystem::remove_all(dataLocation);
+    }
+
+    if (!std::filesystem::is_directory(dataLocation))
+    {
+      metall_manager mm{metall::create_only, dataLocation.data(), MPI_COMM_WORLD};
+
+      xpr::MetallJsonLines::createNew(mm, world);
+    }
+    else
+    {
+      // check that storage is in consistent state
+      xpr::MetallJsonLines::checkState(world, dataLocation);
+    }
 
     world.barrier();
 

@@ -126,21 +126,25 @@ void _forAllSelected( Fn fn,
 
   while (maxrows && (lim != pos))
   {
-    auto       filpos = filterfn.begin();
-    auto const fillim = filterfn.end();
-
-    filpos = std::find_if_not( filpos, fillim,
-                               [i, pos](typename FilterFns::value_type const& filter) -> bool
-                               {
-                                 return filter(i, *pos);
-                               }
-                             );
-
-    if (fillim == filpos)
+    try
     {
-      fn(i, *pos);
-      --maxrows;
+      auto       filpos = filterfn.begin();
+      auto const fillim = filterfn.end();
+
+      filpos = std::find_if_not( filpos, fillim,
+                                 [i, pos](typename FilterFns::value_type const& filter) -> bool
+                                 {
+                                   return filter(i, *pos);
+                                 }
+                               );
+
+      if (fillim == filpos)
+      {
+        fn(i, *pos);
+        --maxrows;
+      }
     }
+    catch (...) { /* \todo filter functions must not throw */ }
 
     ++pos; ++i;
   }
@@ -172,35 +176,29 @@ struct MetallJsonLines
     using updater_type          = std::function<void(std::size_t, value_type&)>;
     using accessor_type         = std::function<void(std::size_t, const value_type&)>;
     using metall_projector_type = std::function<boost::json::value(const value_type&)>;
+    using metall_manager_type   = metall::utility::metall_mpi_adaptor;
     //~ using functor_type          = std::function<void(std::size_t, value_type&)>;
     //~ using const_functor_type    = std::function<void(std::size_t, const value_type&)>;
 
     //
     // ctors
 
-    template <class OpenTag = metall::open_read_only_t>
-    MetallJsonLines(const MPI_Comm& comm, ygm::comm& world, OpenTag tag, const char* loc)
+    MetallJsonLines(metall_manager_type& mgr, ygm::comm& world)
     : ygmcomm(world),
-      metallmgr{tag, loc, comm},
+      metallmgr(mgr),
       vector(checked_deref(metallmgr.get_local_manager().find<lines_type>(metall::unique_instance).first, ERR_OPEN))
     {}
 
-    template <class OpenTag = metall::open_read_only_t>
-    MetallJsonLines(const MPI_Comm& comm, ygm::comm& world, OpenTag tag, std::string_view loc)
-    : MetallJsonLines(comm, world, tag, loc.data())
-    {}
-
-    template <class OpenTag = metall::open_read_only_t>
-    MetallJsonLines(const MPI_Comm& comm, ygm::comm& world, OpenTag tag, const char* loc, const char* key)
+    MetallJsonLines(metall_manager_type& mgr, ygm::comm& world, const char* key)
     : ygmcomm(world),
-      metallmgr{tag, loc, comm},
+      metallmgr(mgr),
       vector(checked_deref(metallmgr.get_local_manager().find<lines_type>(key).first, ERR_OPEN))
     {}
 
-    template <class OpenTag = metall::open_read_only_t>
-    MetallJsonLines(const MPI_Comm& comm, ygm::comm& world, OpenTag tag, std::string_view loc, std::string_view key)
-    : MetallJsonLines(comm, world, tag, loc.data(), key.data())
+    MetallJsonLines(metall_manager_type& mgr, ygm::comm& world, std::string_view key)
+    : MetallJsonLines(mgr, world, key.data())
     {}
+
 
     //
     // accessors
@@ -331,6 +329,7 @@ struct MetallJsonLines
     void clear() { vector.clear(); }
 
     /// calls updater(row) for each selected row
+    /// \pre An updater function \ref updater must not throw
     std::size_t set(updater_type updater)
     {
       std::size_t updcount = 0;
@@ -398,6 +397,7 @@ struct MetallJsonLines
     // filter setters
 
     /// appends filters and returns *this
+    /// \pre A filter \ref fn must not throw
     /// \note *this is returned to allow operation chaining on the container
     ///       e.g., mjl.filter(...).count();
     /// \{
@@ -447,77 +447,81 @@ struct MetallJsonLines
     // static creators
 
     static
-    void createOverwrite(const MPI_Comm& comm, ygm::comm& world, std::string_view loc)
+    void createNew(metall_manager_type& manager, ygm::comm&)
     {
-      if (std::filesystem::is_directory(loc.data()))
-        std::filesystem::remove_all(loc.data());
+      auto&       mgr = manager.get_local_manager();
+      const auto* vec = mgr.construct<lines_type>(metall::unique_instance)(mgr.get_allocator());
 
-      createInternal(comm, world, loc);
+      checked_deref(vec, ERR_CONSTRUCT);
     }
 
     static
-    void createOverwrite2(const MPI_Comm& comm, ygm::comm& world, std::string_view loc, std::string_view key)
+    void createNew(metall_manager_type& manager, ygm::comm&, std::vector<std::string_view> keys)
     {
-      if (std::filesystem::is_directory(loc.data()))
-        std::filesystem::remove_all(loc.data());
+      auto& mgr = manager.get_local_manager();
 
-      createInternal2(comm, world, metall::create_only, loc, key);
+      for (std::string_view key : keys)
+      {
+        const auto* vec = mgr.construct<lines_type>(key.data())(mgr.get_allocator());
+
+        checked_deref(vec, ERR_CONSTRUCT);
+      }
     }
 
     static
-    void createNewOnly(const MPI_Comm& comm, ygm::comm& world, std::string_view loc)
+    void createNew(metall_manager_type& manager, ygm::comm& comm, std::string_view key)
+    {
+      createNew(manager, comm, { key });
+    }
+
+    static
+    void checkState(ygm::comm&, std::string_view loc)
     {
       if (!metall::utility::metall_mpi_adaptor::consistent(loc.data(), MPI_COMM_WORLD))
-      {
-        // \todo call createOverwrite instead?
-        createInternal(comm, world, loc);
-      }
+        throw std::runtime_error{"Metallstore is inconsistent"};
+
+      metall_manager_type manager{metall::open_only, loc.data(), MPI_COMM_WORLD};
+      auto&               mgr = manager.get_local_manager();
+      const auto*         vec = mgr.find<lines_type>(metall::unique_instance).first;
+
+      checked_deref(vec, ERR_OPEN);
     }
 
     static
-    void createNewOnly2(const MPI_Comm& comm, ygm::comm& world, std::string_view loc, std::string_view key)
+    void checkState(ygm::comm&, std::string_view loc, std::vector<std::string_view> keys)
     {
       if (!metall::utility::metall_mpi_adaptor::consistent(loc.data(), MPI_COMM_WORLD))
+        throw std::runtime_error{"Metallstore is inconsistent"};
+
+      metall_manager_type manager{metall::open_only, loc.data(), MPI_COMM_WORLD};
+      auto&               mgr = manager.get_local_manager();
+
+      for (std::string_view key : keys)
       {
-        // \todo call createOverwrite instead?
-        createInternal2(comm, world, metall::create_only, loc, key);
-      }
-      else
-      {
-        createInternal2(comm, world, metall::open_only, loc, key);
+        const auto* vec = mgr.find<lines_type>(key.data()).first;
+
+        checked_deref(vec, ERR_OPEN);
       }
     }
 
-    template <class OpenTag>
     static
-    void createInternal2(const MPI_Comm& comm, ygm::comm& world, OpenTag tag, std::string_view loc, std::string_view key)
+    void checkState(ygm::comm& comm, std::string_view loc, std::string_view key)
     {
-      metall::utility::metall_mpi_adaptor manager(tag, loc.data(), MPI_COMM_WORLD);
-      auto&                               mgr = manager.get_local_manager();
-    /*const auto*                         vec = */ mgr.construct<lines_type>(key.data())(mgr.get_allocator());
+      checkState(comm, loc, { key });
     }
+
 
   private:
-    ygm::comm&                          ygmcomm;
-    metall::utility::metall_mpi_adaptor metallmgr;
-    lines_type&                         vector;
-    std::vector<filter_type>            filterfn = {};
+    ygm::comm&                           ygmcomm;
+    metall::utility::metall_mpi_adaptor& metallmgr;
+    lines_type&                          vector;
+    std::vector<filter_type>             filterfn = {};
 
     bool isMainRank() const { return 0 == ygmcomm.rank(); }
     bool isLastRank() const { return 1 == ygmcomm.size() - ygmcomm.rank(); }
 
-    static constexpr char const* ERR_OPEN = "unable to open MetallJsonLines object";
-
-    static
-    void createInternal(const MPI_Comm& comm, ygm::comm& world, std::string_view loc)
-    {
-      {
-        metall::utility::metall_mpi_adaptor manager(metall::create_only, loc.data(), MPI_COMM_WORLD);
-        auto&                               mgr = manager.get_local_manager();
-      /*const auto*                         vec = */ mgr.construct<lines_type>(metall::unique_instance)(mgr.get_allocator());
-      }
-    }
-
+    static constexpr char const* ERR_OPEN      = "unable to open MetallJsonLines object";
+    static constexpr char const* ERR_CONSTRUCT = "unable to construct MetallJsonLines object";
 
     MetallJsonLines()                                  = delete;
     MetallJsonLines(MetallJsonLines&&)                 = delete;

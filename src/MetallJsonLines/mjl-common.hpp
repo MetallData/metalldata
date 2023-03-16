@@ -174,8 +174,6 @@ inline
 std::vector<experimental::MetallJsonLines::filter_type>
 filter(std::size_t rank, const clippy::clippy& clip, std::string_view selectPrefix = SELECTOR)
 {
-  namespace xpr = experimental;
-
   if (!clip.has_state(ST_SELECTED))
   {
     CXX_UNLIKELY;
