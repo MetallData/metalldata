@@ -23,7 +23,8 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   clip.member_of(MG_CLASS_NAME, "A " + MG_CLASS_NAME + " class");
 
   clip.add_required<std::vector<boost::json::object>>(expr, "Expression selection");
-  clip.add_selector<std::string>(SELECTOR, "Row selection predicate");
+  clip.add_selector<std::string>(NODES_SELECTOR, "Node selection key");
+  clip.add_selector<std::string>(EDGES_SELECTOR, "Edge selection key");
   clip.add_required_state<std::string>(ST_METALL_LOCATION, "Metall storage location");
 
   // \note running on rank 0 suffices

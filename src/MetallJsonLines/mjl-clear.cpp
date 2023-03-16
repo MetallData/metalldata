@@ -34,7 +34,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     metall_manager       mm{metall::open_only, dataLocation.data(), MPI_COMM_WORLD};
     xpr::MetallJsonLines lines{mm, world};
 
-    lines /* \todo .filter(filter(world.rank(), clip, SELECTOR)) */
+    lines /* \todo .filter(filter(world.rank(), clip, KEYS_SELECTOR)) */
          .clear();
 
     assert(lines.count() == 0);

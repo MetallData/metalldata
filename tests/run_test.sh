@@ -28,17 +28,19 @@ DEFAULT_DATASTORE="/tmp"
 DEFAULT_GITREPDIR=$(pwd)
 DEFAULT_BUILDROOT="../build"
 DEFAULT_CREATEINP=0
+DEFAULT_KEEPFILES=0
 
 EXEPREFIX=$DEFAULT_EXEPREFIX
 DATASTORE=$DEFAULT_DATASTORE
 BUILDROOT=$DEFAULT_BUILDROOT
 GITREPDIR=$DEFAULT_GITREPDIR
 CREATEINP=$DEFAULT_CREATEINP
+KEEPFILES=$DEFAULT_KEEPFILES
 
 #
 # argument processing
 
-VALID_ARGS=$(getopt -o hb:d:ip:r: --long help,builddir:,datastore:,inputs,prefix:,repo: -- "$@")
+VALID_ARGS=$(getopt -o hb:d:ikp:r: --long help,builddir:,datastore:,inputs,keepio,prefix:,repo: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1;
 fi
@@ -54,6 +56,7 @@ while [ : ]; do
         echo "  -p --prefix    execution prefix, such as mpirun, srun (default: $DEFAULT_EXEPREFIX)"
         echo "  -r --repo      root directory of MetallData repo (default: $DEFAULT_GITREPDIR)"
         echo "  -i --inputs    just generate the json input and expected output files, without running tests"
+        echo "  -k --keepio    keeps all input and expected output files after the tests"
         exit 0
         ;;
     -b | --builddir)
@@ -66,6 +69,10 @@ while [ : ]; do
         ;;
     -i | --inputs)
         CREATEINP=1
+        shift
+        ;;
+    -k | --keep)
+        KEEPFILES=1
         shift
         ;;
     -p | --prefix)
@@ -97,9 +104,11 @@ if [ $CREATEINP -eq 1 ]; then
   exit 0
 fi
 
+##
+## run the tests
+
 #
-# run the tests
-#
+# MetallJsonLines tests
 # note, output of mjl-head and mjl-info may not be stable
 
 exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallJsonLines/mjl-init" "mjl-init-names" 1
@@ -118,6 +127,18 @@ exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallJsonLines/mjl-info" "mjl-info-selec
 
 exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallJsonLines/mjl-merge" "mjl-merge" 1
 
-rm -f ./m*.json ./m*.out ./m*.exp ./clippy*.log
+
+#
+# MetallGraph tests
+
+exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-init" "mg-init" 1
+exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-count" "mg-count-0" 1
+exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-read_json" "mg-read_json" 1
+exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-count" "mg-count-1" 1
+exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-count" "mg-count-selected" 1
+
+if [ $KEEPFILES -ne 1 ]; then
+  rm -f ./m*.json ./m*.out ./m*.exp ./clippy*.log
+fi
 
 echo "done."

@@ -62,8 +62,8 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     const bool        withoutEdges = clip.get<bool>(WO_EDGES_NAME);
     metall_manager    mm{metall::open_read_only, dataLocation.data(), MPI_COMM_WORLD};
     xpr::MetallGraph  g{mm, world};
-    const std::size_t numNodes = countLines(withoutNodes, countAll, g.nodes(), world.rank(), clip, "nodes");
-    const std::size_t numEdges = countLines(withoutEdges, countAll, g.edges(), world.rank(), clip, "edges");
+    const std::size_t numNodes = countLines(withoutNodes, countAll, g.nodes(), world.rank(), clip, NODES_SELECTOR);
+    const std::size_t numEdges = countLines(withoutEdges, countAll, g.edges(), world.rank(), clip, EDGES_SELECTOR);
 
     if (world.rank() == 0)
     {
