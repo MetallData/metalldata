@@ -54,13 +54,16 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   try
   {
+    using metall_manager = xpr::MetallJsonLines::metall_manager_type;
+
     const std::string dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
     const bool        countAll     = clip.get<bool>(COUNT_ALL_NAME);
     const bool        withoutNodes = clip.get<bool>(WO_NODES_NAME);
     const bool        withoutEdges = clip.get<bool>(WO_EDGES_NAME);
-    xpr::MetallGraph  g{MPI_COMM_WORLD, world, metall::open_read_only, dataLocation};
-    std::size_t       numNodes = countLines(withoutNodes, countAll, g.nodes(), world.rank(), clip, "nodes");
-    std::size_t       numEdges = countLines(withoutEdges, countAll, g.edges(), world.rank(), clip, "edges");
+    metall_manager    mm{metall::open_read_only, dataLocation.data(), MPI_COMM_WORLD};
+    xpr::MetallGraph  g{mm, world};
+    const std::size_t numNodes = countLines(withoutNodes, countAll, g.nodes(), world.rank(), clip, "nodes");
+    const std::size_t numEdges = countLines(withoutEdges, countAll, g.edges(), world.rank(), clip, "edges");
 
     if (world.rank() == 0)
     {
@@ -84,6 +87,11 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   {
     error_code = 1;
     if (world.rank() == 0) clip.to_return(err.what());
+  }
+  catch (...)
+  {
+    error_code = 1;
+    if (world.rank() == 0) clip.to_return("unhandled, unknown exception");
   }
 
   return error_code;

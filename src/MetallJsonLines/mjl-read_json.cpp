@@ -33,9 +33,12 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   try
   {
+    using metall_manager = xpr::MetallJsonLines::metall_manager_type;
+
     const std::vector<std::string> files = clip.get<std::vector<std::string> >(ARG_JSON_FILES_NAME);
     const std::string              dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
-    xpr::MetallJsonLines           lines{MPI_COMM_WORLD, world, metall::open_only, dataLocation};
+    metall_manager                 mm{metall::open_only, dataLocation.data(), MPI_COMM_WORLD};
+    xpr::MetallJsonLines           lines{mm, world};
     const std::size_t              totalImported = lines.readJsonFiles(files);
 
     if (world.rank() == 0)
