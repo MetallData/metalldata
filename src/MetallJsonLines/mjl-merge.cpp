@@ -81,6 +81,8 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   try
   {
+    using metall_manager = xpr::MetallJsonLines::metall_manager_type;
+
     // argument processing
     bj::object     lhsObj = clip.get<bj::object>(ARG_LEFT);
     bj::object     rhsObj = clip.get<bj::object>(ARG_RIGHT);
@@ -107,19 +109,27 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
       throw std::runtime_error{"Number of columns of Left_On and Right_on differ"};
 
     const bj::string&     lhsLoc = valueAt<bj::string>(lhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
-    xpr::MetallJsonLines  lhsVec{world, metall::open_read_only, lhsLoc.c_str(), MPI_COMM_WORLD};
-    lhsVec.filter(filter(world.rank(), selectionCriteria(lhsObj), SELECTOR));
+    metall_manager        lhsMgr{metall::open_read_only, lhsLoc.data(), MPI_COMM_WORLD};
+    xpr::MetallJsonLines  lhsVec{lhsMgr, world};
+    lhsVec.filter(filter(world.rank(), selectionCriteria(lhsObj), KEYS_SELECTOR));
 
     const bj::string&     rhsLoc = valueAt<bj::string>(rhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
-    xpr::MetallJsonLines  rhsVec{world, metall::open_read_only, rhsLoc.c_str(), MPI_COMM_WORLD};
-    rhsVec.filter(filter(world.rank(), selectionCriteria(rhsObj), SELECTOR));
+    metall_manager        rhsMgr{metall::open_read_only, rhsLoc.data(), MPI_COMM_WORLD};
+    xpr::MetallJsonLines  rhsVec{rhsMgr, world};
+    rhsVec.filter(filter(world.rank(), selectionCriteria(rhsObj), KEYS_SELECTOR));
 
     bj::object            outObj = clip.get<bj::object>(ARG_OUTPUT);
     const bj::string&     outLoc = valueAt<bj::string>(outObj, "__clippy_type__", "state", ST_METALL_LOCATION);
+    std::string_view      outLocVw(outLoc.data(), outLoc.size());
 
     // \todo overwrite needed?
-    xpr::MetallJsonLines::createOverwrite(world, std::string_view{outLoc.begin(), outLoc.size()}, MPI_COMM_WORLD);
-    xpr::MetallJsonLines  outVec{world, metall::open_only, outLoc.c_str(), MPI_COMM_WORLD};
+    if (std::filesystem::is_directory(outLocVw))
+      std::filesystem::remove_all(outLocVw);
+
+    metall_manager        outMgr{metall::create_only, outLoc.data(), MPI_COMM_WORLD};
+
+    xpr::MetallJsonLines::createNew(outMgr, world);
+    xpr::MetallJsonLines  outVec{outMgr, world};
     const std::size_t     totalMerged = xpr::merge( outVec, lhsVec, rhsVec,
                                                     lhsOn, rhsOn,
                                                     std::move(projLhs), std::move(projRhs)

@@ -34,10 +34,10 @@ using ColumnSelector = std::vector<std::string>;
 
 namespace
 {
-const std::string CLASS_NAME         = "MetallJsonLines";
+const std::string MJL_CLASS_NAME     = "MetallJsonLines";
 const std::string ST_METALL_LOCATION = "metall_location";
 const std::string ST_SELECTED        = "selected";
-const std::string SELECTOR           = "keys";
+const std::string KEYS_SELECTOR      = "keys";
 
 template <class JsonObject>
 inline
@@ -124,9 +124,10 @@ auto variableLookup( const experimental::MetallJsonLines::value_type& rowval,
 
 CXX_MAYBE_UNUSED
 std::vector<experimental::MetallJsonLines::filter_type>
-filter(std::size_t rank, JsonExpression jsonExpr, std::string_view selectPrefix = SELECTOR)
+filter(std::size_t rank, JsonExpression jsonExpr, std::string_view selectPrefix = KEYS_SELECTOR)
 {
-  using ResultType = decltype(filter(rank, jsonExpr));
+  using ResultType = decltype(filter(rank, jsonExpr, selectPrefix));
+  using BJVectorIterator = std::vector<boost::json::string>::iterator;
 
   ResultType               res;
   boost::json::string_view boostSelectPrefix(&*selectPrefix.begin(), selectPrefix.size());
@@ -139,11 +140,16 @@ filter(std::size_t rank, JsonExpression jsonExpr, std::string_view selectPrefix 
     if (hasComputedVarNames) throw std::runtime_error("unable to work with computed variable names");
 
     // check that all free variables are prefixed with SELECTED
-    for (const boost::json::string& varname : vars)
-    {
-      if (varname.rfind(boostSelectPrefix, 0) != 0) throw std::logic_error("unknown selector");
-      if (varname.find('.') != selectPrefix.size()) throw std::logic_error("unknown selector.");
-    }
+    auto varcheck = [boostSelectPrefix](const boost::json::string& varname) -> bool
+                    {
+                      return (  varname.rfind(boostSelectPrefix, 0) == 0
+                             && varname.find('.') == boostSelectPrefix.size()
+                             );
+                    };
+    BJVectorIterator varlim  = vars.end();
+    const bool       useRule = varlim == std::find_if_not(vars.begin(), varlim, varcheck);
+
+    if (!useRule) continue;
 
     // the repackaging requirement seems to be a deficiency in the C++
     //   standard, which does not allow lambda environments with unique_ptr
@@ -166,10 +172,8 @@ filter(std::size_t rank, JsonExpression jsonExpr, std::string_view selectPrefix 
 
 inline
 std::vector<experimental::MetallJsonLines::filter_type>
-filter(std::size_t rank, const clippy::clippy& clip, std::string_view selectPrefix = SELECTOR)
+filter(std::size_t rank, const clippy::clippy& clip, std::string_view selectPrefix = KEYS_SELECTOR)
 {
-  namespace xpr = experimental;
-
   if (!clip.has_state(ST_SELECTED))
   {
     CXX_UNLIKELY;
@@ -255,6 +259,15 @@ updater( std::size_t rank,
            // return metall::container::experimental::json::value_from(*exp, objalloc);
            rowobj[colName] = metall::container::experimental::json::parse(jstr.str(), objalloc);
          };
+}
+
+CXX_MAYBE_UNUSED
+inline
+void append(std::vector<boost::json::object>& lhs, std::vector<boost::json::object> rhs)
+{
+  if (lhs.size() == 0) return lhs.swap(rhs);
+
+  std::move(rhs.begin(), rhs.end(), std::back_inserter(lhs));
 }
 
 }

@@ -3,9 +3,11 @@
 //
 // SPDX-License-Identifier: MIT
 
-/// \brief Implements MetallJsonLines selector function (getItem).
+/// \brief Implements MetallGraph selector function (getItem).
 
-#include "mjl-common.hpp"
+#include "mg-common.hpp"
+
+namespace xpr     = experimental;
 
 namespace
 {
@@ -13,16 +15,16 @@ const std::string methodName = "__getitem__";
 const std::string expr = "expressions";
 } // anonymous
 
-
 int ygm_main(ygm::comm& world, int argc, char** argv)
 {
   int            error_code = 0;
   clippy::clippy clip{methodName, "Sets the selector predicate(s)."};
 
-  clip.member_of(MJL_CLASS_NAME, "A " + MJL_CLASS_NAME + " class");
+  clip.member_of(MG_CLASS_NAME, "A " + MG_CLASS_NAME + " class");
 
   clip.add_required<std::vector<boost::json::object>>(expr, "Expression selection");
-  clip.add_selector<std::string>(KEYS_SELECTOR, "Row selection key");
+  clip.add_selector<std::string>(NODES_SELECTOR, "Node selection key");
+  clip.add_selector<std::string>(EDGES_SELECTOR, "Edge selection key");
   clip.add_required_state<std::string>(ST_METALL_LOCATION, "Metall storage location");
 
   // \note running on rank 0 suffices
@@ -49,7 +51,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
       state.set_val(ST_METALL_LOCATION, std::move(location));
       state.set_val(ST_SELECTED,        std::move(selectedExpression));
 
-      clippy_type.set_val("__class__", MJL_CLASS_NAME);
+      clippy_type.set_val("__class__", MG_CLASS_NAME);
       clippy_type.set_json("state",    std::move(state));
 
       res.set_json("__clippy_type__",  std::move(clippy_type));
