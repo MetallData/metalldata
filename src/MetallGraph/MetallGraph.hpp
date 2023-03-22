@@ -5,23 +5,15 @@
 namespace experimental
 {
 
-std::string concat(std::string_view lhs, const char* rhs)
-{
-  std::string res(&*lhs.begin(), lhs.size());
-
-  res += rhs;
-  return res;
-}
-
 struct MetallGraph
 {
-    using edge_list_type = MetallJsonLines;
-    using node_list_type = MetallJsonLines;
+    using edge_list_type      = MetallJsonLines;
+    using node_list_type      = MetallJsonLines;
+    using metall_manager_type = MetallJsonLines::metall_manager_type;
 
-    template <class OpenTag = metall::open_read_only_t>
-    MetallGraph(ygm::comm& world, OpenTag tag, std::string_view loc, const MPI_Comm& comm)
-    : edgelst(world, tag, concat(loc, edge_location_suffix), comm),
-      nodelst(world, tag, concat(loc, node_location_suffix), comm)
+    MetallGraph(metall_manager_type& manager, ygm::comm& comm)
+    : edgelst(manager, comm, edge_location_suffix),
+      nodelst(manager, comm, node_location_suffix)
     {}
 
     edge_list_type&       edges()       { return edgelst; }
@@ -31,25 +23,23 @@ struct MetallGraph
     node_list_type const& nodes() const { return nodelst; }
 
     static
-    void createOverwrite(ygm::comm& world, std::string_view loc, const MPI_Comm& comm)
+    void createNew(metall_manager_type& manager, ygm::comm& comm)
     {
-      MetallJsonLines::createOverwrite(world, concat(loc, edge_location_suffix), comm);
-      MetallJsonLines::createOverwrite(world, concat(loc, node_location_suffix), comm);
+      MetallJsonLines::createNew(manager, comm, {edge_location_suffix, node_location_suffix});
     }
 
     static
-    void createNewOnly(ygm::comm& world, std::string_view loc, const MPI_Comm& comm)
+    void checkState(ygm::comm& comm, std::string_view loc)
     {
-      MetallJsonLines::createNewOnly(world, concat(loc, edge_location_suffix), comm);
-      MetallJsonLines::createNewOnly(world, concat(loc, node_location_suffix), comm);
+      MetallJsonLines::checkState(comm, loc, {edge_location_suffix, node_location_suffix});
     }
 
   private:
     edge_list_type edgelst;
     node_list_type nodelst;
 
-    static constexpr const char* const edge_location_suffix = "/edges";
-    static constexpr const char* const node_location_suffix = "/nodes";
+    static constexpr const char* const edge_location_suffix = "edges";
+    static constexpr const char* const node_location_suffix = "nodes";
 };
 
 }

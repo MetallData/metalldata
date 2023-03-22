@@ -1,13 +1,16 @@
+// Copyright 2022 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
+// See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: MIT
 
+/// \brief Implements MetallGraph constructor (__init__).
 
-#include "mjl-common.hpp"
-#include "MetallGraph.hpp"
+#include "mg-common.hpp"
 
 namespace xpr     = experimental;
 
 namespace
 {
-  const std::string MG_CLASS_NAME = "MetallGraph";
   const std::string METHOD_NAME = "__init__";
   const std::string METHOD_DOCSTRING = "Initializes a MetallGraph object\n"
                                        "creates a new physical object on disk "
@@ -34,13 +37,28 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   {
   // the real thing
     // try to create the object
+    using metall_manager = xpr::MetallJsonLines::metall_manager_type;
+
     std::string      dataLocation = clip.get<std::string>(ST_METALL_LOCATION);
     const bool       overwrite    = clip.get<bool>(ARG_ALWAYS_CREATE_NAME);
-    auto             graphCreator = overwrite ? &xpr::MetallGraph::createOverwrite
-                                              : &xpr::MetallGraph::createNewOnly;
- /* xpr::MetallGraph lines = */ graphCreator(world, dataLocation, MPI_COMM_WORLD);
 
-    world.barrier();
+    if (overwrite)
+    {
+      if (std::filesystem::is_directory(dataLocation))
+        std::filesystem::remove_all(dataLocation);
+    }
+
+    if (!std::filesystem::is_directory(dataLocation))
+    {
+      metall_manager mm{metall::create_only, dataLocation.data(), MPI_COMM_WORLD};
+
+      xpr::MetallGraph::createNew(mm, world);
+    }
+    else
+    {
+      // check that storage is in consistent state
+      xpr::MetallGraph::checkState(world, dataLocation);
+    }
 
     // create the return object
     if (world.rank() == 0)
