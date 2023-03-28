@@ -71,7 +71,7 @@ while [ : ]; do
         CREATEINP=1
         shift
         ;;
-    -k | --keep)
+    -k | --keepio)
         KEEPFILES=1
         shift
         ;;
@@ -133,7 +133,8 @@ exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallJsonLines/mjl-merge" "mjl-merge" 1
 
 exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-init" "mg-init" 1
 exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-count" "mg-count-0" 1
-exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-read_json" "mg-read_json" 1
+exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-read_vertices" "mg-read_vertices" 1
+exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-read_edges" "mg-read_edges" 1
 exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-count" "mg-count-1" 1
 exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-count" "mg-count-selected" 1
 

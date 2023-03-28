@@ -57,8 +57,13 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     }
     else
     {
+      if (!metall::utility::metall_mpi_adaptor::consistent(dataLocation.data(), MPI_COMM_WORLD))
+        throw std::runtime_error{"Metallstore is inconsistent"};
+
+      metall_manager mm{metall::open_read_only, dataLocation.data(), MPI_COMM_WORLD};
+
       // check that storage is in consistent state
-      xpr::MetallJsonLines::checkState(world, dataLocation);
+      xpr::MetallJsonLines::checkState(mm, world);
     }
 
     world.barrier();
