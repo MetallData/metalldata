@@ -17,7 +17,7 @@
 namespace msg
 {
 
-struct ProcessData
+struct ProcessDataMJL
 {
   using value_type       = metall::container::experimental::json::value<metall::manager::allocator_type<std::byte>>;
   using lines_type       = metall::container::vector<value_type, metall::manager::scoped_allocator_type<value_type>>;
@@ -29,7 +29,7 @@ struct ProcessData
   projector_type*           projector;
 };
 
-ProcessData state;
+ProcessDataMJL mjlState;
 
 
 //
@@ -39,9 +39,9 @@ struct RowResponse
 {
   void operator()(std::vector<std::string> rows)
   {
-    assert(state.remoteRows != nullptr);
+    assert(mjlState.remoteRows != nullptr);
 
-    std::move(rows.begin(), rows.end(), std::back_inserter(*state.remoteRows));
+    std::move(rows.begin(), rows.end(), std::back_inserter(*mjlState.remoteRows));
   }
 };
 
@@ -50,25 +50,25 @@ struct RowRequest
   void operator()(ygm::comm* w, std::size_t numrows) const
   {
     assert(w != nullptr);
-    assert(state.vector != nullptr);
-    assert(state.selectedRows != nullptr);
+    assert(mjlState.vector != nullptr);
+    assert(mjlState.selectedRows != nullptr);
 
     ygm::comm& world     = *w;
-    const int  fromThis  = std::min(state.selectedRows->size(), numrows);
+    const int  fromThis  = std::min(mjlState.selectedRows->size(), numrows);
     const int  fromOther = numrows - fromThis;
 
     if ((fromOther > 0) && (world.size() != (world.rank()+1)))
       world.async( world.rank()+1, RowRequest{}, fromOther );
 
-    state.selectedRows->resize(fromThis);
+    mjlState.selectedRows->resize(fromThis);
 
     std::vector<std::string> response;
 
-    for (std::uint64_t i : *state.selectedRows)
+    for (std::uint64_t i : *mjlState.selectedRows)
     {
       std::stringstream serial;
 
-      serial << (*state.projector)(state.vector->at(i)) << std::flush;
+      serial << (*mjlState.projector)(mjlState.vector->at(i)) << std::flush;
       response.emplace_back(serial.str());
     }
 
@@ -167,6 +167,26 @@ T& checked_deref(T* ptr, const char* errmsg)
   throw std::runtime_error("Unable to open MetallJsonLines");
 }
 
+struct ImportSummary : std::tuple<std::size_t, std::size_t>
+{
+  using base = std::tuple<std::size_t, std::size_t>;
+  using base::base;
+
+  std::size_t imported() const { return std::get<0>(*this); }
+  std::size_t rejected() const { return std::get<1>(*this); }
+
+  boost::json::object asJson() const
+  {
+    boost::json::object res;
+
+    res["imported"] = imported();
+    res["rejected"] = rejected();
+
+    return res;
+  }
+};
+
+
 struct MetallJsonLines
 {
     using value_type            = metall::container::experimental::json::value<metall::manager::allocator_type<std::byte>>;
@@ -213,7 +233,7 @@ struct MetallJsonLines
       std::vector<std::string> remoteRows;
       std::vector<std::size_t> selectedRows;
 
-      msg::state = msg::ProcessData{&vector, &remoteRows, &selectedRows, &projector};
+      msg::mjlState = msg::ProcessDataMJL{&vector, &remoteRows, &selectedRows, &projector};
 
       // phase 1: make all local selections
       {
@@ -353,23 +373,33 @@ struct MetallJsonLines
     }
 
     /// imports json files and returns the number of imported rows
-    std::size_t
-    readJsonFiles(const std::vector<std::string>& files)
+    ImportSummary
+    readJsonFiles(const std::vector<std::string>& files, std::function<bool(const value_type&)> filter = acceptAll)
     {
       namespace mtljsn = metall::container::experimental::json;
 
       // phase 1: distributed import of data in files
       ygm::io::line_parser        lineParser{ ygmcomm, files };
       std::size_t                 imported    = 0;
+      std::size_t                 rejected    = 0;
       std::size_t const           initialSize = vector.size();
-      lines_type*                 vec = &vector;
-      metall_allocator_type       alloc = get_allocator();
+      lines_type*                 vec         = &vector;
+      metall_allocator_type       alloc       = get_allocator();
 
-      lineParser.for_all( [&imported, vec, alloc]
+      lineParser.for_all( [&imported, &rejected, vec, alloc, filterFn = std::move(filter)]
                           (const std::string& line) -> void
                           {
-                            vec->emplace_back(mtljsn::parse(line, alloc));
-                            ++imported;
+                            value_type jsonLine = mtljsn::parse(line, alloc);
+
+                            if (filterFn(jsonLine))
+                            {
+                              vec->emplace_back(std::move(jsonLine));
+                              ++imported;
+                            }
+                            else
+                            {
+                              ++rejected;
+                            }
                           }
                         );
 
@@ -377,12 +407,13 @@ struct MetallJsonLines
 
       // phase 2: compute total number of imported rows
       int totalImported = ygmcomm.all_reduce_sum(imported);
+      int totalRejected = ygmcomm.all_reduce_sum(rejected);
 
-      return totalImported;
+      return { totalImported, totalRejected };
     }
 
     /// imports a json files and returns the number of imported rows
-    std::size_t
+    ImportSummary
     readJsonFile(std::string file)
     {
       std::vector<std::string> files;
@@ -456,11 +487,11 @@ struct MetallJsonLines
     }
 
     static
-    void createNew(metall_manager_type& manager, ygm::comm&, std::vector<std::string_view> keys)
+    void createNew(metall_manager_type& manager, ygm::comm&, std::vector<std::string_view> metallkeys)
     {
       auto& mgr = manager.get_local_manager();
 
-      for (std::string_view key : keys)
+      for (std::string_view key : metallkeys)
       {
         const auto* vec = mgr.construct<lines_type>(key.data())(mgr.get_allocator());
 
@@ -469,32 +500,24 @@ struct MetallJsonLines
     }
 
     static
-    void createNew(metall_manager_type& manager, ygm::comm& comm, std::string_view key)
+    void createNew(metall_manager_type& manager, ygm::comm& comm, std::string_view metallkey)
     {
-      createNew(manager, comm, { key });
+      createNew(manager, comm, { metallkey });
     }
 
     static
-    void checkState(ygm::comm&, std::string_view loc)
+    void checkState(metall_manager_type& manager, ygm::comm&)
     {
-      if (!metall::utility::metall_mpi_adaptor::consistent(loc.data(), MPI_COMM_WORLD))
-        throw std::runtime_error{"Metallstore is inconsistent"};
-
-      metall_manager_type manager{metall::open_only, loc.data(), MPI_COMM_WORLD};
-      auto&               mgr = manager.get_local_manager();
-      const auto*         vec = mgr.find<lines_type>(metall::unique_instance).first;
+      auto&       mgr = manager.get_local_manager();
+      const auto* vec = mgr.find<lines_type>(metall::unique_instance).first;
 
       checked_deref(vec, ERR_OPEN);
     }
 
     static
-    void checkState(ygm::comm&, std::string_view loc, std::vector<std::string_view> keys)
+    void checkState(metall_manager_type& manager, ygm::comm&, std::vector<std::string_view> keys)
     {
-      if (!metall::utility::metall_mpi_adaptor::consistent(loc.data(), MPI_COMM_WORLD))
-        throw std::runtime_error{"Metallstore is inconsistent"};
-
-      metall_manager_type manager{metall::open_only, loc.data(), MPI_COMM_WORLD};
-      auto&               mgr = manager.get_local_manager();
+      auto& mgr = manager.get_local_manager();
 
       for (std::string_view key : keys)
       {
@@ -505,11 +528,13 @@ struct MetallJsonLines
     }
 
     static
-    void checkState(ygm::comm& comm, std::string_view loc, std::string_view key)
+    void checkState(metall_manager_type& manager, ygm::comm& comm, std::string_view key)
     {
-      checkState(comm, loc, { key });
+      checkState(manager, comm, { key });
     }
 
+    static
+    bool acceptAll(const value_type&) { return true; }
 
   private:
     ygm::comm&                           ygmcomm;

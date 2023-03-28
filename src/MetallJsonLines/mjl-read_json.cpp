@@ -39,11 +39,12 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     const std::string              dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
     metall_manager                 mm{metall::open_only, dataLocation.data(), MPI_COMM_WORLD};
     xpr::MetallJsonLines           lines{mm, world};
-    const std::size_t              totalImported = lines.readJsonFiles(files);
+    const xpr::ImportSummary       imp = lines.readJsonFiles(files);
 
     if (world.rank() == 0)
     {
-      clip.to_return(totalImported);
+      assert(imp.rejected() == 0);
+      clip.to_return(imp.imported());
     }
   }
   catch (const std::exception& err)

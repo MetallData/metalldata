@@ -12,16 +12,7 @@ namespace xpr     = experimental;
 namespace
 {
 const std::string METHOD_NAME = "count";
-const std::string METHOD_DOCSTRING = "Counts the number of rows where the current selection criteria is true.";
-
-const std::string COUNT_ALL_NAME = "count_all";
-const std::string COUNT_ALL_DESC = "if true, the selection criteria is ignored";
-
-const std::string WO_NODES_NAME = "without_nodes";
-const std::string WO_NODES_DESC = "if true, nodes are not counted";
-
-const std::string WO_EDGES_NAME = "without_edges";
-const std::string WO_EDGES_DESC = "if true, edges are not counted";
+const std::string METHOD_DOCSTRING = "Counts the number of rows where the current selection criteria is true. Edges are counted only if their endpoints are both in the counted vertices set.";
 } // anonymous
 
 std::size_t countLines( bool skip,
@@ -46,41 +37,22 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   clip.member_of(MG_CLASS_NAME, "A " + MG_CLASS_NAME + " class");
   clip.add_required_state<std::string>(ST_METALL_LOCATION, "Metall storage location");
 
-  clip.add_optional<bool>(COUNT_ALL_NAME, COUNT_ALL_DESC, false);
-  clip.add_optional<bool>(WO_NODES_NAME, WO_NODES_DESC, false);
-  clip.add_optional<bool>(WO_EDGES_NAME, WO_EDGES_DESC, false);
-
   if (clip.parse(argc, argv, world)) { return 0; }
 
   try
   {
     using metall_manager = xpr::MetallJsonLines::metall_manager_type;
 
-    const std::string dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
-    const bool        countAll     = clip.get<bool>(COUNT_ALL_NAME);
-    const bool        withoutNodes = clip.get<bool>(WO_NODES_NAME);
-    const bool        withoutEdges = clip.get<bool>(WO_EDGES_NAME);
-    metall_manager    mm{metall::open_read_only, dataLocation.data(), MPI_COMM_WORLD};
-    xpr::MetallGraph  g{mm, world};
-    const std::size_t numNodes = countLines(withoutNodes, countAll, g.nodes(), world.rank(), clip, NODES_SELECTOR);
-    const std::size_t numEdges = countLines(withoutEdges, countAll, g.edges(), world.rank(), clip, EDGES_SELECTOR);
+    const std::string   dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
+    metall_manager      mm{metall::open_read_only, dataLocation.data(), MPI_COMM_WORLD};
+    xpr::MetallGraph    g{mm, world};
+    xpr::MGCountSummary res = g.count1( filter(world.rank(), clip, NODES_SELECTOR),
+                                        filter(world.rank(), clip, EDGES_SELECTOR)
+                                      );
 
     if (world.rank() == 0)
     {
-      if (withoutNodes || withoutEdges)
-      {
-        // at least numNodes or numEdges will be 0.
-        clip.to_return(numNodes+numEdges);
-      }
-      else
-      {
-        boost::json::object res;
-
-        res["nodes"] = numNodes;
-        res["edges"] = numEdges;
-
-        clip.to_return(res);
-      }
+      clip.to_return(res.asJson());
     }
   }
   catch (const std::exception& err)
