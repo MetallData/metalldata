@@ -84,7 +84,7 @@ find_package(Privateer QUIET)
 if (NOT Privateer_FOUND)
    FetchContent_Declare(Privateer
            GIT_REPOSITORY https://github.com/LLNL/Privateer.git
-           GIT_TAG feature/sigaction
+           GIT_TAG feature/uffd
            )
    FetchContent_MakeAvailable(Privateer)
 endif ()
