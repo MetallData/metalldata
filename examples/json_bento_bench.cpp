@@ -1,3 +1,8 @@
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
+// See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: MIT
+
 /// \brief Run JSON Bento benchmark
 /// This benchmark measures the performance and memory usage of storing JSON data in Metall JSON and JSON Bento.
 /// This benchmark read JSON files that contain JSON line data.
