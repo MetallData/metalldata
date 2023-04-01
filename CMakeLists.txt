@@ -72,10 +72,23 @@ if (NOT Metall_FOUND)
     set(JUST_INSTALL_METALL_HEADER TRUE)
     FetchContent_Declare(Metall
             GIT_REPOSITORY https://github.com/LLNL/metall.git
-            GIT_TAG master
+            GIT_TAG develop
             )
     FetchContent_MakeAvailable(Metall)
 endif ()
+
+
+#
+#  GoogleTest
+#
+if (METALLDATA_BUILD_TESTS)
+    FetchContent_Declare(
+            googletest
+            GIT_REPOSITORY git@github.com:google/googletest.git
+            GIT_TAG main
+    )
+    FetchContent_MakeAvailable(googletest)
+endif()
 
 #
 #  CXX Filesystem library
@@ -113,6 +126,7 @@ endfunction()
 function(add_metalldata_executable name source)
     add_executable(${name} ${source})
     add_common_compile_options(${name})
+    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include)
 endfunction()
 
 
@@ -176,5 +190,11 @@ function(setup_metall_target exe_name)
 endfunction()
 
 add_subdirectory(src)
-#add_subdirectory(test)
+add_subdirectory(examples)
+
+if (METALLDATA_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
 #add_subdirectory(example)
