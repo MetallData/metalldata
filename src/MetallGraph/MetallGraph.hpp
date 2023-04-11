@@ -4,6 +4,7 @@
 #include <boost/container/string.hpp>
 
 #include <ygm/container/set.hpp>
+#include <ygm/container/map.hpp>
 
 #include "MetallJsonLines.hpp"
 
@@ -11,6 +12,7 @@ namespace msg
 {
 
 using DistributedStringSet = ygm::container::set<std::string>;
+using DistributedAdjList   = ygm::container::map<std::string, std::vector<std::string> >;
 
 template <class T>
 struct PointerGuard
@@ -92,6 +94,16 @@ namespace
     msg::DistributedStringSet distributedKeys;
     std::size_t               edgecnt;
     std::size_t               nodecnt;
+  };
+
+  struct ConnCompMG
+  {
+    explicit
+    ConnCompMG(ygm::comm& comm)
+    : distributedAdjList(comm)
+    {}
+
+    msg::DistributedAdjList distributedAdjList;
   };
 }
 
@@ -207,7 +219,10 @@ struct MetallGraph
                     std::string_view edge_tgt_key
                   )
     {
-      MetallJsonLines::createNew(manager, comm, {edge_location_suffix, node_location_suffix});
+      std::string_view edge_location_suffix_v{edge_location_suffix};
+      std::string_view node_location_suffix_v{node_location_suffix};
+
+      MetallJsonLines::createNew(manager, comm, {edge_location_suffix_v, node_location_suffix_v});
 
       auto&           mgr = manager.get_local_manager();
       key_store_type& vec = checked_deref( mgr.construct<key_store_type>(keys_location_suffix)(mgr.get_allocator())
@@ -245,7 +260,7 @@ struct MetallGraph
 */
 
     MGCountSummary
-    count1(std::vector<filter_type> nfilt, std::vector<filter_type> efilt)
+    count(std::vector<filter_type> nfilt, std::vector<filter_type> efilt)
     {
       static CountDataMG* cntData = nullptr;
 
@@ -293,13 +308,135 @@ struct MetallGraph
       return { totalNodes, totalEdges };
     }
 
+    ygm::comm& comm() { return nodelst.comm(); }
+
+    MGCountSummary
+    connectedComponents(std::vector<filter_type> nfilt, std::vector<filter_type> efilt)
+    {
+      static ConnCompMG* connCommData = nullptr;
+
+      msg::PointerGuard cntStateGuard{ connCommData, new ConnCompMG{comm()} };
+
+      auto nodeAction =
+        [nodeKeyTxt = nodeKey()]
+        (std::size_t, const MetallJsonLines::value_type& val)->void
+        {
+          std::string vertex = to_string(getKey(val, nodeKeyTxt));
+
+          connCommData->distributedAdjList.async_insert_if_missing( vertex, std::vector<std::string>{} );
+        };
+
+      nodelst.filter(std::move(nfilt)).forAllSelected(nodeAction);
+
+      auto edgeAction =
+        [edgeSrcKeyTxt = edgeSrcKey(), edgeTgtKeyTxt = edgeTgtKey()]
+        (std::size_t pos, const MetallJsonLines::value_type& val)->void
+        {
+          msg::DistributedAdjList& adjList = connCommData->distributedAdjList;
+
+          auto commEdgeTgtCheck = [](const std::string& tgtkey, const std::vector<std::string>&, const std::string& srckey)
+          {
+            auto commEdgeSrcCheck =
+              [](const std::string& /*srckey*/, std::vector<std::string>& edges, std::string tgtkey)
+              {
+                edges.emplace_back(std::move(tgtkey));
+              };
+
+            connCommData->distributedAdjList.async_visit_if_exists(srckey, commEdgeSrcCheck, tgtkey);
+          };
+
+          // check first target, if in -> add edge to adjecency list at src
+          adjList.async_visit_if_exists( to_string(getKey(val, edgeTgtKeyTxt)),
+                                         commEdgeTgtCheck,
+                                         to_string(getKey(val, edgeSrcKeyTxt))
+                                       );
+        };
+
+      edgelst.filter(std::move(efilt)).forAllSelected(edgeAction);
+
+      comm().barrier();
+
+      {
+        // from Roger's code
+        // https://lc.llnl.gov/gitlab/metall/ygm-reddit/-/blob/main/bench/reddit_components_labelprop.cpp
+
+        ygm::container::map<std::string, std::string> map_cc{comm()};
+        ygm::container::map<std::string, std::string> active{comm()};
+        ygm::container::map<std::string, std::string> next_active{comm()};
+
+        static auto& s_next_active = next_active;
+        static auto& s_map_cc      = map_cc;
+        static auto& s_adj_list    = connCommData->distributedAdjList;
+
+        //
+        // Init map_cc
+        s_adj_list.for_all(
+          [&map_cc, &active](const std::string& vertex, const std::vector<std::string>&)
+          {
+            map_cc.async_insert(vertex, vertex);
+            active.async_insert(vertex, vertex);
+          });
+
+        comm().barrier();
+
+        while (active.size() > 0)
+        {
+          // comm().cout0("active.size() = ", active.size());
+          active.for_all(
+            [](const std::string& vertex, const std::string& cc_id)
+            {
+              s_adj_list.async_visit(
+                vertex,
+                [](const std::string& vertex, const std::vector<std::string>& adj, const std::string& cc_id)
+                {
+                  for (const auto& neighbor : adj)
+                  {
+                    if (cc_id < neighbor)
+                    {
+                      s_map_cc.async_visit(
+                        neighbor,
+                        [](const std::string& n, std::string& ncc, const std::string& cc_id)
+                        {
+                          if (cc_id < ncc)
+                          {
+                            ncc = cc_id;
+                            s_next_active.async_reduce(
+                              n, cc_id,
+                              [](const std::string& a, const std::string& b)
+                              {
+                                return std::min(a, b);
+                              } );
+                          }
+                        },
+                        cc_id );
+                    }
+                  }
+                },
+                cc_id );
+            } );
+          comm().barrier();
+          active.clear();
+          active.swap(next_active);
+        }
+      }
+
+      // \todo revise returns...
+      const std::size_t totalNodes = connCommData->distributedAdjList.size();
+      const std::size_t totalEdges = 0;
+
+      return { totalNodes, totalEdges };
+    }
+
 
     static
     void checkState( metall_manager_type& manager,
                      ygm::comm& comm
                    )
     {
-      MetallJsonLines::checkState(manager, comm, {edge_location_suffix, node_location_suffix});
+      std::string_view edge_location_suffix_v{edge_location_suffix};
+      std::string_view node_location_suffix_v{node_location_suffix};
+
+      MetallJsonLines::checkState(manager, comm, {edge_location_suffix_v, node_location_suffix_v});
 
       auto&           mgr = manager.get_local_manager();
 
