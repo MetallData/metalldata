@@ -19,7 +19,7 @@
 #include <vector>
 
 namespace bj = boost::json;
-namespace mj = metall::container::experimental::json;
+namespace mj = metall::json;
 using bento_type = json_bento::box<metall::manager::allocator_type<std::byte>>;
 
 void print_usage(std::string_view program_name);

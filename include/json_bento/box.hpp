@@ -10,7 +10,7 @@
 #include <string>
 
 #include <boost/json/src.hpp>
-#include "metall/container/experimental/json/json.hpp"
+#include <metall/json/json.hpp>
 
 #include <json_bento/box/array_accessor.hpp>
 #include <json_bento/box/core_data/core_data.hpp>
@@ -25,7 +25,7 @@ namespace json_bento {
 
 namespace {
 namespace bj = boost::json;
-namespace mj = metall::container::experimental::json;
+namespace mj = metall::json;
 }  // namespace
 
 /// \brief Memory-efficient JSON store
