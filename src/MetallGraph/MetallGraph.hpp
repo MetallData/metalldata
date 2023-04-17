@@ -175,8 +175,15 @@ genKeysGenerator( std::vector<std::string_view> edgeKeyFields,
              try
              {
                const auto& str    = obj[keyOrigin[i]].as_string();
+<<<<<<< HEAD
                std::string keyval = std::to_string(i);
 
+=======
+               std::string keyval;
+               
+               keyval.push_back('0' + i);
+               keyval.push_back('@');
+>>>>>>> be94152 ((MetallGraph) auto key generation)
                keyval.append(std::string_view{&*str.begin(), str.size()});
 
                obj[edgeKeys[i]] = keyval;
@@ -265,6 +272,10 @@ struct MetallGraph
                                                      genKeysGenerator({ edgeSrcKey(), edgeTgtKey() }, autoKeys)
                                                    );
 
+<<<<<<< HEAD
+=======
+      comm().barrier();
+>>>>>>> be94152 ((MetallGraph) auto key generation)
       persistKeys(nodelst, nodeKey(), CountDataMG::ptr->distributedKeys);
       return res;
     }
