@@ -56,8 +56,6 @@ void commEdgeSrcCheck(std::string src, std::string tgt, std::size_t idx)
   const int              self   = w.rank();
   const int              dest   = keyset.owner(src);
 
-
-
   if (self == dest)
   {
     if (keyset.count_local())
@@ -94,7 +92,11 @@ namespace
     msg::DistributedStringSet distributedKeys;
     std::size_t               edgecnt;
     std::size_t               nodecnt;
+
+    static CountDataMG* ptr;
   };
+
+  CountDataMG* CountDataMG::ptr = nullptr;
 
   struct ConnCompMG
   {
@@ -104,7 +106,11 @@ namespace
     {}
 
     msg::DistributedAdjList distributedAdjList;
+
+    static ConnCompMG* ptr;
   };
+
+  ConnCompMG* ConnCompMG::ptr = nullptr;
 }
 
 
@@ -152,6 +158,38 @@ genKeysChecker(std::vector<std::string_view> keys)
          };
 }
 
+std::function<MetallJsonLines::value_type(MetallJsonLines::value_type)>
+genKeysGenerator( std::vector<std::string_view> edgeKeyFields,
+                  std::vector<std::string_view> edgeKeysOrigin
+                )
+{
+  const int numKeys = std::min(edgeKeyFields.size(), edgeKeysOrigin.size());
+
+  return [edgeKeys = std::move(edgeKeyFields), keyOrigin = std::move(edgeKeysOrigin), numKeys]
+         (MetallJsonLines::value_type val) -> MetallJsonLines::value_type
+         {
+           auto& obj = val.as_object();
+
+           for (int i = 0; i < numKeys; ++i)
+           {
+             try
+             {
+               const auto& str    = obj[keyOrigin[i]].as_string();
+               std::string keyval = std::to_string(i);
+
+               keyval.append(std::string_view{&*str.begin(), str.size()});
+
+               obj[edgeKeys[i]] = keyval;
+
+               CountDataMG::ptr->distributedKeys.async_insert(keyval);
+             }
+             catch (...) {}
+           }
+
+           return val;
+         };
+}
+
 struct MGCountSummary : std::tuple<std::size_t, std::size_t>
 {
   using base = std::tuple<std::size_t, std::size_t>;
@@ -171,7 +209,17 @@ struct MGCountSummary : std::tuple<std::size_t, std::size_t>
   }
 };
 
+void persistKeys(MetallJsonLines& lines, std::string_view key, msg::DistributedStringSet& keyValues)
+{
+  keyValues.local_for_all( [&lines, key](const std::string& keyval) -> void
+                           {
+                             MetallJsonLines::value_type& val = lines.append_local();
+                             auto&                        obj = val.emplace_object();
 
+                             obj[key] = keyval;
+                           }
+                         );
+}
 
 struct MetallGraph
 {
@@ -206,9 +254,19 @@ struct MetallGraph
     }
 
     ImportSummary
-    readEdgeFiles(const std::vector<std::string>& files)
+    readEdgeFiles(const std::vector<std::string>& files, std::vector<std::string_view> autoKeys = {})
     {
-      return edgelst.readJsonFiles(files, genKeysChecker({ edgeSrcKey(), edgeTgtKey() }));
+      if (autoKeys.empty())
+        return edgelst.readJsonFiles(files, genKeysChecker({ edgeSrcKey(), edgeTgtKey() }));
+
+      msg::PointerGuard cntStateGuard{ CountDataMG::ptr, new CountDataMG{nodelst.comm()} };
+      ImportSummary     res = edgelst.readJsonFiles( files,
+                                                     genKeysChecker(autoKeys),
+                                                     genKeysGenerator({ edgeSrcKey(), edgeTgtKey() }, autoKeys)
+                                                   );
+
+      persistKeys(nodelst, nodeKey(), CountDataMG::ptr->distributedKeys);
+      return res;
     }
 
     static
@@ -262,18 +320,16 @@ struct MetallGraph
     MGCountSummary
     count(std::vector<filter_type> nfilt, std::vector<filter_type> efilt)
     {
-      static CountDataMG* cntData = nullptr;
-
-      msg::PointerGuard cntStateGuard{ cntData, new CountDataMG{nodelst.comm()} };
+      msg::PointerGuard cntStateGuard{ CountDataMG::ptr, new CountDataMG{nodelst.comm()} };
 
       auto nodeAction = [nodeKeyTxt = nodeKey()]
                         (std::size_t, const MetallJsonLines::value_type& val)->void
                         {
-                          msg::DistributedStringSet& keyStore = cntData->distributedKeys;
+                          msg::DistributedStringSet& keyStore = CountDataMG::ptr->distributedKeys;
 
                           keyStore.async_insert(to_string(getKey(val, nodeKeyTxt)));
 
-                          ++cntData->nodecnt;
+                          ++CountDataMG::ptr->nodecnt;
                         };
 
       nodelst.filter(std::move(nfilt)).forAllSelected(nodeAction);
@@ -285,11 +341,14 @@ struct MetallGraph
       auto edgeAction = [edgeSrcKeyTxt = edgeSrcKey(), edgeTgtKeyTxt = edgeTgtKey()]
                         (std::size_t pos, const MetallJsonLines::value_type& val)->void
                         {
-                          msg::DistributedStringSet& keyStore = cntData->distributedKeys;
+                          msg::DistributedStringSet& keyStore = CountDataMG::ptr->distributedKeys;
                           auto commEdgeSrcCheck = [](const std::string& srckey, const std::string& tgtkey)
                                                   {
-                                                    msg::DistributedStringSet& keyStore = cntData->distributedKeys;
-                                                    auto commEdgeTgtCheck = [](const std::string&) { ++cntData->edgecnt; };
+                                                    msg::DistributedStringSet& keyStore = CountDataMG::ptr->distributedKeys;
+                                                    auto commEdgeTgtCheck = [](const std::string&)
+                                                                            {
+                                                                              ++CountDataMG::ptr->edgecnt;
+                                                                            };
 
                                                     keyStore.async_exe_if_contains(tgtkey, commEdgeTgtCheck);
                                                   };
@@ -302,8 +361,8 @@ struct MetallGraph
 
       edgelst.filter(std::move(efilt)).forAllSelected(edgeAction);
 
-      const std::size_t totalNodes = cntData->distributedKeys.size();
-      const std::size_t totalEdges = nodelst.comm().all_reduce_sum(cntData->edgecnt);
+      const std::size_t totalNodes = CountDataMG::ptr->distributedKeys.size();
+      const std::size_t totalEdges = nodelst.comm().all_reduce_sum(CountDataMG::ptr->edgecnt);
 
       return { totalNodes, totalEdges };
     }
@@ -313,9 +372,7 @@ struct MetallGraph
     MGCountSummary
     connectedComponents(std::vector<filter_type> nfilt, std::vector<filter_type> efilt)
     {
-      static ConnCompMG* connCommData = nullptr;
-
-      msg::PointerGuard cntStateGuard{ connCommData, new ConnCompMG{comm()} };
+      msg::PointerGuard cntStateGuard{ ConnCompMG::ptr, new ConnCompMG{comm()} };
 
       auto nodeAction =
         [nodeKeyTxt = nodeKey()]
@@ -323,7 +380,7 @@ struct MetallGraph
         {
           std::string vertex = to_string(getKey(val, nodeKeyTxt));
 
-          connCommData->distributedAdjList.async_insert_if_missing( vertex, std::vector<std::string>{} );
+          ConnCompMG::ptr->distributedAdjList.async_insert_if_missing( vertex, std::vector<std::string>{} );
         };
 
       nodelst.filter(std::move(nfilt)).forAllSelected(nodeAction);
@@ -332,7 +389,7 @@ struct MetallGraph
         [edgeSrcKeyTxt = edgeSrcKey(), edgeTgtKeyTxt = edgeTgtKey()]
         (std::size_t pos, const MetallJsonLines::value_type& val)->void
         {
-          msg::DistributedAdjList& adjList = connCommData->distributedAdjList;
+          msg::DistributedAdjList& adjList = ConnCompMG::ptr->distributedAdjList;
 
           auto commEdgeTgtCheck = [](const std::string& tgtkey, const std::vector<std::string>&, const std::string& srckey)
           {
@@ -342,7 +399,7 @@ struct MetallGraph
                 edges.emplace_back(std::move(tgtkey));
               };
 
-            connCommData->distributedAdjList.async_visit_if_exists(srckey, commEdgeSrcCheck, tgtkey);
+            ConnCompMG::ptr->distributedAdjList.async_visit_if_exists(srckey, commEdgeSrcCheck, tgtkey);
           };
 
           // check first target, if in -> add edge to adjecency list at src
@@ -366,12 +423,12 @@ struct MetallGraph
 
         static auto& s_next_active = next_active;
         static auto& s_map_cc      = map_cc;
-        static auto& s_adj_list    = connCommData->distributedAdjList;
+        static auto& s_adj_list    = ConnCompMG::ptr->distributedAdjList;
 
         //
         // Init map_cc
         s_adj_list.for_all(
-          [&map_cc, &active](const std::string& vertex, const std::vector<std::string>&)
+          [&map_cc, &active](const std::string& vertex, const std::vector<std::string>&) -> void
           {
             map_cc.async_insert(vertex, vertex);
             active.async_insert(vertex, vertex);
@@ -383,11 +440,14 @@ struct MetallGraph
         {
           // comm().cout0("active.size() = ", active.size());
           active.for_all(
-            [](const std::string& vertex, const std::string& cc_id)
+            [](const std::string& vertex, const std::string& cc_id) -> void
             {
               s_adj_list.async_visit(
                 vertex,
-                [](const std::string& vertex, const std::vector<std::string>& adj, const std::string& cc_id)
+                []( const std::string& vertex,
+                    const std::vector<std::string>& adj,
+                    const std::string& cc_id
+                  ) -> void
                 {
                   for (const auto& neighbor : adj)
                   {
@@ -395,14 +455,13 @@ struct MetallGraph
                     {
                       s_map_cc.async_visit(
                         neighbor,
-                        [](const std::string& n, std::string& ncc, const std::string& cc_id)
+                        [](const std::string& n, std::string& ncc, const std::string& cc_id) -> void
                         {
                           if (cc_id < ncc)
                           {
                             ncc = cc_id;
-                            s_next_active.async_reduce(
-                              n, cc_id,
-                              [](const std::string& a, const std::string& b)
+                            s_next_active.async_reduce(n, cc_id,
+                              [](const std::string& a, const std::string& b) -> const std::string&
                               {
                                 return std::min(a, b);
                               } );
@@ -421,7 +480,7 @@ struct MetallGraph
       }
 
       // \todo revise returns...
-      const std::size_t totalNodes = connCommData->distributedAdjList.size();
+      const std::size_t totalNodes = ConnCompMG::ptr->distributedAdjList.size();
       const std::size_t totalEdges = 0;
 
       return { totalNodes, totalEdges };

@@ -349,6 +349,8 @@ struct MetallJsonLines
     void clear() { vector.clear(); }
 
     /// calls updater(row) for each selected row
+    /// \param  updater a function that may modify an JSON line
+    /// \return the number of updated lines
     /// \pre An updater function \ref updater must not throw
     std::size_t set(updater_type updater)
     {
@@ -373,8 +375,15 @@ struct MetallJsonLines
     }
 
     /// imports json files and returns the number of imported rows
+    /// \param  files       a list of JSON data files that will be imported
+    /// \param  filter      a function that accepts or rejects a JSON line
+    /// \param  transformer a function that transforms a JSON entry before it is stored
+    /// \return a summary of how many lines were imported and rejected.
     ImportSummary
-    readJsonFiles(const std::vector<std::string>& files, std::function<bool(const value_type&)> filter = acceptAll)
+    readJsonFiles( const std::vector<std::string>&        files,
+                   std::function<bool(const value_type&)> filter      = acceptAll,
+                   std::function<value_type(value_type)>  transformer = identityTransformer
+                 )
     {
       namespace mtljsn = metall::container::experimental::json;
 
@@ -386,14 +395,17 @@ struct MetallJsonLines
       lines_type*                 vec         = &vector;
       metall_allocator_type       alloc       = get_allocator();
 
-      lineParser.for_all( [&imported, &rejected, vec, alloc, filterFn = std::move(filter)]
+      lineParser.for_all( [ &imported, &rejected, vec, alloc,
+                            filterFn  = std::move(filter),
+                            transFn = std::move(transformer)
+                          ]
                           (const std::string& line) -> void
                           {
                             value_type jsonLine = mtljsn::parse(line, alloc);
 
                             if (filterFn(jsonLine))
                             {
-                              vec->emplace_back(std::move(jsonLine));
+                              vec->emplace_back(transFn(std::move(jsonLine)));
                               ++imported;
                             }
                             else
@@ -421,8 +433,6 @@ struct MetallJsonLines
       files.emplace_back(std::move(file));
       return readJsonFiles(files);
     }
-
-
 
     //
     // filter setters
@@ -535,6 +545,9 @@ struct MetallJsonLines
 
     static
     bool acceptAll(const value_type&) { return true; }
+
+    static
+    value_type identityTransformer(value_type val) { return std::move(val); }
 
   private:
     ygm::comm&                           ygmcomm;
