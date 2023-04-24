@@ -174,12 +174,11 @@ genKeysGenerator( std::vector<std::string_view> edgeKeyFields,
            {
              try
              {
-               const auto& str    = obj[keyOrigin[i]].as_string();
-               std::string keyval;
-               
-               keyval.push_back('0' + i);
+               std::string_view key    = keyOrigin[i];
+               std::string      keyval = to_string(obj[key]);
+
                keyval.push_back('@');
-               keyval.append(std::string_view{&*str.begin(), str.size()});
+               keyval.append(key);
 
                obj[edgeKeys[i]] = keyval;
 
