@@ -18,15 +18,18 @@ const std::string METHOD_DOCSTRING = "Initializes a MetallGraph object\n"
 
 using             ARG_VERTEX_KEY_TYPE = std::string;
 const std::string ARG_VERTEX_KEY_NAME = "key";
-const std::string ARG_VERTEX_KEY_DESC = "The key field in each json entry. If a Json object does not have a key it is not stored.";
+const std::string ARG_VERTEX_KEY_DESC = "The key field in each json entry. If a Json object does not have a key it is not stored."
+                                        "\n(note: The key field is only required when a new data store is created)";
 
 using             ARG_EDGE_SRCKEY_TYPE = ARG_VERTEX_KEY_TYPE;
 const std::string ARG_EDGE_SRCKEY_NAME = "srckey";
-const std::string ARG_EDGE_SRCKEY_DESC = "The source key field in each json entry. If a Json object does not have a key it is not stored.";
+const std::string ARG_EDGE_SRCKEY_DESC = "The source key field in each json entry. If a Json object does not have a key it is not stored."
+                                         "\n(note: The source key field is only required when a new data store is created)";
 
 using             ARG_EDGE_DSTKEY_TYPE = ARG_EDGE_SRCKEY_TYPE;
 const std::string ARG_EDGE_DSTKEY_NAME = "dstkey";
-const std::string ARG_EDGE_DSTKEY_DESC = "The destination key field in each json entry. If a Json object does not have a key it is not stored.";
+const std::string ARG_EDGE_DSTKEY_DESC = "The destination key field in each json entry. If a Json object does not have a key it is not stored."
+                                         "\n(note: The destination key field is only required when a new data store is created)";
 
 using             ARG_ALWAYS_CREATE_TYPE = bool;
 const std::string ARG_ALWAYS_CREATE_NAME = "overwrite";
@@ -41,6 +44,9 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   clip.member_of(MG_CLASS_NAME, "A " + MG_CLASS_NAME + " class");
 
   clip.add_required<std::string>(ST_METALL_LOCATION, "Location of the Metall store");
+
+  // \note the keys are only required when a new data store is created
+  //       otherwise they will be read from the existing key fields in metallgraph
   clip.add_optional<ARG_VERTEX_KEY_TYPE> (ARG_VERTEX_KEY_NAME,  ARG_VERTEX_KEY_DESC,  std::string{});
   clip.add_optional<ARG_EDGE_SRCKEY_TYPE>(ARG_EDGE_SRCKEY_NAME, ARG_EDGE_SRCKEY_DESC, std::string{});
   clip.add_optional<ARG_EDGE_DSTKEY_TYPE>(ARG_EDGE_DSTKEY_NAME, ARG_EDGE_DSTKEY_DESC, std::string{});
