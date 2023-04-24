@@ -11,7 +11,7 @@ namespace xpr     = experimental;
 
 namespace
 {
-const std::string METHOD_NAME      = "connectComponents";
+const std::string METHOD_NAME      = "connected_components";
 const std::string METHOD_DOCSTRING = "Computes connected components..";
 } // anonymous
 

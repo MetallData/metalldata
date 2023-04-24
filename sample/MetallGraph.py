@@ -59,12 +59,11 @@ q.count()
 {'nodes': 10, 'edges': 3}
 
 
-#
-# auto generation of vertices from edge files
-# i
+##
+## auto generation of vertices from edge files (softcom.json)
 
-#  Consider the sample file (softcom.json). Each consists of a person (unique name)
-a# associated with a department. An entry can also be considered an edge with attributes.
+# Consider the sample file (softcom.json). Each consists of a person (unique name)
+# associated with a department. An entry can also be considered an edge with attributes.
 
 # To create a graph from the dataset, we require each vertex to have a from and a to vertex.
 # The vertex entries are not part of a dataset, but will be auto-generated. In this case we choose
@@ -78,4 +77,13 @@ mg.read_edges("/PATH/TO/METALLDATA/sample/data/softcom.json", autoVertices=["nam
 
 # This extends each record with two fields: member = "1@" + name, and group = "2@" + dept. Any entry without name or dept field will be discarded.
 # At the same time, a vertex file gets generated. An entry in the vertex file only contains IDs consisting of the union of member and group fields.
+
+
+##
+## auto generation of vertices from edge files (reddit data)
+
+mg = new MetallGraph("/PATH/TO/DATASTORE/reddit-1_4", key = "key", srckey = "authkey", dstkey = "linkkey");
+
+mg.read_edges(["/PATH/TO/REDDITDATA/RC_2010-10"], autoVertices=["author", "link_id"])
+
 
