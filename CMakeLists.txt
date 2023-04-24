@@ -18,16 +18,16 @@ find_package(Threads REQUIRED)
 
 #
 # Boost
-find_package(Boost 1.78 QUIET)
+find_package(Boost 1.80 QUIET)
 if (NOT Boost_FOUND)
     FetchContent_Declare(Boost
-            URL https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.tar.bz2)
+            URL https://boostorg.jfrog.io/artifactory/main/release/1.80.0/source/boost_1_80_0.tar.bz2)
     FetchContent_GetProperties(Boost)
     if (NOT Boost_POPULATED)
         FetchContent_Populate(Boost)
     endif ()
     set(BOOST_ROOT ${boost_SOURCE_DIR})
-    find_package(Boost 1.78)
+    find_package(Boost 1.80)
 endif ()
 
 

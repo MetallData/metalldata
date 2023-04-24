@@ -9,11 +9,12 @@
 
 #include <string>
 #include <limits>
+#include <optional>
 
 #include <metall/metall.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
 #include <metall/container/vector.hpp>
-#include <metall/container/experimental/json/json.hpp>
+#include <metall/json/json.hpp>
 
 #include <ygm/comm.hpp>
 
@@ -42,16 +43,20 @@ const std::string KEYS_SELECTOR      = "keys";
 template <class JsonObject>
 inline
 auto
-ifContains(const JsonObject& obj, const std::string& name) -> decltype(&obj.at(name))
+ifContains(const JsonObject& obj, const std::string& name)
+  -> std::optional<typename std::remove_reference<decltype(obj.at(name))>::type >
 {
+  using result_type = std::optional<typename std::remove_reference<decltype(obj.at(name))>::type >;
+
   auto pos = obj.find(name);
 
-  return (pos == obj.end()) ? nullptr : &pos->value();
+  return (pos != obj.end()) ? result_type{(*pos).value()}
+                            : std::nullopt;
 }
 
 CXX_MAYBE_UNUSED
 json_logic::ValueExpr
-toValueExpr(const experimental::MetallJsonLines::value_type& el)
+toValueExpr(const experimental::MetallJsonLines::accessor_type& el)
 {
   if (el.is_int64())  return json_logic::toValueExpr(el.as_int64());
   if (el.is_uint64()) return json_logic::toValueExpr(el.as_uint64());
@@ -71,15 +76,15 @@ json_logic::ValueExpr
 evalPath(std::string_view path, const MetallJsonObjectT& obj)
 {
   if (auto pos = obj.find(path); pos != obj.end())
-    return toValueExpr(pos->value());
+    return toValueExpr((*pos).value());
 
-  std::size_t pos = path.find('.');
+  std::size_t selpos = path.find('.');
 
-  if (pos == std::string::npos)
+  if (selpos == std::string::npos)
     return json_logic::toValueExpr(nullptr);
 
-  std::string_view selector = path.substr(0, pos);
-  std::string_view suffix   = path.substr(pos+1);
+  std::string_view selector = path.substr(0, selpos);
+  std::string_view suffix   = path.substr(selpos+1);
 
   return evalPath(suffix, obj.at(selector).as_object());
 }
@@ -99,7 +104,7 @@ auto variableLookup(const MetallJsonObjectT& rowobj, std::string_view selectPref
            if (auto pos = rowobj.find(col); pos != rowobj.end())
            {
              CXX_LIKELY;
-             return toValueExpr(pos->value());
+             return toValueExpr((*pos).value());
            }
 
            if (col == "rowid") return json_logic::toValueExpr(rownum);
@@ -110,7 +115,7 @@ auto variableLookup(const MetallJsonObjectT& rowobj, std::string_view selectPref
 }
 
 inline
-auto variableLookup( const experimental::MetallJsonLines::value_type& rowval,
+auto variableLookup( const experimental::MetallJsonLines::accessor_type& rowval,
                      std::string_view selectPrefix,
                      std::size_t rownum,
                      std::size_t rank
@@ -158,7 +163,7 @@ filter(std::size_t rank, JsonExpression jsonExpr, std::string_view selectPrefix 
     std::shared_ptr<json_logic::Expr> pred{rawexpr};
 
     res.emplace_back( [rank, selectPrefix, pred = std::move(pred)]
-                      (std::size_t rownum, const experimental::MetallJsonLines::value_type& rowval) mutable -> bool
+                      (std::size_t rownum, const experimental::MetallJsonLines::accessor_type& rowval) mutable -> bool
                       {
                         auto varLookup = variableLookup(rowval, selectPrefix, rownum, rank);
 
@@ -191,13 +196,13 @@ projector(ColumnSelector projlist)
 
   // w/o selection list, just return the full object
   if (projlist.empty())
-    return [](const xpr::MetallJsonLines::value_type& el) -> boost::json::value
+    return [](const xpr::MetallJsonLines::accessor_type& el) -> boost::json::value
            {
-             return metall::container::experimental::json::value_to<boost::json::value>(el);
+             return json_bento::value_to<boost::json::value>(el);
            };
 
   return [fields = std::move(projlist)]
-         (const xpr::MetallJsonLines::value_type& el) -> boost::json::value
+         (const xpr::MetallJsonLines::accessor_type& el) -> boost::json::value
          {
            assert (el.is_object());
            const auto& frobj = el.as_object();
@@ -206,8 +211,8 @@ projector(ColumnSelector projlist)
 
            for (const std::string& col : fields)
            {
-             if (const auto* fld = ifContains(frobj, col))
-               res.emplace(col, metall::container::experimental::json::value_to<boost::json::value>(*fld));
+             if (const auto fld = ifContains(frobj, col))
+               res.emplace(col, json_bento::value_to<boost::json::value>(fld.value()));
            }
 
            return res;
@@ -220,6 +225,7 @@ projector(const std::string& projectorKey, clippy::clippy& clip)
 {
   return projector(clip.get<ColumnSelector>(projectorKey));
 }
+
 
 template <class AllocT>
 CXX_MAYBE_UNUSED
@@ -247,17 +253,16 @@ updater( std::size_t rank,
   std::shared_ptr<json_logic::Expr> oper{rawexpr};
 
   return [rank, selectPrefix, colName=std::move(columnName), op=std::move(oper), objalloc{alloc}]
-         (int rownum, xpr::MetallJsonLines::value_type& rowval) -> void
+         (std::size_t rownum, xpr::MetallJsonLines::accessor_type rowval) -> void
          {
            auto                  varLookup = variableLookup(rowval, selectPrefix, rownum, rank);
            json_logic::ValueExpr exp       = json_logic::calculate(*op, varLookup);
-           auto&                 rowobj    = rowval.as_object();
+           auto                  rowobj    = rowval.as_object();
            std::stringstream     jstr;
 
            jstr << exp;
 
-           // return metall::container::experimental::json::value_from(*exp, objalloc);
-           rowobj[colName] = metall::container::experimental::json::parse(jstr.str(), objalloc);
+           rowobj[colName].parse(jstr.str());
          };
 }
 
@@ -269,7 +274,6 @@ void append(std::vector<boost::json::object>& lhs, std::vector<boost::json::obje
 
   std::move(rhs.begin(), rhs.end(), std::back_inserter(lhs));
 }
-
 }
 
 int ygm_main(ygm::comm& world, int argc, char** argv);
