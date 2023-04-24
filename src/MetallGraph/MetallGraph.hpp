@@ -104,22 +104,22 @@ using MetallString = boost::container::basic_string< char,
                                                      metall::manager::allocator_type<char>
                                                    >;
 
-const MetallJsonLines::value_type&
-getKey(const MetallJsonLines::value_type& val, std::string_view key)
+MetallJsonLines::accessor_type
+getKey(MetallJsonLines::accessor_type val, std::string_view key)
 {
   return val.as_object()[key];
 }
 
 std::string
-to_string(const MetallJsonLines::value_type& val)
+to_string(const MetallJsonLines::accessor_type& val)
 {
-  return ::metall::container::experimental::json::serialize(val);
+  return std::string{}; //::metall::json::serialize(val); \box
 }
 
-std::function<bool(const MetallJsonLines::value_type&)>
+std::function<bool(const boost::json::value&)>
 genKeysChecker(std::vector<std::string_view> keys)
 {
-  return [fields = std::move(keys)](const MetallJsonLines::value_type& val) -> bool
+  return [fields = std::move(keys)](const boost::json::value& val) -> bool
          {
            try
            {
@@ -252,7 +252,7 @@ struct MetallGraph
       msg::PointerGuard cntStateGuard{ cntData, new CountDataMG{nodelst.comm()} };
 
       auto nodeAction = [nodeKeyTxt = nodeKey()]
-                        (std::size_t, const MetallJsonLines::value_type& val)->void
+                        (std::size_t, const MetallJsonLines::accessor_type& val)->void
                         {
                           msg::DistributedStringSet& keyStore = cntData->distributedKeys;
 
@@ -268,7 +268,7 @@ struct MetallGraph
       //   To mark the actual edge, we need to add (owner, index) to the msg, so that the
       //   target vertex owner can notify the edge owner of its inclusion.
       auto edgeAction = [edgeSrcKeyTxt = edgeSrcKey(), edgeTgtKeyTxt = edgeTgtKey()]
-                        (std::size_t pos, const MetallJsonLines::value_type& val)->void
+                        (std::size_t pos, const MetallJsonLines::accessor_type& val)->void
                         {
                           msg::DistributedStringSet& keyStore = cntData->distributedKeys;
                           auto commEdgeSrcCheck = [](const std::string& srckey, const std::string& tgtkey)
