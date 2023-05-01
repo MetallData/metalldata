@@ -1,0 +1,1 @@
+{"_state": {"metall_location": "/PATH/TO/DATASTORE/mg", "selected": [{"expression_type": "jsonlogic", "rule": {"or": [{">=": [{"var": "nodes.name"}, "Pam"]}, {"var": "nodes.dept"}]}}, {"expression_type": "jsonlogic", "rule": {"==": [{"var": "edges.rel"}, "head"]}}]}}

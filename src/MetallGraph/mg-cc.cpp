@@ -46,13 +46,13 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     const std::string   dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
     metall_manager      mm{metall::open_read_only, dataLocation.data(), MPI_COMM_WORLD};
     xpr::MetallGraph    g{mm, world};
-    xpr::MGCountSummary res = g.connectedComponents( filter(world.rank(), clip, NODES_SELECTOR),
+    const std::size_t   res = g.connectedComponents( filter(world.rank(), clip, NODES_SELECTOR),
                                                      filter(world.rank(), clip, EDGES_SELECTOR)
                                                    );
 
     if (world.rank() == 0)
     {
-      clip.to_return(res.asJson());
+      clip.to_return(res);
     }
   }
   catch (const std::exception& err)

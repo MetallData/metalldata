@@ -18,16 +18,16 @@ find_package(Threads REQUIRED)
 
 #
 # Boost
-find_package(Boost 1.78 QUIET)
+find_package(Boost 1.80 QUIET)
 if (NOT Boost_FOUND)
     FetchContent_Declare(Boost
-            URL https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.tar.bz2)
+            URL https://boostorg.jfrog.io/artifactory/main/release/1.80.0/source/boost_1_80_0.tar.bz2)
     FetchContent_GetProperties(Boost)
     if (NOT Boost_POPULATED)
         FetchContent_Populate(Boost)
     endif ()
     set(BOOST_ROOT ${boost_SOURCE_DIR})
-    find_package(Boost 1.78)
+    find_package(Boost 1.80)
 endif ()
 
 
@@ -102,6 +102,19 @@ if (NOT Metall_FOUND)
     FetchContent_MakeAvailable(Metall)
 endif ()
 
+
+#
+#  GoogleTest
+#
+if (METALLDATA_BUILD_TESTS)
+    FetchContent_Declare(
+            googletest
+            GIT_REPOSITORY git@github.com:google/googletest.git
+            GIT_TAG main
+    )
+    FetchContent_MakeAvailable(googletest)
+endif()
+
 #
 #  CXX Filesystem library
 #
@@ -138,6 +151,7 @@ endfunction()
 function(add_metalldata_executable name source)
     add_executable(${name} ${source})
     add_common_compile_options(${name})
+    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include)
 endfunction()
 
 
@@ -213,5 +227,11 @@ function(setup_metall_target exe_name)
 endfunction()
 
 add_subdirectory(src)
-#add_subdirectory(test)
+add_subdirectory(examples)
+
+if (METALLDATA_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
 #add_subdirectory(example)

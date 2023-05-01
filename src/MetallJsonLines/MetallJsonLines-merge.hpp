@@ -4,13 +4,14 @@
 
 #include <boost/json.hpp>
 #include <boost/functional/hash.hpp>
-//~ #include <metall/container/experimental/json/parse.hpp>
+// #include <metall/json/parse.hpp>
 
 #include "MetallJsonLines.hpp"
 
 // sorry, for introducing this in a header file, which should really be a C file.
 namespace bj      = boost::json;
-namespace mtljsn  = metall::container::experimental::json;
+namespace mtljsn  = metall::json;
+namespace xpr     = experimental;
 
 static constexpr bool DEBUG_TRACE_MERGE = false;
 
@@ -75,9 +76,9 @@ namespace
   }
 
 
-  template <typename _allocator_type>
+  template <typename MetallJsonAccessor>
   std::size_t
-  hashCode(const mtljsn::value<_allocator_type>& val)
+  hashCode(const MetallJsonAccessor& val)
   {
     if (val.is_null())   return std::hash<nullptr_t>{}(nullptr);
     if (val.is_bool())   return std::hash<bool>{}(val.as_bool());
@@ -325,14 +326,14 @@ namespace
            );
   }
 
-  template <typename _allocator_type>
+  // template <typename _allocator_type>
   std::uint64_t
-  computeHash(const mtljsn::value<_allocator_type>& val, const ColumnSelector& sel, ygm::comm& w)
+  computeHash(const xpr::MetallJsonLines::accessor_type& val, const ColumnSelector& sel, ygm::comm& w)
   {
     assert(val.is_object());
 
-    const mtljsn::object<_allocator_type>& obj = val.as_object();
-    std::uint64_t                          res{0};
+    const auto&   obj = val.as_object();
+    std::uint64_t res{0};
 
     for (const ColumnSelector::value_type& col : sel)
     {
@@ -340,7 +341,7 @@ namespace
 
       if (pos != obj.end())
       {
-        const mtljsn::value<_allocator_type>& sub = pos->value();
+        const auto& sub = (*pos).value();
 
         res = stableHashCombine(res, hashCode(sub));
       }
@@ -350,13 +351,13 @@ namespace
   }
 
   void computeMergeInfo( ygm::comm& world,
-                         const experimental::MetallJsonLines& vec,
+                         const xpr::MetallJsonLines& vec,
                          const ColumnSelector& colsel,
                          JoinSide which
                        )
   {
     vec.forAllSelected( [&world, &colsel, which]
-                        (std::size_t rownum, const experimental::MetallJsonLines::value_type& row) -> void
+                        (std::size_t rownum, const xpr::MetallJsonLines::accessor_type& row) -> void
                         {
                           std::uint64_t hval = computeHash(row, colsel, world);
 
@@ -382,13 +383,71 @@ namespace
     }
   }
 
+  void emplace(xpr::MetallJsonLines::accessor_type store, xpr::MetallJsonLines::accessor_type val)
+  {
+    if (val.is_string())
+      store.emplace_string() = val.as_string().c_str();
+    else if (val.is_int64())
+      store.emplace_int64() = val.as_int64();
+    else if (val.is_uint64())
+      store.emplace_uint64() = val.as_uint64();
+    else if (val.is_double())
+      store.emplace_double() = val.as_double();
+    else if (val.is_bool())
+      store.emplace_bool() = val.as_bool();
+
+/*
+ *  \todo not yet supported;
+
+    else if (const bj::array* a = val.if_array())
+      store.emplace_array(*a);
+
+    else if (const bj::object* o = val.if_object())
+      store.emplace_object(*o);
+*/
+    else
+    {
+      assert(val.is_null());
+      store.emplace_null();
+    }
+  }
+
+  void emplace(xpr::MetallJsonLines::accessor_type store, const bj::value& val)
+  {
+    if (const bj::string* s = val.if_string())
+      store.emplace_string() = s->c_str();
+    else if (const std::int64_t* i = val.if_int64())
+      store.emplace_int64() = *i;
+    else if (const std::uint64_t* u = val.if_uint64())
+      store.emplace_uint64() = *u;
+    else if (const double* d = val.if_double())
+      store.emplace_double() = *d;
+    else if (const bool* b = val.if_bool())
+      store.emplace_bool() = *b;
+
+/*
+ *  \todo not yet supported;
+
+    else if (const bj::array* a = val.if_array())
+      store.emplace_array(*a);
+
+    else if (const bj::object* o = val.if_object())
+      store.emplace_object(*o);
+*/
+    else
+    {
+      assert(val.is_null());
+      store.emplace_null();
+    }
+  }
+
   template <class JsonObject, class JsonValue>
   void
   appendFields(JsonObject& rec, const JsonValue& other, const std::string& other_suffix)
   {
     assert(other.is_object());
 
-    const JsonObject& that = other.as_object();
+    const auto& that = other.as_object();
 
     for (const auto& x : that)
     {
@@ -396,7 +455,8 @@ namespace
       std::string      newkey(key.begin(), key.end());
 
       newkey += other_suffix;
-      rec[newkey] = x.value();
+      // rec[newkey] = x.value();
+      emplace(rec[newkey], x.value());
     }
   }
 
@@ -411,40 +471,39 @@ namespace
     }
 
     assert(other.is_object());
-    const JsonObject& that = other.as_object();
+    const auto& that = other.as_object();
 
     for (std::string key : projlst)
     {
-      if (const JsonValue* entry = ifContains(that, key))
+      if (auto const entry = ifContains(that, key))
       {
         key += other_suffix;
-        rec[key] = *entry;
+        emplace(rec[key], std::move(*entry));
+        //~ emplace(rec[key], *entry);
       }
     }
   }
 
 
-  template <class _allocator_type>
   void
-  joinRecords( mtljsn::value<_allocator_type>& res,
-               const mtljsn::value<_allocator_type>& lhs,
+  joinRecords( xpr::MetallJsonLines::accessor_type res,
+               const xpr::MetallJsonLines::accessor_type& lhs,
                const ColumnSelector& projlstLHS,
-               const mtljsn::value<_allocator_type>& rhs,
+               const bj::value& rhs,
                const ColumnSelector& projlstRHS,
                const std::string& lsuf = "_l",
                const std::string& rsuf = "_r"
              )
   {
-    mtljsn::object<_allocator_type>& obj = res.emplace_object();
+    auto obj = res.emplace_object();
 
     appendFields(obj, lhs, projlstLHS, lsuf);
     appendFields(obj, rhs, projlstRHS, rsuf);
   }
 
-  template <class _allocator_type>
-  void computeJoin( const mtljsn::value<_allocator_type>& lhs, const ColumnSelector& lhsOn, const ColumnSelector& projlstLeft,
-                    const mtljsn::value<_allocator_type>& rhs, const ColumnSelector& rhsOn, const ColumnSelector& projlstRight,
-                    experimental::MetallJsonLines& res
+  void computeJoin( const xpr::MetallJsonLines::accessor_type& lhs, const ColumnSelector& lhsOn, const ColumnSelector& projlstLeft,
+                    const bj::value& rhs,                           const ColumnSelector& rhsOn, const ColumnSelector& projlstRight,
+                    xpr::MetallJsonLines& res
                   )
   {
     static std::uint64_t CNT = 0;
@@ -454,19 +513,20 @@ namespace
     assert(lhs.is_object());
     assert(rhs.is_object());
 
-    const mtljsn::object<_allocator_type>& lhsObj = lhs.as_object();
-    const mtljsn::object<_allocator_type>& rhsObj = rhs.as_object();
+    const auto lhsObj = lhs.as_object();
+    const auto rhsObj = rhs.as_object();
 
     for (int i = 0; i < N; ++i)
     {
-      const ColumnSelector::value_type&     lhsCol = lhsOn[i];
-      const ColumnSelector::value_type&     rhsCol = rhsOn[i];
-      const mtljsn::value<_allocator_type>* lhsSub = ifContains(lhsObj, lhsCol);
-      const mtljsn::value<_allocator_type>* rhsSub = ifContains(rhsObj, rhsCol);
+      const ColumnSelector::value_type& lhsCol = lhsOn[i];
+      const ColumnSelector::value_type& rhsCol = rhsOn[i];
+      const auto                        lhsSub = ifContains(lhsObj, lhsCol);
+      const auto                        rhsSub = ifContains(rhsObj, rhsCol);
 
       assert(lhsSub && rhsSub);
 
-      if ((*lhsSub) != (*rhsSub))
+      // was: if ((*lhsSub) != (*rhsSub))
+      if (json_bento::value_to<boost::json::value>(*lhsSub) != *rhsSub)
         return;
     }
 
@@ -745,12 +805,11 @@ std::size_t merge( MetallJsonLines& resVec,
     {
       for (int lhsIdx : el.indices())
       {
-        const MetallJsonLines::value_type& lhsObj = lhsVec.at(lhsIdx);
+        const MetallJsonLines::accessor_type& lhsObj = lhsVec.at(lhsIdx);
 
-        for (const bj::value& remoteObj : el.data())
+        for (const bj::value& rhsObj : el.data())
         {
-          MetallJsonLines::value_type rhsObj = mtljsn::value_from(remoteObj, resVec.get_allocator());
-
+          // MetallJsonLines::accessor_type rhsObj = mtljsn::value_from(remoteObj, resVec.get_allocator());
           computeJoin(lhsObj, lhsOn, lhsProj, rhsObj, rhsOn, rhsProj, resVec);
         }
       }
