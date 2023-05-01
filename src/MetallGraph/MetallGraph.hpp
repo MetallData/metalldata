@@ -122,22 +122,33 @@ using MetallString = boost::container::basic_string< char,
                                                      metall::manager::allocator_type<char>
                                                    >;
 
-const MetallJsonLines::value_type&
-getKey(const MetallJsonLines::value_type& val, std::string_view key)
+MetallJsonLines::accessor_type
+getKey(MetallJsonLines::accessor_type val, std::string_view key)
 {
+  assert(val.is_object());
   return val.as_object()[key];
 }
 
 std::string
-to_string(const MetallJsonLines::value_type& val)
+to_string(const boost::json::value& val)
 {
-  return ::metall::container::experimental::json::serialize(val);
+  std::stringstream stream;
+
+  stream << val;
+  return stream.str();
 }
 
-std::function<bool(const MetallJsonLines::value_type&)>
+std::string
+to_string(const MetallJsonLines::accessor_type& valacc)
+{
+  return to_string(json_bento::value_to<boost::json::value>(valacc));
+}
+
+
+std::function<bool(const boost::json::value&)>
 genKeysChecker(std::vector<std::string_view> keys)
 {
-  return [fields = std::move(keys)](const MetallJsonLines::value_type& val) -> bool
+  return [fields = std::move(keys)](const boost::json::value& val) -> bool
          {
            try
            {
@@ -158,7 +169,7 @@ genKeysChecker(std::vector<std::string_view> keys)
          };
 }
 
-std::function<MetallJsonLines::value_type(MetallJsonLines::value_type)>
+std::function<boost::json::value(boost::json::value)>
 genKeysGenerator( std::vector<std::string_view> edgeKeyFields,
                   std::vector<std::string_view> edgeKeysOrigin
                 )
@@ -166,7 +177,7 @@ genKeysGenerator( std::vector<std::string_view> edgeKeyFields,
   const int numKeys = std::min(edgeKeyFields.size(), edgeKeysOrigin.size());
 
   return [edgeKeys = std::move(edgeKeyFields), keyOrigin = std::move(edgeKeysOrigin), numKeys]
-         (MetallJsonLines::value_type val) -> MetallJsonLines::value_type
+         (boost::json::value val) -> boost::json::value
          {
            auto& obj = val.as_object();
 
@@ -214,8 +225,8 @@ void persistKeys(MetallJsonLines& lines, std::string_view key, msg::DistributedS
 {
   keyValues.local_for_all( [&lines, key](const std::string& keyval) -> void
                            {
-                             MetallJsonLines::value_type& val = lines.append_local();
-                             auto&                        obj = val.emplace_object();
+                             MetallJsonLines::accessor_type val = lines.append_local();
+                             auto                           obj = val.emplace_object();
 
                              obj[key] = keyval;
                            }
@@ -322,26 +333,33 @@ struct MetallGraph
     MGCountSummary
     count(std::vector<filter_type> nfilt, std::vector<filter_type> efilt)
     {
-      msg::PointerGuard cntStateGuard{ CountDataMG::ptr, new CountDataMG{nodelst.comm()} };
+      assert(CountDataMG::ptr == nullptr);
 
-      auto nodeAction = [nodeKeyTxt = nodeKey()]
-                        (std::size_t, const MetallJsonLines::value_type& val)->void
+      msg::PointerGuard cntStateGuard{ CountDataMG::ptr, new CountDataMG{nodelst.comm()} };
+      int               rank = comm().rank();
+
+      auto nodeAction = [nodeKeyTxt = nodeKey(), rank]
+                        (std::size_t, const MetallJsonLines::accessor_type& val)->void
                         {
+                          assert(CountDataMG::ptr != nullptr);
+
                           msg::DistributedStringSet& keyStore = CountDataMG::ptr->distributedKeys;
 
-                          keyStore.async_insert(to_string(getKey(val, nodeKeyTxt)));
+                          std::string thekey = to_string(getKey(val, nodeKeyTxt));
+                          keyStore.async_insert(thekey);
 
                           ++CountDataMG::ptr->nodecnt;
                         };
 
       nodelst.filter(std::move(nfilt)).forAllSelected(nodeAction);
+      comm().barrier();
 
       // \todo
       //   this version only counts the presence of src and tgt vertex of an edge.
       //   To mark the actual edge, we need to add (owner, index) to the msg, so that the
       //   target vertex owner can notify the edge owner of its inclusion.
       auto edgeAction = [edgeSrcKeyTxt = edgeSrcKey(), edgeTgtKeyTxt = edgeTgtKey()]
-                        (std::size_t pos, const MetallJsonLines::value_type& val)->void
+                        (std::size_t pos, const MetallJsonLines::accessor_type& val)->void
                         {
                           msg::DistributedStringSet& keyStore = CountDataMG::ptr->distributedKeys;
                           auto commEdgeSrcCheck = [](const std::string& srckey, const std::string& tgtkey)
@@ -361,7 +379,9 @@ struct MetallGraph
                                                         );
                         };
 
+
       edgelst.filter(std::move(efilt)).forAllSelected(edgeAction);
+      comm().barrier();
 
       const std::size_t totalNodes = CountDataMG::ptr->distributedKeys.size();
       const std::size_t totalEdges = nodelst.comm().all_reduce_sum(CountDataMG::ptr->edgecnt);
@@ -371,14 +391,14 @@ struct MetallGraph
 
     ygm::comm& comm() { return nodelst.comm(); }
 
-    MGCountSummary
+    std::size_t
     connectedComponents(std::vector<filter_type> nfilt, std::vector<filter_type> efilt)
     {
       msg::PointerGuard cntStateGuard{ ConnCompMG::ptr, new ConnCompMG{comm()} };
 
       auto nodeAction =
         [nodeKeyTxt = nodeKey()]
-        (std::size_t, const MetallJsonLines::value_type& val)->void
+        (std::size_t, const MetallJsonLines::accessor_type& val)->void
         {
           std::string vertex = to_string(getKey(val, nodeKeyTxt));
 
@@ -386,10 +406,11 @@ struct MetallGraph
         };
 
       nodelst.filter(std::move(nfilt)).forAllSelected(nodeAction);
+      comm().barrier();
 
       auto edgeAction =
         [edgeSrcKeyTxt = edgeSrcKey(), edgeTgtKeyTxt = edgeTgtKey()]
-        (std::size_t pos, const MetallJsonLines::value_type& val)->void
+        (std::size_t pos, const MetallJsonLines::accessor_type& val)->void
         {
           msg::DistributedAdjList& adjList = ConnCompMG::ptr->distributedAdjList;
 
@@ -414,6 +435,7 @@ struct MetallGraph
       edgelst.filter(std::move(efilt)).forAllSelected(edgeAction);
 
       comm().barrier();
+      static std::size_t localRoots    = 0;
 
       {
         // from Roger's code
@@ -423,9 +445,10 @@ struct MetallGraph
         ygm::container::map<std::string, std::string> active{comm()};
         ygm::container::map<std::string, std::string> next_active{comm()};
 
-        static auto& s_next_active = next_active;
-        static auto& s_map_cc      = map_cc;
-        static auto& s_adj_list    = ConnCompMG::ptr->distributedAdjList;
+        // \todo could be factored into a class similar to ConnCompMG
+        static auto&       s_next_active = next_active;
+        static auto&       s_map_cc      = map_cc;
+        static auto&       s_adj_list    = ConnCompMG::ptr->distributedAdjList;
 
         //
         // Init map_cc
@@ -479,13 +502,23 @@ struct MetallGraph
           active.clear();
           active.swap(next_active);
         }
+
+        localRoots = 0;
+
+        // \todo should be local_for_all??
+        s_map_cc.for_all( [](const std::string& lhs, const std::string& rhs) -> void
+                          {
+                            localRoots += (lhs == rhs);
+
+                            if (lhs == rhs)
+                              std::cerr << lhs << std::flush;
+                          }
+                        );
       }
 
-      // \todo revise returns...
-      const std::size_t totalNodes = ConnCompMG::ptr->distributedAdjList.size();
-      const std::size_t totalEdges = 0;
+      const std::size_t totalRoots = nodelst.comm().all_reduce_sum(localRoots);
 
-      return { totalNodes, totalEdges };
+      return totalRoots;
     }
 
 

@@ -1,18 +1,18 @@
-{ "name":"Tim", "dept":"Finc", "role":"controlling" }
-{ "name":"Pam", "dept":"Finc", "role":"accounting" }
-{ "name":"Pat", "dept":"Finc", "role":"head" }
-{ "name":"Tom", "dept":"Dev", "role":"programmer" }
-{ "name":"Hal", "dept":"Dev", "role":"programmer" }
-{ "name":"Vic", "dept":"Dev", "role":"programmer" }
-{ "name":"Asa", "dept":"Dev", "role":"programmer" }
-{ "name":"Oli", "dept":"Dev", "role":"programmer" }
-{ "name":"Max", "dept":"Dev", "role":"programmer" }
-{ "name":"Pia", "dept":"Dev", "role":"programmer" }
-{ "name":"Rex", "dept":"Dev", "role":"engineer" }
-{ "name":"Dan", "dept":"Dev", "role":"admin" }
-{ "name":"Leo", "dept":"Dev", "role":"tester" }
-{ "name":"Sam", "dept":"Dev", "role":"lead" }
-{ "name":"Eli", "dept":"Sales", "role":"rep" }
-{ "name":"Yue", "dept":"Sales", "role":"rep" }
-{ "name":"Sky", "dept":"Sales", "role":"rep" }
-{ "name":"Sue", "dept":"Sales", "role":"lead" }
+{"name":"Tim","dept":"Finc","role":"controlling"}
+{"name":"Pam","dept":"Finc","role":"accounting"}
+{"name":"Pat","dept":"Finc","role":"head"}
+{"name":"Tom","dept":"Dev","role":"programmer"}
+{"name":"Hal","dept":"Dev","role":"programmer"}
+{"name":"Vic","dept":"Dev","role":"programmer"}
+{"name":"Asa","dept":"Dev","role":"programmer"}
+{"name":"Oli","dept":"Dev","role":"programmer"}
+{"name":"Max","dept":"Dev","role":"programmer"}
+{"name":"Pia","dept":"Dev","role":"programmer"}
+{"name":"Rex","dept":"Dev","role":"engineer"}
+{"name":"Dan","dept":"Dev","role":"admin"}
+{"name":"Leo","dept":"Dev","role":"tester"}
+{"name":"Sam","dept":"Dev","role":"lead"}
+{"name":"Eli","dept":"Sales","role":"rep"}
+{"name":"Yue","dept":"Sales","role":"rep"}
+{"name":"Sky","dept":"Sales","role":"rep"}
+{"name":"Sue","dept":"Sales","role":"lead"}

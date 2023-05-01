@@ -10,13 +10,20 @@ exec_test()
 
   CMD="$EXEPREFIX $PROG"
 
+  BEGTIME=`date +%s`
+
   echo "$CMD <$TEST.json"
   $CMD <$TEST.json >$TEST.out
 
   if [ $? -ne 0 ]; then
     echo -e "\e[0;31m** FAILED\e[0m (non-zero return)"
-  elif [ $CHECK -eq 1 ]; then
-    cmp --silent $TEST.out $TEST.exp || echo -e "\e[0;31m** FAILED\e[0m (unexpected output)"
+  else
+    ENDTIME=`date +%s`
+    echo "$((ENDTIME-BEGTIME))s"
+
+    if [ $CHECK -eq 1 ]; then
+      cmp --silent $TEST.out $TEST.exp || echo -e "\e[0;31m** FAILED\e[0m (unexpected output)"
+    fi
   fi
 }
 
@@ -135,8 +142,15 @@ exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-init" "mg-init" 1
 exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-count" "mg-count-0" 1
 exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-read_vertices" "mg-read_vertices" 1
 exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-read_edges" "mg-read_edges" 1
+exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-count_lines" "mg-count_lines" 1
+exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-count_lines" "mg-count_lines-selected" 1
 exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-count" "mg-count-1" 1
 exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-count" "mg-count-selected" 1
+
+exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-init" "mg-softcom-init" 0
+exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-read_edges" "mg-softcom-read_edges" 0
+exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-count_lines" "mg-softcom-count_lines" 0
+exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-cc" "mg-softcom-cc" 0
 
 if [ $KEEPFILES -ne 1 ]; then
   rm -f ./m*.json ./m*.out ./m*.exp ./clippy*.log
