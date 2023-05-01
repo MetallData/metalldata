@@ -11,8 +11,8 @@ namespace xpr     = experimental;
 
 namespace
 {
-const std::string METHOD_NAME = "count";
-const std::string METHOD_DOCSTRING = "Counts the number of rows where the current selection criteria is true. Edges are counted only if their endpoints are both in the counted vertices set.";
+const std::string METHOD_NAME      = "connected_components";
+const std::string METHOD_DOCSTRING = "Computes connected components..";
 } // anonymous
 
 std::size_t countLines( bool skip,
@@ -46,9 +46,9 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     const std::string   dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
     metall_manager      mm{metall::open_read_only, dataLocation.data(), MPI_COMM_WORLD};
     xpr::MetallGraph    g{mm, world};
-    xpr::MGCountSummary res = g.count( filter(world.rank(), clip, NODES_SELECTOR),
-                                       filter(world.rank(), clip, EDGES_SELECTOR)
-                                     );
+    xpr::MGCountSummary res = g.connectedComponents( filter(world.rank(), clip, NODES_SELECTOR),
+                                                     filter(world.rank(), clip, EDGES_SELECTOR)
+                                                   );
 
     if (world.rank() == 0)
     {
