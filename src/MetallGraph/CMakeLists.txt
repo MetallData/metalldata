@@ -15,6 +15,11 @@ set(CMAKE_CXX_FLAGS_RELEASE "-Wall -Wextra -O3 -march=native")
 include_directories(${PROJECT_SOURCE_DIR}/src/MetallJsonLines/)
 include_directories(${PROJECT_SOURCE_DIR}/src/MetallGraph/)
 
+add_metalldata_executable(mg-cc mg-cc.cpp)
+setup_metall_target(mg-cc)
+setup_ygm_target(mg-cc)
+setup_clippy_target(mg-cc)
+
 add_metalldata_executable(mg-init mg-init.cpp)
 setup_metall_target(mg-init)
 setup_ygm_target(mg-init)
