@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <type_traits>
+#include <optional>
 
 #include <json_bento/box/accessor_fwd.hpp>
 #include <json_bento/box/core_data/core_data.hpp>
@@ -62,6 +63,15 @@ class object_accessor {
   /// \brief Return true if the key is found.
   /// \return True if found; otherwise, false.
   bool contains(const key_type &key) const { return priv_find(key) != size(); }
+
+  /// \brief Returns to the value associated with the key if it exists.
+  /// \return The value associated with the key in std::optional if it exists;
+  /// otherwise, empty std::optional (i.e., std::nullopt).
+  std::optional<value_accessor_type> if_contains(const key_type &key) const {
+    if (contains(key))
+      return at(key);
+    return std::nullopt;
+  }
 
   /// \brief Count the number of elements with a specific key.
   /// \return The number elements with a specific key.

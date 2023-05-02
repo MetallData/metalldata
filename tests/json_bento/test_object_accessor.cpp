@@ -188,3 +188,21 @@ TEST(ObjectAccessorTest, Find) {
   EXPECT_TRUE((*const_accessor.find("key0")).value().as_bool());
   EXPECT_DOUBLE_EQ((*const_accessor.find("key1")).value().as_double(), 0.5);
 }
+
+TEST(ObjectAccessorTest, IfContains) {
+  box_type box;
+  boost::json::value value;
+  value.emplace_object();
+  value.as_object()["key0"] = true;
+  value.as_object()["key1"] = 0.5;
+
+  auto accessor = box[box.push_back(value)].as_object();
+  EXPECT_EQ(accessor.if_contains("key0")->as_bool(), true);
+  EXPECT_DOUBLE_EQ(accessor.if_contains("key1")->as_double(), 0.5);
+  EXPECT_FALSE(accessor.if_contains("key2"));
+
+  const auto& const_accessor = accessor;
+  EXPECT_EQ(const_accessor.if_contains("key0")->as_bool(), true);
+  EXPECT_DOUBLE_EQ(const_accessor.if_contains("key1")->as_double(), 0.5);
+  EXPECT_FALSE(const_accessor.if_contains("key2"));
+}
