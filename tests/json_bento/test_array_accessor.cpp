@@ -79,3 +79,11 @@ TEST(ArrayAccessorTest, Iterator) {
   EXPECT_EQ((*cit).as_int64(), 10);
   EXPECT_STREQ((*(++cit)).as_string().c_str(), "val");
 }
+
+TEST(ArrayAccessorTest, Resize) {
+  bento_type bento;
+  boost::json::value value;
+  value.emplace_array();
+  value.as_array().resize(2);
+  EXPECT_EQ(value.as_array().size(), 2);
+}

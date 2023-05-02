@@ -40,7 +40,7 @@ inline void value_to_helper(const value_accessor<allocator_type> &jv,
     bj::object bj_object;
     const auto obj = jv.as_object();
     for (const auto &kv : obj) {
-#if BOOST_VERSION >= 107900
+  #if BOOST_VERSION >= 107900
       bj_object[kv.key()] = value_to(kv.value());
 #else
       bj_object[kv.key().data()] = value_to(kv.value());
@@ -63,8 +63,15 @@ inline boost::json::value value_to(const value_accessor<allocator_type> &jv) {
 } // namespace json_bento
 
 namespace json_bento {
+
+/// \brief Convert a value_accessor to the type T.
+/// Currently, only Boost.JSON value type is supported as T.
+/// \tparam T The type to convert to.
+/// \tparam allocator_type The allocator type used in the value_accessor.
+/// \param value The value_accessor to convert.
+/// \return The converted value.
 template <typename T, typename allocator_type>
-inline T value_to(const jbdtl::value_accessor<allocator_type> &jv) {
-  return jbdtl::value_to(jv);
+inline T value_to(const jbdtl::value_accessor<allocator_type> &value) {
+  return jbdtl::value_to(value);
 }
 } // namespace json_bento
