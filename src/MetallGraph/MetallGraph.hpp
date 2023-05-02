@@ -423,9 +423,11 @@ struct MetallGraph
               };
 
             ConnCompMG::ptr->distributedAdjList.async_visit_if_exists(srckey, commEdgeSrcCheck, tgtkey);
+            ConnCompMG::ptr->distributedAdjList.async_visit_if_exists(tgtkey, commEdgeSrcCheck, srckey);
           };
 
-          // check first target, if in -> add edge to adjecency list at src
+          // check first target, if in then add edges (src->tgt and tgt->src) to adjecency list at src
+          //   we assume a
           adjList.async_visit_if_exists( to_string(getKey(val, edgeTgtKeyTxt)),
                                          commEdgeTgtCheck,
                                          to_string(getKey(val, edgeSrcKeyTxt))
