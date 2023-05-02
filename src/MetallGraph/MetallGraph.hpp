@@ -510,8 +510,8 @@ struct MetallGraph
                           {
                             localRoots += (lhs == rhs);
 
-                            if (lhs == rhs)
-                              std::cerr << lhs << std::flush;
+                            //~ if (lhs == rhs)
+                              //~ std::cerr << lhs << std::flush;
                           }
                         );
       }
