@@ -86,4 +86,7 @@ mg = new MetallGraph("/PATH/TO/DATASTORE/reddit-1_4", key = "key", srckey = "aut
 
 mg.read_edges(["/PATH/TO/REDDITDATA/RC_2010-10"], autoVertices=["author", "link_id"])
 
+# compute connected components
+mg.connected_components();
+# should return 3, but returns 19 -- all persons + "Finc" department
 
