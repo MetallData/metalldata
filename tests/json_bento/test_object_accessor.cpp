@@ -5,7 +5,7 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/json/src.hpp>
+#include <json_bento/boost_json.hpp>
 #include <json_bento/json_bento.hpp>
 
 using box_type = json_bento::box<>;

@@ -7,8 +7,7 @@
 
 #include <memory>
 
-#include <boost/json/src.hpp>
-
+#include <json_bento/boost_json.hpp>
 #include <json_bento/box/accessor_fwd.hpp>
 #include <json_bento/box/core_data/core_data.hpp>
 #include <json_bento/value_to.hpp>

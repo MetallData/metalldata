@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <boost/json/src.hpp>
+#include <json_bento/boost_json.hpp>
 #include <json_bento/box/accessor_fwd.hpp>
 
 namespace json_bento {
