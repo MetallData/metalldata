@@ -122,7 +122,10 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     const bj::string&     outLoc = valueAt<bj::string>(outObj, "__clippy_type__", "state", ST_METALL_LOCATION);
     std::string_view      outLocVw(outLoc.data(), outLoc.size());
 
-    // \todo overwrite needed?
+    // \TODO this test can spuriously fail (race condition??)
+    //       and make a process hang.
+    //       if outloc is consistent -> then open_only + clear;
+    //                     otherwise -> delete?
     if (std::filesystem::is_directory(outLocVw))
       std::filesystem::remove_all(outLocVw);
 
