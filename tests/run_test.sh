@@ -147,10 +147,10 @@ exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-count_lines" "mg-count_lin
 exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-count" "mg-count-1" 1
 exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-count" "mg-count-selected" 1
 
-exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-init" "mg-softcom-init" 0
-exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-read_edges" "mg-softcom-read_edges" 0
-exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-count_lines" "mg-softcom-count_lines" 0
-exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-cc" "mg-softcom-cc" 0
+exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-init" "mg-softcom-init" 1
+exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-read_edges" "mg-softcom-read_edges" 1
+exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-count_lines" "mg-softcom-count_lines" 1
+exec_test "$EXEPREFIX" "$BUILDROOT/src/MetallGraph/mg-cc" "mg-softcom-cc" 1
 
 if [ $KEEPFILES -ne 1 ]; then
   rm -f ./m*.json ./m*.out ./m*.exp ./clippy*.log
