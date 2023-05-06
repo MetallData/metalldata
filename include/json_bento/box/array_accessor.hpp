@@ -133,10 +133,19 @@ class array_accessor<core_data_allocator_type>::basic_iterator {
     return tmp;
   }
 
+  /// \brief Dereference operator.
+  /// \return Value accessor.
+  /// \warning This function returns a value_accessor_type instance rather than a reference.
   value_accessor_type operator*() const {
     return value_accessor_type(value_accessor_type::value_type_tag::array,
                                m_array_index, m_position, m_core_data);
   }
+
+  /// \brief Structure dereference operator.
+  /// \return Value accessor.
+  /// \warning This function returns a value_accessor_type instance rather than a pointer.
+  /// This function expects the value_accessor_type has operator->() defined.
+  value_accessor_type operator->() const { return operator*(); }
 
  private:
   std::size_t m_array_index;

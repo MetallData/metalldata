@@ -92,7 +92,7 @@ void test_iterator_helper(accessor_t& accessor) {
   ASSERT_EQ(cnt1, 1);
 }
 
-TEST(ObjectAccessorTest, Iterator) {
+TEST(ObjectAccessorTest, IteratorForEach) {
   box_type box;
   boost::json::value value;
   value.emplace_object();
@@ -164,6 +164,44 @@ TEST(ObjectAccessorTest, Iterator) {
     }
     ASSERT_EQ(cnt0, 1);
     ASSERT_EQ(cnt1, 1);
+  }
+}
+
+template <typename T>
+int check_iterator_value(const T it) {
+  if (it->key() == "key0") {
+    EXPECT_TRUE((*it).value().as_bool());
+    EXPECT_TRUE(it->value().as_bool());
+    return 1;
+  } else if (it->key() == "key1") {
+    EXPECT_EQ((*it).value().as_double(), 0.5);
+    EXPECT_EQ(it->value().as_double(), 0.5);
+    return 10;
+  }
+  return -1;
+}
+
+TEST(ObjectAccessorTest, Iterator) {
+  box_type box;
+  boost::json::value value;
+  value.emplace_object();
+  value.as_object()["key0"] = true;
+  value.as_object()["key1"] = 0.5;
+
+  auto accessor = box[box.push_back(value)].as_object();
+
+  {
+    auto it = accessor.begin();
+    const auto x0 = check_iterator_value(it);
+
+    ++it;
+    const auto x1 = check_iterator_value(it);
+
+    EXPECT_TRUE((x0 == 1 && x1 == 10) || (x0 == 10 && x1 == 1)) << "++it did not move to the next element";
+
+    auto old_it = it++;
+    EXPECT_EQ(check_iterator_value(old_it), x1);
+    EXPECT_EQ(it, accessor.end());
   }
 }
 
