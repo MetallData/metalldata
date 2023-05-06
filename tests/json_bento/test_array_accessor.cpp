@@ -79,6 +79,17 @@ TEST(ArrayAccessorTest, Iterator) {
     EXPECT_STREQ((*old_it).as_string().c_str(), "val");
     EXPECT_STREQ(old_it->as_string().c_str(), "val");
     EXPECT_EQ(it, accessor.end());
+
+    --it;
+    EXPECT_STREQ((*it).as_string().c_str(), "val");
+    EXPECT_STREQ(it->as_string().c_str(), "val");
+
+    old_it = it--;
+    EXPECT_STREQ((*old_it).as_string().c_str(), "val");
+    EXPECT_STREQ(old_it->as_string().c_str(), "val");
+    EXPECT_EQ((*it).as_int64(), 10);
+    EXPECT_EQ(it->as_int64(), 10);
+    EXPECT_EQ(it, accessor.begin());
   }
 
   {

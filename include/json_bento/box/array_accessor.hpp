@@ -122,9 +122,20 @@ class array_accessor<core_data_allocator_type>::basic_iterator {
     return !(*this == other);
   }
 
+  basic_iterator &operator--() {
+    --m_position;
+    return (*this);
+  }
+
   basic_iterator &operator++() {
     ++m_position;
     return (*this);
+  }
+
+  basic_iterator operator--(int) {
+    basic_iterator<is_const> tmp(*this);
+    operator--();
+    return tmp;
   }
 
   basic_iterator operator++(int) {
