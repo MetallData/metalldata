@@ -172,8 +172,19 @@ class object_accessor<core_data_allocator_type>::basic_iterator {
     return tmp;
   }
 
+  /// \brief Dereference operator.
+  /// \return Key-value pair accessor.
+  /// \warning This function returns a key_value_pair_accessor_type instance rather than a reference.
   key_value_pair_accessor_type operator*() const {
     return key_value_pair_accessor_type(m_object_index, m_item_index, m_core_data);
+  }
+
+  /// \brief Structure dereference operator.
+  /// \return Key-value pair accessor.
+  /// \warning This function returns a key_value_pair_accessor_type instance rather than a pointer.
+  /// This function expects the key_value_pair_accessor_type has operator->() defined.
+  key_value_pair_accessor_type operator->() const {
+    return operator*();
   }
 
  private:

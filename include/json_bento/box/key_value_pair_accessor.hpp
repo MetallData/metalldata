@@ -43,6 +43,16 @@ class key_value_pair_accessor {
     return !(*this == other);
   }
 
+  /// \brief Dereference operator.
+  /// The purpose of this function is to enable structure dereference operator (->)
+  /// in iterators whose value type is key_value_pair_accessor (e.g., object_accessor::iterator).
+  /// Specifically, this operator enables the following syntax:
+  /// \code
+  /// auto it = object_accessor.begin();
+  /// it->value() = ....;
+  /// \endcode
+  key_value_pair_accessor *operator->() { return this; }
+
   key_type key() const {
     auto kv_locs =
         m_core_data->object_storage.at(m_object_position, m_element_position);
