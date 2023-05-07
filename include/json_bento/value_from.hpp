@@ -55,11 +55,12 @@ inline void value_from(const T &value,
 
 namespace json_bento {
 
-/// \brief Convert a value to a JSON value accessor
-/// \tparam T The type of the value to convert
-/// \tparam allocator_type The allocator type of the JSON value accessor
-/// \param value The value to convert
-/// \param accessor The JSON value accessor to convert to
+/// \brief Convert a value to a JSON value accessor.
+/// \tparam T The type of the value to convert.
+/// Assume that T has Boost.JSON or Metall JSON compatible interface.
+/// \tparam allocator_type The allocator type of the JSON value accessor.
+/// \param value The value to convert.
+/// \param accessor The JSON value accessor to convert to.
 template <typename T, typename allocator_type>
 inline void value_from(const T &value,
                        jbdtl::value_accessor<allocator_type> accessor) {

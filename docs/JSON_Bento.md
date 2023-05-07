@@ -78,3 +78,47 @@ auto *box = manager.construct<json_bento::box>("bento")();
 // Store a JSON object data
 box->push_back({{"key1", "value1" }, { "key2", 42 }});
 ```
+
+## Converting JSON Bento value to/from Boost.JSON value or Metall JSON value
+
+### value_to() function
+
+To convert a JSON Bento value to a Boost.JSON value or Metall JSON value,
+`json_bento::value_to(...)` function is available.
+
+Here is an example:
+
+```c++
+json_bento::box box;
+// ... push some JSON values into the box ... //
+auto value_accessor = box[0];
+
+// Convert a JSON Bento value to a Boost.JSON value
+boost::json::value boost_json_value;
+json_bento::value_to(value_accessor, boost_json_value);
+
+// Convert a JSON Bento value to a Metall JSON value
+metall::json::value mj_value;
+json_bento::value_to(value_accessor, mj_value);
+
+// If the target JSON value is default constructive,
+// the conversion can also be done as follows, for example:
+auto boost_json_value = json_bento::value_to<boost::json::value>(value_accessor);
+```
+
+### value_from() function
+
+For the other way around, i.e., converting a Boost.JSON value or Metall JSON value to a JSON Bento value,
+`json_bento::value_from(...)` function is available.
+
+```c++
+// Convert a Boost.JSON value to a JSON Bento value
+boost::json::value boost_json_value;
+// ... set some JSON data to the value ... //
+json_bento::box box;
+box.push_back(); // push back an empty (null) value
+auto value_accessor = box[0];
+json_bento::value_from(boost_json_value, value_accessor);
+```
+
+Converting a Metall JSON value to a JSON Bento value is similar to the Boost.JSON case.
