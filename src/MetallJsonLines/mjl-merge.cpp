@@ -10,6 +10,7 @@
 #include <numeric>
 #include <limits>
 #include <functional>
+
 //~ #include <bit>
 
 #include "mjl-common.hpp"
@@ -122,12 +123,10 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     const bj::string&     outLoc = valueAt<bj::string>(outObj, "__clippy_type__", "state", ST_METALL_LOCATION);
     std::string_view      outLocVw(outLoc.data(), outLoc.size());
 
-    // \TODO this test can spuriously fail (race condition??)
-    //       and make a process hang.
-    //       if outloc is consistent -> then open_only + clear;
-    //                     otherwise -> delete?
-    if (std::filesystem::is_directory(outLocVw))
-      std::filesystem::remove_all(outLocVw);
+    // \todo instead of deleting the entire directory tree, just try
+    //       to open the output location and clear the content
+    //       then add argument whether existing data should be kept or overwritten
+    removeDirectoryAndContent(world, outLocVw);
 
     metall_manager        outMgr{metall::create_only, outLoc.data(), MPI_COMM_WORLD};
 
