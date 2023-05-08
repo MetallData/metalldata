@@ -10,6 +10,7 @@
 #include <string>
 #include <limits>
 #include <optional>
+#include <system_error>
 
 #include <metall/metall.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
@@ -214,8 +215,9 @@ projector(ColumnSelector projlist)
 
            for (const std::string& col : fields)
            {
+             //~ if (const auto fld = frobj.if_contains(col))
              if (const auto fld = ifContains(frobj, col))
-               res.emplace(col, json_bento::value_to<boost::json::value>(fld.value()));
+               res.emplace(col, json_bento::value_to<boost::json::value>(*fld));
            }
 
            return res;
@@ -277,6 +279,31 @@ void append(std::vector<boost::json::object>& lhs, std::vector<boost::json::obje
 
   std::move(rhs.begin(), rhs.end(), std::back_inserter(lhs));
 }
+
+/// removes the entire directory \ref loc and its content and synchronizes
+/// processes after removal using \ref world.
+CXX_MAYBE_UNUSED
+inline
+void removeDirectoryAndContent(ygm::comm& world, std::string_view loc) noexcept
+{
+  std::error_code ec;
+
+  try
+  {
+    if (std::filesystem::is_directory(loc, ec))
+    {
+      // checking ec for 0 is not robust in general (though it may be for this specific use)
+      // -> ignore the error and delete everything
+      std::filesystem::remove_all(loc, ec); // may throw std::bad_alloc
+    }
+  }
+  catch (...) {}
+
+  // barrier is needed to make sure that processes accessing the file system
+  //   do not allocate before some other process deletes the directory...
+  world.barrier();
+}
+
 }
 
 int ygm_main(ygm::comm& world, int argc, char** argv);

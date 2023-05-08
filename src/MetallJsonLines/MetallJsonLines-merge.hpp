@@ -13,7 +13,7 @@ namespace bj      = boost::json;
 namespace mtljsn  = metall::json;
 namespace xpr     = experimental;
 
-static constexpr bool DEBUG_TRACE_MERGE = true;
+static constexpr bool DEBUG_TRACE_MERGE = false;
 
 namespace
 {

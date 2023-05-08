@@ -69,10 +69,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     const bool                 overwrite    = clip.get<ARG_ALWAYS_CREATE_TYPE>(ARG_ALWAYS_CREATE_NAME);
 
     if (overwrite)
-    {
-      if (std::filesystem::is_directory(dataLocation))
-        std::filesystem::remove_all(dataLocation);
-    }
+      removeDirectoryAndContent(world, dataLocation);
 
     if (!std::filesystem::is_directory(dataLocation))
     {
