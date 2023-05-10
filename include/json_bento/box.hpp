@@ -9,7 +9,6 @@
 #include <memory>
 #include <string>
 
-#include <boost/json/src.hpp>
 #include <metall/json/json.hpp>
 
 #include <json_bento/box/array_accessor.hpp>
@@ -20,6 +19,7 @@
 #include <json_bento/box/string_accessor.hpp>
 #include <json_bento/box/value_accessor.hpp>
 #include <json_bento/value_to.hpp>
+#include <json_bento/boost_json.hpp>
 
 namespace json_bento {
 

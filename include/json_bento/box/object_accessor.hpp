@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <type_traits>
+#include <optional>
 
 #include <json_bento/box/accessor_fwd.hpp>
 #include <json_bento/box/core_data/core_data.hpp>
@@ -62,6 +63,15 @@ class object_accessor {
   /// \brief Return true if the key is found.
   /// \return True if found; otherwise, false.
   bool contains(const key_type &key) const { return priv_find(key) != size(); }
+
+  /// \brief Returns to the value associated with the key if it exists.
+  /// \return The value associated with the key in std::optional if it exists;
+  /// otherwise, empty std::optional (i.e., std::nullopt).
+  std::optional<value_accessor_type> if_contains(const key_type &key) const {
+    if (contains(key))
+      return at(key);
+    return std::nullopt;
+  }
 
   /// \brief Count the number of elements with a specific key.
   /// \return The number elements with a specific key.
@@ -162,8 +172,19 @@ class object_accessor<core_data_allocator_type>::basic_iterator {
     return tmp;
   }
 
+  /// \brief Dereference operator.
+  /// \return Key-value pair accessor.
+  /// \warning This function returns a key_value_pair_accessor_type instance rather than a reference.
   key_value_pair_accessor_type operator*() const {
     return key_value_pair_accessor_type(m_object_index, m_item_index, m_core_data);
+  }
+
+  /// \brief Structure dereference operator.
+  /// \return Key-value pair accessor.
+  /// \warning This function returns a key_value_pair_accessor_type instance rather than a pointer.
+  /// This function expects the key_value_pair_accessor_type has operator->() defined.
+  key_value_pair_accessor_type operator->() const {
+    return operator*();
   }
 
  private:

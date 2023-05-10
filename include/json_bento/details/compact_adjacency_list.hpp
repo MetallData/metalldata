@@ -101,6 +101,10 @@ class compact_adjacency_list {
     priv_resize(size);
   }
 
+  void resize(const std::size_t row, const std::size_t size) {
+    m_table.at(row).resize(size, m_allocator);
+  }
+
   std::size_t push_back() {
     m_table.push_back(row_list_type(), m_allocator);
     return m_table.size() - 1;

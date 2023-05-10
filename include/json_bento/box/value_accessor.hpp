@@ -56,6 +56,16 @@ class value_accessor {
                  box_pointer_t box)
       : m_tag(tag), m_pos0(pos0), m_pos1(pos1), m_box(box) {}
 
+  /// \brief Dereference operator.
+  /// The purpose of this function is to enable structure dereference operator (->)
+  /// in iterators whose value type is value_accessor (e.g., array_accessor::iterator).
+  /// Specifically, this operator enables the following syntax:
+  /// \code
+  /// auto it = array_accessor.begin();
+  /// it->as_bool() = ...;
+  /// \endcode
+  value_accessor *operator->() { return this; }
+
   /// \brief Assign a bool value.
   /// Allocates a memory storage or destroy the old content, if necessary.
   value_accessor &operator=(const bool b) {

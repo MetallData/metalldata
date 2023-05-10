@@ -8,6 +8,7 @@
 #include <json_bento/box.hpp>
 #include <json_bento/pretty_print.hpp>
 #include <json_bento/value_to.hpp>
+#include <json_bento/value_from.hpp>
 
 /// \brief The namespace for JSON Bento
 namespace json_bento {
