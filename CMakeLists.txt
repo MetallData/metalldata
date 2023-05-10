@@ -29,18 +29,19 @@ find_package(Threads REQUIRED)
 
 #
 # Boost
-find_package(Boost 1.80 QUIET)
-if (NOT Boost_FOUND)
-    FetchContent_Declare(Boost
-            URL https://boostorg.jfrog.io/artifactory/main/release/1.80.0/source/boost_1_80_0.tar.bz2)
-    FetchContent_GetProperties(Boost)
-    if (NOT Boost_POPULATED)
-        FetchContent_Populate(Boost)
-    endif ()
-    set(BOOST_ROOT ${boost_SOURCE_DIR})
-    find_package(Boost 1.80)
-endif ()
-
+include(setup_boost)
+prepare_fetchcontent_boost()
+set(FETCHCONTENT_QUIET FALSE)
+FetchContent_Declare(
+        Boost
+        GIT_REPOSITORY https://github.com/boostorg/boost.git
+        GIT_TAG boost-1.78.0
+        GIT_SUBMODULES ${BOOST_REQD_SUBMODULES}
+        GIT_PROGRESS TRUE
+        CONFIGURE_COMMAND ""  # tell CMake it's not a cmake project
+)
+FetchContent_MakeAvailable(Boost)
+get_boost_include_dirs()
 
 #
 #  cereal
@@ -169,7 +170,8 @@ endfunction()
 function(add_metalldata_executable name source)
     add_executable(${name} ${source})
     add_common_compile_options(${name})
-    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include)
+    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include ${BOOST_INCLUDE_DIRS})
+    target_link_libraries(${name} PRIVATE Boost::json)
 endfunction()
 
 
