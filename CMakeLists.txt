@@ -10,6 +10,17 @@ set(CMAKE_CXX_STANDARD 20)
 
 include(FetchContent)
 
+
+#
+#  Options
+#
+option(METALLDATA_USE_PRIVATEER "Use Privateer in Metall" ON)
+if (APPLE AND METALLDATA_USE_PRIVATEER)
+    message(WARNING "Turn off Privateer on MacOS")
+    set(METALLDATA_USE_PRIVATEER OFF)
+endif ()
+
+
 #
 #  Threads
 #
@@ -80,13 +91,15 @@ endif ()
 #
 # Privateer
 #
-find_package(Privateer QUIET)
-if (NOT Privateer_FOUND)
-   FetchContent_Declare(Privateer
-           GIT_REPOSITORY https://github.com/LLNL/Privateer.git
-           GIT_TAG feature/uffd
-           )
-   FetchContent_MakeAvailable(Privateer)
+if (METALLDATA_USE_PRIVATEER)
+    find_package(Privateer QUIET)
+    if (NOT Privateer_FOUND)
+        FetchContent_Declare(Privateer
+                GIT_REPOSITORY https://github.com/LLNL/Privateer.git
+                GIT_TAG feature/uffd
+                )
+        FetchContent_MakeAvailable(Privateer)
+    endif ()
 endif ()
 
 #
@@ -95,9 +108,14 @@ endif ()
 find_package(Metall QUIET)
 if (NOT Metall_FOUND)
     set(JUST_INSTALL_METALL_HEADER TRUE)
+    if (Privateer_FOUND)
+        set(METALL_GIT_TAG "privateer2.0")
+    else()
+        set(METALL_GIT_TAG "develop")
+    endif()
     FetchContent_Declare(Metall
             GIT_REPOSITORY https://github.com/LLNL/metall.git
-            GIT_TAG privateer2.0
+            GIT_TAG ${METALL_GIT_TAG}
             )
     FetchContent_MakeAvailable(Metall)
 endif ()
@@ -202,19 +220,23 @@ endfunction()
 #
 function(setup_metall_target exe_name)
     target_include_directories(${exe_name} PRIVATE ${Boost_INCLUDE_DIRS})
-    target_include_directories(${exe_name} PRIVATE "${Privateer_SOURCE_DIR}/include")
 
-    find_package(OpenSSL)
-    target_link_libraries(${exe_name} PRIVATE OpenSSL::SSL)
-    target_link_libraries(${exe_name} PRIVATE OpenSSL::Crypto)
-    target_link_libraries(${exe_name} PRIVATE rt)
-    target_link_libraries(${exe_name} PRIVATE Threads::Threads)
-    target_link_libraries(${exe_name} PRIVATE zstd)
+    if (Privateer_FOUND)
+        target_include_directories(${exe_name} PRIVATE "${Privateer_SOURCE_DIR}/include")
 
-    target_compile_definitions(${exe_name} PRIVATE USE_COMPRESSION)
-    target_link_libraries(${exe_name} PRIVATE privateer-static)
+        find_package(OpenSSL)
+        target_link_libraries(${exe_name} PRIVATE OpenSSL::SSL)
+        target_link_libraries(${exe_name} PRIVATE OpenSSL::Crypto)
+        target_link_libraries(${exe_name} PRIVATE rt)
+        target_link_libraries(${exe_name} PRIVATE Threads::Threads)
+        target_link_libraries(${exe_name} PRIVATE zstd)
 
-    target_compile_definitions(${exe_name} PRIVATE METALL_USE_PRIVATEER)
+        target_compile_definitions(${exe_name} PRIVATE USE_COMPRESSION)
+
+        target_link_libraries(${exe_name} PRIVATE privateer-static)
+        target_compile_definitions(${exe_name} PRIVATE METALL_USE_PRIVATEER)
+    endif ()
+
     target_link_libraries(${exe_name} PRIVATE Metall)
 
     if (FOUND_CXX17_FILESYSTEM_LIB)
