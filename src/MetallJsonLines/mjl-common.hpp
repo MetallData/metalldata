@@ -281,15 +281,15 @@ void append(std::vector<boost::json::object>& lhs, std::vector<boost::json::obje
 }
 
 /// removes the entire directory \ref loc and its content and synchronizes
-/// processes after removal using \ref world.
+/// processes on \ref world after the directory has been removed.
 CXX_MAYBE_UNUSED
 inline
-void removeDirectoryAndContent(ygm::comm& world, std::string_view loc) noexcept
+void removeDirectoryAndContent(ygm::comm& world, std::string_view loc)
 {
-  std::error_code ec;
-
   try
   {
+    std::error_code ec;
+
     if (std::filesystem::is_directory(loc, ec))
     {
       // checking ec for 0 is not robust in general (though it may be for this specific use)

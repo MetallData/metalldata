@@ -32,7 +32,7 @@ They are downloaded and build automatically using CMake.
 
 If one prefers to use Spack to install the libraries, type `spack install [package name]` and `spack load [package name]` before running CMake.
 
-- Boost C++ Libraries 1.80.0 or higher (available in Spack, always required)
+- Boost C++ Libraries 1.78.0 or higher (available in Spack, always required)
 - Metall (available in Spack, always required)
 - cereal (tested with v1.3.0, available in Spack, required by YGM)
 - YGM (required)
