@@ -476,7 +476,7 @@ namespace
 
     for (std::string key : projlst)
     {
-      if (auto const entry = ifContains(that, key))
+      if (auto const entry = that.if_contains(key))
       {
         key += other_suffix;
         emplace(rec[key], std::move(*entry));
@@ -521,8 +521,8 @@ namespace
     {
       const ColumnSelector::value_type& lhsCol = lhsOn[i];
       const ColumnSelector::value_type& rhsCol = rhsOn[i];
-      const auto                        lhsSub = ifContains(lhsObj, lhsCol);
-      const auto                        rhsSub = ifContains(rhsObj, rhsCol);
+      const auto                        lhsSub = lhsObj.if_contains(lhsCol);
+      const auto                        rhsSub = rhsObj.if_contains(rhsCol);
 
       assert(lhsSub && rhsSub);
 

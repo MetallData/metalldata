@@ -41,19 +41,6 @@ const std::string ST_METALL_LOCATION = "metall_location";
 const std::string ST_SELECTED        = "selected";
 const std::string KEYS_SELECTOR      = "keys";
 
-template <class JsonObject>
-inline
-auto
-ifContains(const JsonObject& obj, const std::string& name)
-  -> std::optional<typename std::remove_reference<decltype(obj.at(name))>::type >
-{
-  using result_type = std::optional<typename std::remove_reference<decltype(obj.at(name))>::type >;
-
-  auto pos = obj.find(name);
-
-  return (pos != obj.end()) ? result_type{(*pos).value()}
-                            : std::nullopt;
-}
 
 CXX_MAYBE_UNUSED
 json_logic::ValueExpr
@@ -77,7 +64,7 @@ json_logic::ValueExpr
 evalPath(std::string_view path, const MetallJsonObjectT& obj)
 {
   if (auto pos = obj.find(path); pos != obj.end())
-    return toValueExpr((*pos).value());
+    return toValueExpr(pos->value());
 
   std::size_t selpos = path.find('.');
 
@@ -108,7 +95,7 @@ auto variableLookup( experimental::MetallJsonLines::accessor_type::object_access
            if (auto pos = objacc.find(col); pos != objacc.end())
            {
              CXX_LIKELY;
-             return toValueExpr((*pos).value());
+             return toValueExpr(pos->value());
            }
 
            if (col == "rowid") return json_logic::toValueExpr(rownum);
@@ -215,9 +202,9 @@ projector(ColumnSelector projlist)
 
            for (const std::string& col : fields)
            {
-             //~ if (const auto fld = frobj.if_contains(col))
-             if (const auto fld = ifContains(frobj, col))
+             if (const auto fld = frobj.if_contains(col))
                res.emplace(col, json_bento::value_to<boost::json::value>(*fld));
+             //~ if (const auto fld = ifContains(frobj, col))
            }
 
            return res;
