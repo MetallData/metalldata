@@ -223,6 +223,7 @@ endfunction()
 function(setup_metall_target exe_name)
     target_include_directories(${exe_name} PRIVATE ${Boost_INCLUDE_DIRS})
 
+    target_link_libraries(${exe_name} PRIVATE Threads::Threads)
     if (Privateer_FOUND)
         target_include_directories(${exe_name} PRIVATE "${Privateer_SOURCE_DIR}/include")
 
@@ -230,7 +231,6 @@ function(setup_metall_target exe_name)
         target_link_libraries(${exe_name} PRIVATE OpenSSL::SSL)
         target_link_libraries(${exe_name} PRIVATE OpenSSL::Crypto)
         target_link_libraries(${exe_name} PRIVATE rt)
-        target_link_libraries(${exe_name} PRIVATE Threads::Threads)
         target_link_libraries(${exe_name} PRIVATE zstd)
 
         target_compile_definitions(${exe_name} PRIVATE USE_COMPRESSION)
