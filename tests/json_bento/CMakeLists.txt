@@ -10,3 +10,4 @@ add_gtest_executable(test_compact_string_storage test_compact_string_storage.cpp
 add_gtest_executable(test_vector test_vector.cpp)
 add_gtest_executable(test_compact_adjacency_list test_compact_adjacency_list.cpp)
 add_gtest_executable(test_box test_box.cpp)
+add_gtest_executable(test_value_from test_value_from.cpp)

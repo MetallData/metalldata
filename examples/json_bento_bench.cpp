@@ -7,16 +7,18 @@
 /// This benchmark measures the performance and memory usage of storing JSON data in Metall JSON and JSON Bento.
 /// This benchmark read JSON files that contain JSON line data.
 
-#include <boost/json/src.hpp>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iostream>
-#include <json_bento/json_bento.hpp>
-#include <metall/detail/time.hpp>
-#include <metall/metall.hpp>
 #include <string_view>
 #include <vector>
+
+#include <metall/detail/time.hpp>
+#include <metall/metall.hpp>
+
+#include <json_bento/json_bento.hpp>
+#include <json_bento/boost_json.hpp>
 
 namespace bj = boost::json;
 namespace mj = metall::json;

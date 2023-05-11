@@ -157,7 +157,9 @@ genKeysChecker(std::vector<std::string_view> keys)
 
              for (std::string_view fld : fields)
              {
-               incl = incl && obj.contains(fld);
+               boost::json::string_view fldvw(&*fld.begin(), fld.size());
+
+               incl = incl && obj.contains(fldvw);
              }
 
              return incl;
@@ -185,13 +187,16 @@ genKeysGenerator( std::vector<std::string_view> edgeKeyFields,
            {
              try
              {
-               std::string_view key    = keyOrigin[i];
-               std::string      keyval = to_string(obj[key]);
+               std::string_view         key    = keyOrigin[i];
+               boost::json::string_view keyVw(&*key.begin(), key.size());
+               std::string              keyval = to_string(obj[keyVw]);
 
                keyval.push_back('@');
                keyval.append(key);
 
-               obj[edgeKeys[i]] = keyval;
+               boost::json::string_view edgeKeyVw(&*edgeKeys[i].begin(), edgeKeys[i].size());
+
+               obj[edgeKeyVw] = keyval;
 
                CountDataMG::ptr->distributedKeys.async_insert(keyval);
              }
