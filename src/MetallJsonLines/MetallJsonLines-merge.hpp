@@ -451,8 +451,9 @@ namespace
 
     for (const auto& x : that)
     {
-      std::string_view key = x.key();
-      std::string      newkey(key.begin(), key.end());
+      // std:string_view    key = x.key();
+      auto               key = x.key();
+      std::string        newkey(key.begin(), key.end());
 
       newkey += other_suffix;
       // rec[newkey] = x.value();

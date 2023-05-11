@@ -67,15 +67,68 @@ TEST(ArrayAccessorTest, Iterator) {
 
   auto accessor = bento[bento.push_back(value)].as_array();
 
-  auto it = accessor.begin();
-  EXPECT_EQ((*it).as_int64(), 10);
-  ++it;
-  EXPECT_STREQ((*it).as_string().c_str(), "val");
-  ++it;
-  EXPECT_EQ(it, accessor.end());
+  {
+    auto it = accessor.begin();
+    EXPECT_EQ((*it).as_int64(), 10);
+    EXPECT_EQ(it->as_int64(), 10);
+    ++it;
+    EXPECT_STREQ((*it).as_string().c_str(), "val");
+    EXPECT_STREQ(it->as_string().c_str(), "val");
 
-  const auto const_accessor = accessor;
-  auto cit = const_accessor.begin();
-  EXPECT_EQ((*cit).as_int64(), 10);
-  EXPECT_STREQ((*(++cit)).as_string().c_str(), "val");
+    auto old_it = it++;
+    EXPECT_STREQ((*old_it).as_string().c_str(), "val");
+    EXPECT_STREQ(old_it->as_string().c_str(), "val");
+    EXPECT_EQ(it, accessor.end());
+
+    --it;
+    EXPECT_STREQ((*it).as_string().c_str(), "val");
+    EXPECT_STREQ(it->as_string().c_str(), "val");
+
+    old_it = it--;
+    EXPECT_STREQ((*old_it).as_string().c_str(), "val");
+    EXPECT_STREQ(old_it->as_string().c_str(), "val");
+    EXPECT_EQ((*it).as_int64(), 10);
+    EXPECT_EQ(it->as_int64(), 10);
+    EXPECT_EQ(it, accessor.begin());
+  }
+
+  {
+    const auto const_accessor = accessor;
+    auto cit = const_accessor.begin();
+    EXPECT_EQ((*cit).as_int64(), 10);
+    EXPECT_EQ(cit->as_int64(), 10);
+    ++cit;
+    EXPECT_STREQ((*cit).as_string().c_str(), "val");
+    EXPECT_STREQ(cit->as_string().c_str(), "val");
+    auto old_cit = cit++;
+    EXPECT_STREQ((*old_cit).as_string().c_str(), "val");
+    EXPECT_STREQ(old_cit->as_string().c_str(), "val");
+    EXPECT_EQ(cit, const_accessor.end());
+  }
+
+  // Can edit?
+  {
+    auto it = accessor.begin();
+
+    (*it).as_int64() = 20;
+    EXPECT_EQ(accessor[0].as_int64(), 20);
+
+    it->as_int64() = 30;
+    EXPECT_EQ(accessor[0].as_int64(), 30);
+
+    ++it;
+    (*it).as_string() = "val2";
+    EXPECT_STREQ(accessor[1].as_string().c_str(), "val2");
+
+    it->as_string() = "val3";
+    EXPECT_STREQ(accessor[1].as_string().c_str(), "val3");
+  }
+}
+
+TEST(ArrayAccessorTest, Resize) {
+  bento_type bento;
+  boost::json::value value;
+  value.emplace_array();
+  value.as_array().resize(2);
+  EXPECT_EQ(value.as_array().size(), 2);
 }
