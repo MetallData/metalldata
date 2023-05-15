@@ -34,13 +34,13 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   try
   {
-    using metall_manager = xpr::MetallJsonLines::metall_manager_type;
+    using metall_manager = xpr::metall_json_lines::metall_manager_type;
 
     const ARG_VERTEX_FILES_TYPE vertexFiles  = clip.get<ARG_VERTEX_FILES_TYPE>(ARG_VERTEX_FILES_NAME);
     const std::string           dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
     metall_manager              mm{metall::open_only, dataLocation.data(), MPI_COMM_WORLD};
-    xpr::MetallGraph            g{mm, world};
-    const xpr::ImportSummary    summary      = g.readVertexFiles(vertexFiles);
+    xpr::metall_graph            g{mm, world};
+    const xpr::import_summary   summary      = g.read_vertex_files(vertexFiles);
 
     if (world.rank() == 0)
     {

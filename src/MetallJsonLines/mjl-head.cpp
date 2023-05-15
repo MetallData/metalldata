@@ -45,14 +45,14 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   try
   {
-    using metall_manager = xpr::MetallJsonLines::metall_manager_type;
+    using metall_manager = xpr::metall_json_lines::metall_manager_type;
 
-    const std::string    dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
-    const std::size_t    numrows      = clip.get<int>(ARG_MAX_ROWS);
-    metall_manager       mm{metall::open_read_only, dataLocation.data(), MPI_COMM_WORLD};
-    xpr::MetallJsonLines lines{mm, world};
-    boost::json::value   res          = lines.filter(filter(world.rank(), clip, KEYS_SELECTOR))
-                                             .head(numrows, projector(COLUMNS, clip));
+    const std::string      dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
+    const std::size_t      numrows      = clip.get<int>(ARG_MAX_ROWS);
+    metall_manager         mm{metall::open_read_only, dataLocation.data(), MPI_COMM_WORLD};
+    xpr::metall_json_lines lines{mm, world};
+    boost::json::value     res          = lines.filter(filter(world.rank(), clip, KEYS_SELECTOR))
+                                               .head(numrows, projector(COLUMNS, clip));
 
     if (world.rank() == 0) clip.to_return(std::move(res));
   }

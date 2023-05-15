@@ -11,13 +11,13 @@
 namespace msg
 {
 
-using DistributedStringSet = ygm::container::set<std::string>;
-using DistributedAdjList   = ygm::container::map<std::string, std::vector<std::string> >;
+using distributed_string_set = ygm::container::set<std::string>;
+using distributed_adj_list   = ygm::container::map<std::string, std::vector<std::string> >;
 
 template <class T>
-struct PointerGuard
+struct ptr_guard
 {
-    PointerGuard(T*& pref, T* obj)
+    ptr_guard(T*& pref, T* obj)
     : ptr(&pref)
     {
       assert(pref == nullptr);
@@ -25,24 +25,24 @@ struct PointerGuard
       pref = obj;
     }
 
-    ~PointerGuard() { delete *ptr; *ptr = nullptr; }
+    ~ptr_guard() { delete *ptr; *ptr = nullptr; }
 
   private:
     T** ptr;
 
-    PointerGuard()                               = delete;
-    PointerGuard(PointerGuard&&)                 = delete;
-    PointerGuard(const PointerGuard&)            = delete;
-    PointerGuard& operator=(PointerGuard&&)      = delete;
-    PointerGuard& operator=(const PointerGuard&) = delete;
+    ptr_guard()                               = delete;
+    ptr_guard(ptr_guard&&)                 = delete;
+    ptr_guard(const ptr_guard&)            = delete;
+    ptr_guard& operator=(ptr_guard&&)      = delete;
+    ptr_guard& operator=(const ptr_guard&) = delete;
 };
 
-template<class T> PointerGuard(T*&, T*) -> PointerGuard<T>;
+template<class T> ptr_guard(T*&, T*) -> ptr_guard<T>;
 
 #if NOT_YET_AND_MAYBE_NEVER_WILL
 struct ProcessDataMG
 {
-  DistributedStringSet distributedKeys;
+  distributed_string_set distributedKeys;
 };
 
 std::unique_ptr<ProcessDataMG> mgState;
@@ -51,7 +51,7 @@ void commEdgeSrcCheck(std::string src, std::string tgt, std::size_t idx)
 {
   assert(msg::mgState.get());
 
-  DistributedStringSet&  keyset = msg::mgState->distributedKeys;
+  distributed_string_set&  keyset = msg::mgState->distributedKeys;
   ygm::comm&             w      = keyset.comm();
   const int              self   = w.rank();
   const int              dest   = keyset.owner(src);
@@ -67,7 +67,7 @@ void commEdgeSrcCheck(std::string src, std::string tgt, std::size_t idx)
   }
 }
 
-struct MetallGraphKeys : std::tuple<MetallString, MetallString, MetallString>
+struct metall_graphKeys : std::tuple<metall_string, metall_string, metall_string>
 {
   using base = std::tuple<std::string, std::string, std::string>;
   using base::base;
@@ -82,48 +82,48 @@ struct MetallGraphKeys : std::tuple<MetallString, MetallString, MetallString>
 
 namespace
 {
-  struct CountDataMG
+  struct count_data_mg
   {
     explicit
-    CountDataMG(ygm::comm& comm)
+    count_data_mg(ygm::comm& comm)
     : distributedKeys(comm), edgecnt(0), nodecnt(0)
     {}
 
-    msg::DistributedStringSet distributedKeys;
+    msg::distributed_string_set distributedKeys;
     std::size_t               edgecnt;
     std::size_t               nodecnt;
 
-    static CountDataMG* ptr;
+    static count_data_mg* ptr;
   };
 
-  CountDataMG* CountDataMG::ptr = nullptr;
+  count_data_mg* count_data_mg::ptr = nullptr;
 
-  struct ConnCompMG
+  struct conn_comp_mg
   {
     explicit
-    ConnCompMG(ygm::comm& comm)
+    conn_comp_mg(ygm::comm& comm)
     : distributedAdjList(comm)
     {}
 
-    msg::DistributedAdjList distributedAdjList;
+    msg::distributed_adj_list distributedAdjList;
 
-    static ConnCompMG* ptr;
+    static conn_comp_mg* ptr;
   };
 
-  ConnCompMG* ConnCompMG::ptr = nullptr;
+  conn_comp_mg* conn_comp_mg::ptr = nullptr;
 }
 
 
 namespace experimental
 {
 
-using MetallString = boost::container::basic_string< char,
-                                                     std::char_traits<char>,
-                                                     metall::manager::allocator_type<char>
-                                                   >;
+using metall_string = boost::container::basic_string< char,
+                                                      std::char_traits<char>,
+                                                      metall::manager::allocator_type<char>
+                                                    >;
 
-MetallJsonLines::accessor_type
-getKey(MetallJsonLines::accessor_type val, std::string_view key)
+metall_json_lines::accessor_type
+get_key(metall_json_lines::accessor_type val, std::string_view key)
 {
   assert(val.is_object());
   return val.as_object()[key];
@@ -139,14 +139,14 @@ to_string(const boost::json::value& val)
 }
 
 std::string
-to_string(const MetallJsonLines::accessor_type& valacc)
+to_string(const metall_json_lines::accessor_type& valacc)
 {
   return to_string(json_bento::value_to<boost::json::value>(valacc));
 }
 
 
 std::function<bool(const boost::json::value&)>
-genKeysChecker(std::vector<std::string_view> keys)
+gen_keys_checker(std::vector<std::string_view> keys)
 {
   return [fields = std::move(keys)](const boost::json::value& val) -> bool
          {
@@ -172,9 +172,9 @@ genKeysChecker(std::vector<std::string_view> keys)
 }
 
 std::function<boost::json::value(boost::json::value)>
-genKeysGenerator( std::vector<std::string_view> edgeKeyFields,
-                  std::vector<std::string_view> edgeKeysOrigin
-                )
+gen_keys_generator( std::vector<std::string_view> edgeKeyFields,
+                    std::vector<std::string_view> edgeKeysOrigin
+                  )
 {
   const int numKeys = std::min(edgeKeyFields.size(), edgeKeysOrigin.size());
 
@@ -198,7 +198,7 @@ genKeysGenerator( std::vector<std::string_view> edgeKeyFields,
 
                obj[edgeKeyVw] = keyval;
 
-               CountDataMG::ptr->distributedKeys.async_insert(keyval);
+               count_data_mg::ptr->distributedKeys.async_insert(keyval);
              }
              catch (...) {}
            }
@@ -207,7 +207,7 @@ genKeysGenerator( std::vector<std::string_view> edgeKeyFields,
          };
 }
 
-struct MGCountSummary : std::tuple<std::size_t, std::size_t>
+struct mg_count_summary : std::tuple<std::size_t, std::size_t>
 {
   using base = std::tuple<std::size_t, std::size_t>;
   using base::base;
@@ -226,11 +226,11 @@ struct MGCountSummary : std::tuple<std::size_t, std::size_t>
   }
 };
 
-void persistKeys(MetallJsonLines& lines, std::string_view key, msg::DistributedStringSet& keyValues)
+void persist_keys(metall_json_lines& lines, std::string_view key, msg::distributed_string_set& keyValues)
 {
   keyValues.local_for_all( [&lines, key](const std::string& keyval) -> void
                            {
-                             MetallJsonLines::accessor_type val = lines.append_local();
+                             metall_json_lines::accessor_type val = lines.append_local();
                              auto                           obj = val.emplace_object();
 
                              obj[key] = keyval;
@@ -238,15 +238,15 @@ void persistKeys(MetallJsonLines& lines, std::string_view key, msg::DistributedS
                          );
 }
 
-struct MetallGraph
+struct metall_graph
 {
-    using edge_list_type      = MetallJsonLines;
-    using node_list_type      = MetallJsonLines;
-    using key_store_type      = boost::container::vector<MetallString, metall::manager::allocator_type<MetallString> >;
-    using metall_manager_type = MetallJsonLines::metall_manager_type;
-    using filter_type         = MetallJsonLines::filter_type;
+    using edge_list_type      = metall_json_lines;
+    using node_list_type      = metall_json_lines;
+    using key_store_type      = boost::container::vector<metall_string, metall::manager::allocator_type<metall_string> >;
+    using metall_manager_type = metall_json_lines::metall_manager_type;
+    using filter_type         = metall_json_lines::filter_type;
 
-    MetallGraph(metall_manager_type& manager, ygm::comm& comm)
+    metall_graph(metall_manager_type& manager, ygm::comm& comm)
     : edgelst(manager, comm, edge_location_suffix),
       nodelst(manager, comm, node_location_suffix),
       keys(manager.get_local_manager().find<key_store_type>(keys_location_suffix).first)
@@ -264,31 +264,31 @@ struct MetallGraph
     std::string_view edgeSrcKey() const { return keys->at(EDGE_SRCKEY_IDX); }
     std::string_view edgeTgtKey() const { return keys->at(EDGE_TGTKEY_IDX); }
 
-    ImportSummary
-    readVertexFiles(const std::vector<std::string>& files)
+    import_summary
+    read_vertex_files(const std::vector<std::string>& files)
     {
-      return nodelst.readJsonFiles(files, genKeysChecker({ nodeKey() }));
+      return nodelst.read_json_files(files, gen_keys_checker({ nodeKey() }));
     }
 
-    ImportSummary
-    readEdgeFiles(const std::vector<std::string>& files, std::vector<std::string_view> autoKeys = {})
+    import_summary
+    read_edge_files(const std::vector<std::string>& files, std::vector<std::string_view> autoKeys = {})
     {
       if (autoKeys.empty())
-        return edgelst.readJsonFiles(files, genKeysChecker({ edgeSrcKey(), edgeTgtKey() }));
+        return edgelst.read_json_files(files, gen_keys_checker({ edgeSrcKey(), edgeTgtKey() }));
 
-      msg::PointerGuard cntStateGuard{ CountDataMG::ptr, new CountDataMG{nodelst.comm()} };
-      ImportSummary     res = edgelst.readJsonFiles( files,
-                                                     genKeysChecker(autoKeys),
-                                                     genKeysGenerator({ edgeSrcKey(), edgeTgtKey() }, autoKeys)
-                                                   );
+      msg::ptr_guard cntStateGuard{ count_data_mg::ptr, new count_data_mg{nodelst.comm()} };
+      import_summary    res = edgelst.read_json_files( files,
+                                                       gen_keys_checker(autoKeys),
+                                                       gen_keys_generator({ edgeSrcKey(), edgeTgtKey() }, autoKeys)
+                                                     );
 
       comm().barrier();
-      persistKeys(nodelst, nodeKey(), CountDataMG::ptr->distributedKeys);
+      persist_keys(nodelst, nodeKey(), count_data_mg::ptr->distributedKeys);
       return res;
     }
 
     static
-    void createNew( metall_manager_type& manager,
+    void create_new( metall_manager_type& manager,
                     ygm::comm& comm,
                     std::string_view node_key,
                     std::string_view edge_src_key,
@@ -298,65 +298,65 @@ struct MetallGraph
       std::string_view edge_location_suffix_v{edge_location_suffix};
       std::string_view node_location_suffix_v{node_location_suffix};
 
-      MetallJsonLines::createNew(manager, comm, {edge_location_suffix_v, node_location_suffix_v});
+      metall_json_lines::create_new(manager, comm, {edge_location_suffix_v, node_location_suffix_v});
 
       auto&           mgr = manager.get_local_manager();
       key_store_type& vec = checked_deref( mgr.construct<key_store_type>(keys_location_suffix)(mgr.get_allocator())
                                          , ERR_CONSTRUCT_KEYS
                                          );
 
-      vec.emplace_back(MetallString(node_key.data(),     node_key.size(),     mgr.get_allocator()));
-      vec.emplace_back(MetallString(edge_src_key.data(), edge_src_key.size(), mgr.get_allocator()));
-      vec.emplace_back(MetallString(edge_tgt_key.data(), edge_tgt_key.size(), mgr.get_allocator()));
+      vec.emplace_back(metall_string(node_key.data(),     node_key.size(),     mgr.get_allocator()));
+      vec.emplace_back(metall_string(edge_src_key.data(), edge_src_key.size(), mgr.get_allocator()));
+      vec.emplace_back(metall_string(edge_tgt_key.data(), edge_tgt_key.size(), mgr.get_allocator()));
     }
 /*
     std::tuple<std::size_t, std::size_t>
     count0(std::vector<filter_type> nfilt, std::vector<filter_type> efilt)
     {
-      msg::DistributedStringSet  selectedKeys{ nodes.comm() };
+      msg::distributed_string_set  selectedKeys{ nodes.comm() };
       std::size_t                edgeCount = 0;
 
       msg::mgState = msg::ProcessDataMG{&selectedKeys};
 
       auto nodeAction = [&selectedKeys, nodeKeyTxt = nodeKey()]
-                        (std::size_t, const xpr::MetallJsonLines::value_type& val)->void
+                        (std::size_t, const xpr::metall_json_lines::value_type& val)->void
                         {
-                          selectedKeys.async_insert(to_string(getKey(val, nodeKeyTxt)));
+                          selectedKeys.async_insert(to_string(get_key(val, nodeKeyTxt)));
                         };
 
       auto edgeAction = [&selectedKeys, edgeSrcKeyTxt = edgeSrcKey(), edgeTgtKeyTxt = edgeTgtKey()]
-                        (std::size_t pos, const xpr::MetallJsonLines::value_type& val)->void
+                        (std::size_t pos, const xpr::metall_json_lines::value_type& val)->void
                         {
-                          commEdgeSrcCheck( to_string(getKey(val, edgeSrcKeyTxt)),
-                                            to_string(getKey(val, edgeTgtKeyTxt)),
+                          commEdgeSrcCheck( to_string(get_key(val, edgeSrcKeyTxt)),
+                                            to_string(get_key(val, edgeTgtKeyTxt)),
                                             pos
                                           );
                         };
     }
 */
 
-    MGCountSummary
+    mg_count_summary
     count(std::vector<filter_type> nfilt, std::vector<filter_type> efilt)
     {
-      assert(CountDataMG::ptr == nullptr);
+      assert(count_data_mg::ptr == nullptr);
 
-      msg::PointerGuard cntStateGuard{ CountDataMG::ptr, new CountDataMG{nodelst.comm()} };
+      msg::ptr_guard cntStateGuard{ count_data_mg::ptr, new count_data_mg{nodelst.comm()} };
       int               rank = comm().rank();
 
       auto nodeAction = [nodeKeyTxt = nodeKey(), rank]
-                        (std::size_t, const MetallJsonLines::accessor_type& val)->void
+                        (std::size_t, const metall_json_lines::accessor_type& val)->void
                         {
-                          assert(CountDataMG::ptr != nullptr);
+                          assert(count_data_mg::ptr != nullptr);
 
-                          msg::DistributedStringSet& keyStore = CountDataMG::ptr->distributedKeys;
+                          msg::distributed_string_set& keyStore = count_data_mg::ptr->distributedKeys;
 
-                          std::string thekey = to_string(getKey(val, nodeKeyTxt));
+                          std::string thekey = to_string(get_key(val, nodeKeyTxt));
                           keyStore.async_insert(thekey);
 
-                          ++CountDataMG::ptr->nodecnt;
+                          ++count_data_mg::ptr->nodecnt;
                         };
 
-      nodelst.filter(std::move(nfilt)).forAllSelected(nodeAction);
+      nodelst.filter(std::move(nfilt)).for_all_selected(nodeAction);
       comm().barrier();
 
       // \todo
@@ -364,32 +364,32 @@ struct MetallGraph
       //   To mark the actual edge, we need to add (owner, index) to the msg, so that the
       //   target vertex owner can notify the edge owner of its inclusion.
       auto edgeAction = [edgeSrcKeyTxt = edgeSrcKey(), edgeTgtKeyTxt = edgeTgtKey()]
-                        (std::size_t pos, const MetallJsonLines::accessor_type& val)->void
+                        (std::size_t pos, const metall_json_lines::accessor_type& val)->void
                         {
-                          msg::DistributedStringSet& keyStore = CountDataMG::ptr->distributedKeys;
+                          msg::distributed_string_set& keyStore = count_data_mg::ptr->distributedKeys;
                           auto commEdgeSrcCheck = [](const std::string& srckey, const std::string& tgtkey)
                                                   {
-                                                    msg::DistributedStringSet& keyStore = CountDataMG::ptr->distributedKeys;
+                                                    msg::distributed_string_set& keyStore = count_data_mg::ptr->distributedKeys;
                                                     auto commEdgeTgtCheck = [](const std::string&)
                                                                             {
-                                                                              ++CountDataMG::ptr->edgecnt;
+                                                                              ++count_data_mg::ptr->edgecnt;
                                                                             };
 
                                                     keyStore.async_exe_if_contains(tgtkey, commEdgeTgtCheck);
                                                   };
 
-                          keyStore.async_exe_if_contains( to_string(getKey(val, edgeSrcKeyTxt)),
+                          keyStore.async_exe_if_contains( to_string(get_key(val, edgeSrcKeyTxt)),
                                                           commEdgeSrcCheck,
-                                                          to_string(getKey(val, edgeTgtKeyTxt))
+                                                          to_string(get_key(val, edgeTgtKeyTxt))
                                                         );
                         };
 
 
-      edgelst.filter(std::move(efilt)).forAllSelected(edgeAction);
+      edgelst.filter(std::move(efilt)).for_all_selected(edgeAction);
       comm().barrier();
 
-      const std::size_t totalNodes = CountDataMG::ptr->distributedKeys.size();
-      const std::size_t totalEdges = nodelst.comm().all_reduce_sum(CountDataMG::ptr->edgecnt);
+      const std::size_t totalNodes = count_data_mg::ptr->distributedKeys.size();
+      const std::size_t totalEdges = nodelst.comm().all_reduce_sum(count_data_mg::ptr->edgecnt);
 
       return { totalNodes, totalEdges };
     }
@@ -397,27 +397,27 @@ struct MetallGraph
     ygm::comm& comm() { return nodelst.comm(); }
 
     std::size_t
-    connectedComponents(std::vector<filter_type> nfilt, std::vector<filter_type> efilt)
+    connected_components(std::vector<filter_type> nfilt, std::vector<filter_type> efilt)
     {
-      msg::PointerGuard cntStateGuard{ ConnCompMG::ptr, new ConnCompMG{comm()} };
+      msg::ptr_guard cntStateGuard{ conn_comp_mg::ptr, new conn_comp_mg{comm()} };
 
       auto nodeAction =
         [nodeKeyTxt = nodeKey()]
-        (std::size_t, const MetallJsonLines::accessor_type& val)->void
+        (std::size_t, const metall_json_lines::accessor_type& val)->void
         {
-          std::string vertex = to_string(getKey(val, nodeKeyTxt));
+          std::string vertex = to_string(get_key(val, nodeKeyTxt));
 
-          ConnCompMG::ptr->distributedAdjList.async_insert_if_missing( vertex, std::vector<std::string>{} );
+          conn_comp_mg::ptr->distributedAdjList.async_insert_if_missing( vertex, std::vector<std::string>{} );
         };
 
-      nodelst.filter(std::move(nfilt)).forAllSelected(nodeAction);
+      nodelst.filter(std::move(nfilt)).for_all_selected(nodeAction);
       comm().barrier();
 
       auto edgeAction =
         [edgeSrcKeyTxt = edgeSrcKey(), edgeTgtKeyTxt = edgeTgtKey()]
-        (std::size_t pos, const MetallJsonLines::accessor_type& val)->void
+        (std::size_t pos, const metall_json_lines::accessor_type& val)->void
         {
-          msg::DistributedAdjList& adjList = ConnCompMG::ptr->distributedAdjList;
+          msg::distributed_adj_list& adjList = conn_comp_mg::ptr->distributedAdjList;
 
           auto commEdgeTgtCheck = [](const std::string& tgtkey, const std::vector<std::string>&, const std::string& srckey)
           {
@@ -427,19 +427,19 @@ struct MetallGraph
                 edges.emplace_back(std::move(tgtkey));
               };
 
-            ConnCompMG::ptr->distributedAdjList.async_visit_if_exists(srckey, commEdgeSrcCheck, tgtkey);
-            ConnCompMG::ptr->distributedAdjList.async_visit_if_exists(tgtkey, commEdgeSrcCheck, srckey);
+            conn_comp_mg::ptr->distributedAdjList.async_visit_if_exists(srckey, commEdgeSrcCheck, tgtkey);
+            conn_comp_mg::ptr->distributedAdjList.async_visit_if_exists(tgtkey, commEdgeSrcCheck, srckey);
           };
 
           // check first target, if in then add edges (src->tgt and tgt->src) to adjecency list at src
           //   we assume a
-          adjList.async_visit_if_exists( to_string(getKey(val, edgeTgtKeyTxt)),
+          adjList.async_visit_if_exists( to_string(get_key(val, edgeTgtKeyTxt)),
                                          commEdgeTgtCheck,
-                                         to_string(getKey(val, edgeSrcKeyTxt))
+                                         to_string(get_key(val, edgeSrcKeyTxt))
                                        );
         };
 
-      edgelst.filter(std::move(efilt)).forAllSelected(edgeAction);
+      edgelst.filter(std::move(efilt)).for_all_selected(edgeAction);
 
       comm().barrier();
       static std::size_t localRoots    = 0;
@@ -452,10 +452,10 @@ struct MetallGraph
         ygm::container::map<std::string, std::string> active{comm()};
         ygm::container::map<std::string, std::string> next_active{comm()};
 
-        // \todo could be factored into a class similar to ConnCompMG
+        // \todo could be factored into a class similar to conn_comp_mg
         static auto&       s_next_active = next_active;
         static auto&       s_map_cc      = map_cc;
-        static auto&       s_adj_list    = ConnCompMG::ptr->distributedAdjList;
+        static auto&       s_adj_list    = conn_comp_mg::ptr->distributedAdjList;
 
         //
         // Init map_cc
@@ -530,14 +530,14 @@ struct MetallGraph
 
 
     static
-    void checkState( metall_manager_type& manager,
-                     ygm::comm& comm
-                   )
+    void check_state( metall_manager_type& manager,
+                      ygm::comm& comm
+                    )
     {
       std::string_view edge_location_suffix_v{edge_location_suffix};
       std::string_view node_location_suffix_v{node_location_suffix};
 
-      MetallJsonLines::checkState(manager, comm, {edge_location_suffix_v, node_location_suffix_v});
+      metall_json_lines::check_state(manager, comm, {edge_location_suffix_v, node_location_suffix_v});
 
       auto&           mgr = manager.get_local_manager();
 
@@ -560,8 +560,8 @@ struct MetallGraph
     static constexpr const char* const node_location_suffix = "nodes";
     static constexpr const char* const keys_location_suffix = "keys";
 
-    static constexpr const char* const ERR_CONSTRUCT_KEYS = "unable to construct MetallGraph::keys object";
-    static constexpr const char* const ERR_OPEN_KEYS      = "unable to open MetallGraph::keys object";
+    static constexpr const char* const ERR_CONSTRUCT_KEYS = "unable to construct metall_graph::keys object";
+    static constexpr const char* const ERR_OPEN_KEYS      = "unable to open metall_graph::keys object";
 
     static constexpr std::size_t NODE_KEY_IDX    = 0;
     static constexpr std::size_t EDGE_SRCKEY_IDX = NODE_KEY_IDX    + 1;

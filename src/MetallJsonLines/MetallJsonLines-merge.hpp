@@ -328,7 +328,7 @@ namespace
 
   // template <typename _allocator_type>
   std::uint64_t
-  computeHash(const xpr::MetallJsonLines::accessor_type& val, const ColumnSelector& sel, ygm::comm& w)
+  computeHash(const xpr::metall_json_lines::accessor_type& val, const ColumnSelector& sel, ygm::comm& w)
   {
     assert(val.is_object());
 
@@ -351,13 +351,13 @@ namespace
   }
 
   void computeMergeInfo( ygm::comm& world,
-                         const xpr::MetallJsonLines& vec,
+                         const xpr::metall_json_lines& vec,
                          const ColumnSelector& colsel,
                          JoinSide which
                        )
   {
-    vec.forAllSelected( [&world, &colsel, which]
-                        (std::size_t rownum, const xpr::MetallJsonLines::accessor_type& row) -> void
+    vec.for_all_selected( [&world, &colsel, which]
+                        (std::size_t rownum, const xpr::metall_json_lines::accessor_type& row) -> void
                         {
                           std::uint64_t hval = computeHash(row, colsel, world);
 
@@ -383,7 +383,7 @@ namespace
     }
   }
 
-  void emplace(xpr::MetallJsonLines::accessor_type store, xpr::MetallJsonLines::accessor_type val)
+  void emplace(xpr::metall_json_lines::accessor_type store, xpr::metall_json_lines::accessor_type val)
   {
     if (val.is_string())
       store.emplace_string() = val.as_string().c_str();
@@ -412,7 +412,7 @@ namespace
     }
   }
 
-  void emplace(xpr::MetallJsonLines::accessor_type store, const bj::value& val)
+  void emplace(xpr::metall_json_lines::accessor_type store, const bj::value& val)
   {
     if (const bj::string* s = val.if_string())
       store.emplace_string() = s->c_str();
@@ -487,8 +487,8 @@ namespace
 
 
   void
-  joinRecords( xpr::MetallJsonLines::accessor_type res,
-               const xpr::MetallJsonLines::accessor_type& lhs,
+  joinRecords( xpr::metall_json_lines::accessor_type res,
+               const xpr::metall_json_lines::accessor_type& lhs,
                const ColumnSelector& projlstLHS,
                const bj::value& rhs,
                const ColumnSelector& projlstRHS,
@@ -502,9 +502,9 @@ namespace
     appendFields(obj, rhs, projlstRHS, rsuf);
   }
 
-  void computeJoin( const xpr::MetallJsonLines::accessor_type& lhs, const ColumnSelector& lhsOn, const ColumnSelector& projlstLeft,
+  void computeJoin( const xpr::metall_json_lines::accessor_type& lhs, const ColumnSelector& lhsOn, const ColumnSelector& projlstLeft,
                     const bj::value& rhs,                           const ColumnSelector& rhsOn, const ColumnSelector& projlstRight,
-                    xpr::MetallJsonLines& res
+                    xpr::metall_json_lines& res
                   )
   {
     static std::uint64_t CNT = 0;
@@ -578,9 +578,9 @@ namespace
 namespace experimental
 {
 
-std::size_t merge( MetallJsonLines& resVec,
-                   const MetallJsonLines& lhsVec,
-                   const MetallJsonLines& rhsVec,
+std::size_t merge( metall_json_lines& resVec,
+                   const metall_json_lines& lhsVec,
+                   const metall_json_lines& rhsVec,
                    ColumnSelector lhsOn,
                    ColumnSelector rhsOn,
                    ColumnSelector lhsProj,
@@ -599,8 +599,8 @@ std::size_t merge( MetallJsonLines& resVec,
   if (DEBUG_TRACE_MERGE)
   {
     std::cerr << "phase 0: @" << world.rank()
-            << " *l: " << lhsVec.countAllLocal() // << " @" << lhsLoc
-            << " *r: " << rhsVec.countAllLocal() // << " @" << rhsLoc
+            << " *l: " << lhsVec.local_size() // << " @" << lhsLoc
+            << " *r: " << rhsVec.local_size() // << " @" << rhsLoc
             << std::endl;
   }
 
@@ -631,7 +631,7 @@ std::size_t merge( MetallJsonLines& resVec,
     int            elapsedtime = std::chrono::duration_cast<std::chrono::milliseconds>(endtime_P0-starttime_P0).count();
 
     std::cerr << "@barrier 0: elapsedTime: " << elapsedtime << "ms : "
-              << ((lhsVec.countAllLocal() + rhsVec.countAllLocal()) / (elapsedtime / 1000.0)) << " rec/s"
+              << ((lhsVec.local_size() + rhsVec.local_size()) / (elapsedtime / 1000.0)) << " rec/s"
               << std::endl;
   }
 
@@ -731,7 +731,7 @@ std::size_t merge( MetallJsonLines& resVec,
   }
 
   // phase 2: send data to node that computes the join
-  MetallJsonLines::metall_projector_type projectRow = projector(sendListRhs);
+  metall_json_lines::metall_projector_type projectRow = projector(sendListRhs);
 
   for (const MergeCandidates& m : local.mergeCandidates)
   {
@@ -806,11 +806,10 @@ std::size_t merge( MetallJsonLines& resVec,
     {
       for (int lhsIdx : el.indices())
       {
-        const MetallJsonLines::accessor_type& lhsObj = lhsVec.at(lhsIdx);
+        const metall_json_lines::accessor_type& lhsObj = lhsVec.at(lhsIdx);
 
         for (const bj::value& rhsObj : el.data())
         {
-          // MetallJsonLines::accessor_type rhsObj = mtljsn::value_from(remoteObj, resVec.get_allocator());
           computeJoin(lhsObj, lhsOn, lhsProj, rhsObj, rhsOn, rhsProj, resVec);
         }
       }
@@ -835,12 +834,12 @@ std::size_t merge( MetallJsonLines& resVec,
     //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
     std::cerr << "phase Z: @" << world.rank()
-            << " *o: " << resVec.countAllLocal()
+            << " *o: " << resVec.local_size()
             << std::endl;
   }
 
   // done
-  return world.all_reduce_sum(resVec.countAllLocal());
+  return world.all_reduce_sum(resVec.local_size());
 }
 
 

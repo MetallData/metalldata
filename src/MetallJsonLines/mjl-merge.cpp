@@ -82,7 +82,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   try
   {
-    using metall_manager = xpr::MetallJsonLines::metall_manager_type;
+    using metall_manager = xpr::metall_json_lines::metall_manager_type;
 
     // argument processing
     bj::object     lhsObj = clip.get<bj::object>(ARG_LEFT);
@@ -103,39 +103,39 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     if (argRhsOn.empty() && argsOn.empty())
       throw std::runtime_error{"on-columns unspecified for right frame."};
 
-    const ColumnSelector& lhsOn = argLhsOn.empty() ? argsOn : argLhsOn;
-    const ColumnSelector& rhsOn = argRhsOn.empty() ? argsOn : argRhsOn;
+    const ColumnSelector&   lhsOn = argLhsOn.empty() ? argsOn : argLhsOn;
+    const ColumnSelector&   rhsOn = argRhsOn.empty() ? argsOn : argRhsOn;
 
     if (lhsOn.size() != rhsOn.size())
       throw std::runtime_error{"Number of columns of Left_On and Right_on differ"};
 
-    const bj::string&     lhsLoc = valueAt<bj::string>(lhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
-    metall_manager        lhsMgr{metall::open_read_only, lhsLoc.data(), MPI_COMM_WORLD};
-    xpr::MetallJsonLines  lhsVec{lhsMgr, world};
+    const bj::string&       lhsLoc = valueAt<bj::string>(lhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
+    metall_manager          lhsMgr{metall::open_read_only, lhsLoc.data(), MPI_COMM_WORLD};
+    xpr::metall_json_lines  lhsVec{lhsMgr, world};
     lhsVec.filter(filter(world.rank(), selectionCriteria(lhsObj), KEYS_SELECTOR));
 
-    const bj::string&     rhsLoc = valueAt<bj::string>(rhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
-    metall_manager        rhsMgr{metall::open_read_only, rhsLoc.data(), MPI_COMM_WORLD};
-    xpr::MetallJsonLines  rhsVec{rhsMgr, world};
+    const bj::string&       rhsLoc = valueAt<bj::string>(rhsObj, "__clippy_type__", "state", ST_METALL_LOCATION);
+    metall_manager          rhsMgr{metall::open_read_only, rhsLoc.data(), MPI_COMM_WORLD};
+    xpr::metall_json_lines  rhsVec{rhsMgr, world};
     rhsVec.filter(filter(world.rank(), selectionCriteria(rhsObj), KEYS_SELECTOR));
 
-    bj::object            outObj = clip.get<bj::object>(ARG_OUTPUT);
-    const bj::string&     outLoc = valueAt<bj::string>(outObj, "__clippy_type__", "state", ST_METALL_LOCATION);
-    std::string_view      outLocVw(outLoc.data(), outLoc.size());
+    bj::object              outObj = clip.get<bj::object>(ARG_OUTPUT);
+    const bj::string&       outLoc = valueAt<bj::string>(outObj, "__clippy_type__", "state", ST_METALL_LOCATION);
+    std::string_view        outLocVw(outLoc.data(), outLoc.size());
 
     // \todo instead of deleting the entire directory tree, just try
     //       to open the output location and clear the content
     //       then add argument whether existing data should be kept or overwritten
-    removeDirectoryAndContent(world, outLocVw);
+    remove_directory_and_content(world, outLocVw);
 
-    metall_manager        outMgr{metall::create_only, outLoc.data(), MPI_COMM_WORLD};
+    metall_manager          outMgr{metall::create_only, outLoc.data(), MPI_COMM_WORLD};
 
-    xpr::MetallJsonLines::createNew(outMgr, world);
-    xpr::MetallJsonLines  outVec{outMgr, world};
-    const std::size_t     totalMerged = xpr::merge( outVec, lhsVec, rhsVec,
-                                                    lhsOn, rhsOn,
-                                                    std::move(projLhs), std::move(projRhs)
-                                                  );
+    xpr::metall_json_lines::create_new(outMgr, world);
+    xpr::metall_json_lines  outVec{outMgr, world};
+    const std::size_t       totalMerged = xpr::merge( outVec, lhsVec, rhsVec,
+                                                      lhsOn, rhsOn,
+                                                      std::move(projLhs), std::move(projRhs)
+                                                    );
 
     if (world.rank() == 0)
     {

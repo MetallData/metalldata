@@ -17,7 +17,7 @@ const std::string METHOD_DOCSTRING = "Counts the number of rows where the curren
 
 std::size_t countLines( bool skip,
                         bool ignoreFilter,
-                        xpr::MetallJsonLines& lines,
+                        xpr::metall_json_lines& lines,
                         std::size_t rank,
                         clippy::clippy& clip,
                         std::string_view selector
@@ -41,14 +41,14 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   try
   {
-    using metall_manager = xpr::MetallJsonLines::metall_manager_type;
+    using metall_manager = xpr::metall_json_lines::metall_manager_type;
 
-    const std::string   dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
-    metall_manager      mm{metall::open_read_only, dataLocation.data(), MPI_COMM_WORLD};
-    xpr::MetallGraph    g{mm, world};
-    xpr::MGCountSummary res = g.count( filter(world.rank(), clip, NODES_SELECTOR),
-                                       filter(world.rank(), clip, EDGES_SELECTOR)
-                                     );
+    const std::string     dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
+    metall_manager        mm{metall::open_read_only, dataLocation.data(), MPI_COMM_WORLD};
+    xpr::metall_graph     g{mm, world};
+    xpr::mg_count_summary res = g.count( filter(world.rank(), clip, NODES_SELECTOR),
+                                         filter(world.rank(), clip, EDGES_SELECTOR)
+                                       );
 
     if (world.rank() == 0)
     {

@@ -44,7 +44,7 @@ const std::string KEYS_SELECTOR      = "keys";
 
 CXX_MAYBE_UNUSED
 json_logic::ValueExpr
-toValueExpr(const experimental::MetallJsonLines::accessor_type& el)
+to_value_expr(const experimental::metall_json_lines::accessor_type& el)
 {
   if (el.is_int64())  return json_logic::toValueExpr(el.as_int64());
   if (el.is_uint64()) return json_logic::toValueExpr(el.as_uint64());
@@ -61,10 +61,10 @@ toValueExpr(const experimental::MetallJsonLines::accessor_type& el)
 template <class MetallJsonObjectT>
 CXX_MAYBE_UNUSED
 json_logic::ValueExpr
-evalPath(std::string_view path, const MetallJsonObjectT& obj)
+eval_path(std::string_view path, const MetallJsonObjectT& obj)
 {
   if (auto pos = obj.find(path); pos != obj.end())
-    return toValueExpr(pos->value());
+    return to_value_expr(pos->value());
 
   std::size_t selpos = path.find('.');
 
@@ -74,12 +74,12 @@ evalPath(std::string_view path, const MetallJsonObjectT& obj)
   std::string_view selector = path.substr(0, selpos);
   std::string_view suffix   = path.substr(selpos+1);
 
-  return evalPath(suffix, obj.at(selector).as_object());
+  return eval_path(suffix, obj.at(selector).as_object());
 }
 
 
 CXX_MAYBE_UNUSED
-auto variableLookup( experimental::MetallJsonLines::accessor_type::object_accessor objacc,
+auto variable_lookup( experimental::metall_json_lines::accessor_type::object_accessor objacc,
                      std::string_view selectPrefix,
                      std::size_t rownum,
                      std::size_t rank
@@ -95,31 +95,31 @@ auto variableLookup( experimental::MetallJsonLines::accessor_type::object_access
            if (auto pos = objacc.find(col); pos != objacc.end())
            {
              CXX_LIKELY;
-             return toValueExpr(pos->value());
+             return to_value_expr(pos->value());
            }
 
            if (col == "rowid") return json_logic::toValueExpr(rownum);
            if (col == "mpiid") return json_logic::toValueExpr(std::int64_t(rank));
 
-           return evalPath(col, objacc);
+           return eval_path(col, objacc);
          };
 }
 
 inline
-auto variableLookup( experimental::MetallJsonLines::accessor_type rowval,
+auto variable_lookup( experimental::metall_json_lines::accessor_type rowval,
                      std::string_view selectPrefix,
                      std::size_t rownum,
                      std::size_t rank
                    )
-     -> decltype(variableLookup(rowval.as_object(), selectPrefix, rownum, rank))
+     -> decltype(variable_lookup(rowval.as_object(), selectPrefix, rownum, rank))
 {
   if (!rowval.is_object()) throw std::logic_error("Entry is not a json::object");
 
-  return variableLookup(rowval.as_object(), selectPrefix, rownum, rank);
+  return variable_lookup(rowval.as_object(), selectPrefix, rownum, rank);
 }
 
 CXX_MAYBE_UNUSED
-std::vector<experimental::MetallJsonLines::filter_type>
+std::vector<experimental::metall_json_lines::filter_type>
 filter(std::size_t rank, JsonExpression jsonExpr, std::string_view selectPrefix = KEYS_SELECTOR)
 {
   using ResultType = decltype(filter(rank, jsonExpr, selectPrefix));
@@ -154,9 +154,9 @@ filter(std::size_t rank, JsonExpression jsonExpr, std::string_view selectPrefix 
     std::shared_ptr<json_logic::Expr> pred{rawexpr};
 
     res.emplace_back( [rank, selectPrefix, pred = std::move(pred)]
-                      (std::size_t rownum, const experimental::MetallJsonLines::accessor_type& rowval) mutable -> bool
+                      (std::size_t rownum, const experimental::metall_json_lines::accessor_type& rowval) mutable -> bool
                       {
-                        auto varLookup = variableLookup(rowval, selectPrefix, rownum, rank);
+                        auto varLookup = variable_lookup(rowval, selectPrefix, rownum, rank);
 
                         return json_logic::unpackValue<bool>(json_logic::calculate(*pred, varLookup));
                       }
@@ -167,7 +167,7 @@ filter(std::size_t rank, JsonExpression jsonExpr, std::string_view selectPrefix 
 }
 
 inline
-std::vector<experimental::MetallJsonLines::filter_type>
+std::vector<experimental::metall_json_lines::filter_type>
 filter(std::size_t rank, const clippy::clippy& clip, std::string_view selectPrefix = KEYS_SELECTOR)
 {
   if (!clip.has_state(ST_SELECTED))
@@ -180,20 +180,20 @@ filter(std::size_t rank, const clippy::clippy& clip, std::string_view selectPref
 }
 
 CXX_MAYBE_UNUSED
-experimental::MetallJsonLines::metall_projector_type
+experimental::metall_json_lines::metall_projector_type
 projector(ColumnSelector projlist)
 {
   namespace xpr = experimental;
 
   // w/o selection list, just return the full object
   if (projlist.empty())
-    return [](const xpr::MetallJsonLines::accessor_type& el) -> boost::json::value
+    return [](const xpr::metall_json_lines::accessor_type& el) -> boost::json::value
            {
              return json_bento::value_to<boost::json::value>(el);
            };
 
   return [fields = std::move(projlist)]
-         (const xpr::MetallJsonLines::accessor_type& el) -> boost::json::value
+         (const xpr::metall_json_lines::accessor_type& el) -> boost::json::value
          {
            assert (el.is_object());
            const auto& frobj = el.as_object();
@@ -212,7 +212,7 @@ projector(ColumnSelector projlist)
 }
 
 inline
-experimental::MetallJsonLines::metall_projector_type
+experimental::metall_json_lines::metall_projector_type
 projector(const std::string& projectorKey, clippy::clippy& clip)
 {
   return projector(clip.get<ColumnSelector>(projectorKey));
@@ -221,7 +221,7 @@ projector(const std::string& projectorKey, clippy::clippy& clip)
 
 template <class AllocT>
 CXX_MAYBE_UNUSED
-experimental::MetallJsonLines::updater_type
+experimental::metall_json_lines::updater_type
 updater( std::size_t rank,
          clippy::clippy& clip,
          const std::string& colkey,
@@ -245,9 +245,9 @@ updater( std::size_t rank,
   std::shared_ptr<json_logic::Expr> oper{rawexpr};
 
   return [rank, selectPrefix, colName=std::move(columnName), op=std::move(oper), objalloc{alloc}]
-         (std::size_t rownum, xpr::MetallJsonLines::accessor_type rowval) -> void
+         (std::size_t rownum, xpr::metall_json_lines::accessor_type rowval) -> void
          {
-           auto                  varLookup = variableLookup(rowval, selectPrefix, rownum, rank);
+           auto                  varLookup = variable_lookup(rowval, selectPrefix, rownum, rank);
            json_logic::ValueExpr exp       = json_logic::calculate(*op, varLookup);
            auto                  rowobj    = rowval.as_object();
            std::stringstream     jstr;
@@ -271,7 +271,7 @@ void append(std::vector<boost::json::object>& lhs, std::vector<boost::json::obje
 /// processes on \ref world after the directory has been removed.
 CXX_MAYBE_UNUSED
 inline
-void removeDirectoryAndContent(ygm::comm& world, std::string_view loc)
+void remove_directory_and_content(ygm::comm& world, std::string_view loc)
 {
   try
   {

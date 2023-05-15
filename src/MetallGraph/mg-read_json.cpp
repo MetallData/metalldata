@@ -37,13 +37,13 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   try
   {
-    using metall_manager = xpr::MetallJsonLines::metall_manager_type;
+    using metall_manager = xpr::metall_json_lines::metall_manager_type;
 
     const std::vector<std::string> nodeFiles = clip.get<std::vector<std::string> >(ARG_NODES_FILES_NAME);
     const std::vector<std::string> edgeFiles = clip.get<std::vector<std::string> >(ARG_EDGES_FILES_NAME);
     const std::string              dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
     metall_manager                 mm{metall::open_only, dataLocation.data(), MPI_COMM_WORLD};
-    xpr::MetallGraph               g{mm, world};
+    xpr::metall_graph               g{mm, world};
     const std::size_t              numNodes = g.nodes().readJsonFiles(nodeFiles);
     const std::size_t              numEdges = g.edges().readJsonFiles(edgeFiles);
 

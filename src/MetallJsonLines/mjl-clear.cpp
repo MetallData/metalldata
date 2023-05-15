@@ -28,11 +28,11 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   try
   {
-    using metall_manager = xpr::MetallJsonLines::metall_manager_type;
+    using metall_manager = xpr::metall_json_lines::metall_manager_type;
 
-    const std::string    dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
-    metall_manager       mm{metall::open_only, dataLocation.data(), MPI_COMM_WORLD};
-    xpr::MetallJsonLines lines{mm, world};
+    const std::string      dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
+    metall_manager         mm{metall::open_only, dataLocation.data(), MPI_COMM_WORLD};
+    xpr::metall_json_lines lines{mm, world};
 
     lines /* \todo .filter(filter(world.rank(), clip, KEYS_SELECTOR)) */
          .clear();
