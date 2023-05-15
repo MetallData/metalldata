@@ -60,7 +60,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
   {
   // the real thing
     // try to create the object
-    using metall_manager = xpr::MetallJsonLines::metall_manager_type;
+    using metall_manager = xpr::metall_json_lines::metall_manager_type;
 
     const std::string          dataLocation = clip.get<std::string>           (ST_METALL_LOCATION);
     const ARG_VERTEX_KEY_TYPE  vertexKey    = clip.get<ARG_VERTEX_KEY_TYPE>   (ARG_VERTEX_KEY_NAME);
@@ -69,7 +69,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     const bool                 overwrite    = clip.get<ARG_ALWAYS_CREATE_TYPE>(ARG_ALWAYS_CREATE_NAME);
 
     if (overwrite)
-      removeDirectoryAndContent(world, dataLocation);
+      remove_directory_and_content(world, dataLocation);
 
     if (!std::filesystem::is_directory(dataLocation))
     {
@@ -82,17 +82,17 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
       metall_manager mm{metall::create_only, dataLocation.data(), MPI_COMM_WORLD};
 
-      xpr::MetallGraph::createNew(mm, world, vertexKey, edgeSrcKey, edgeDstKey);
+      xpr::metall_graph::create_new(mm, world, vertexKey, edgeSrcKey, edgeDstKey);
     }
     else
     {
       metall_manager mm{metall::open_read_only, dataLocation.data(), MPI_COMM_WORLD};
 
       // check that storage is in consistent state
-      xpr::MetallGraph::checkState(mm, world);
+      xpr::metall_graph::check_state(mm, world);
       // \todo
       //   support following checking variant:
-      //   xpr::MetallGraph::checkState(mm, world, vertexKey, edgeSrcKey, edgeDstKey);
+      //   xpr::metall_graph::check_state(mm, world, vertexKey, edgeSrcKey, edgeDstKey);
     }
 
     // create the return object

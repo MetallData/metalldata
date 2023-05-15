@@ -41,14 +41,14 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   try
   {
-    using metall_manager = xpr::MetallJsonLines::metall_manager_type;
+    using metall_manager = xpr::metall_json_lines::metall_manager_type;
 
-    const std::string    dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
-    metall_manager       mm{metall::open_only, dataLocation.data(), MPI_COMM_WORLD};
-    xpr::MetallJsonLines lines{mm, world};
-    auto                 alloc = lines.get_allocator();
-    const std::size_t    updated = lines.filter(filter(world.rank(), clip, KEYS_SELECTOR))
-                                        .set(updater(world.rank(), clip, ARG_COLUMN, ARG_EXPRESSION, KEYS_SELECTOR, alloc));
+    const std::string      dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
+    metall_manager         mm{metall::open_only, dataLocation.data(), MPI_COMM_WORLD};
+    xpr::metall_json_lines lines{mm, world};
+    auto                   alloc = lines.get_allocator();
+    const std::size_t      updated = lines.filter(filter(world.rank(), clip, KEYS_SELECTOR))
+                                          .set(updater(world.rank(), clip, ARG_COLUMN, ARG_EXPRESSION, KEYS_SELECTOR, alloc));
 
     if (world.rank() == 0)
     {

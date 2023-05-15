@@ -26,7 +26,7 @@ const std::string WO_EDGES_DESC = "if true, edges are not counted";
 
 std::size_t countLines( bool skip,
                         bool ignoreFilter,
-                        xpr::MetallJsonLines& lines,
+                        xpr::metall_json_lines& lines,
                         std::size_t rank,
                         clippy::clippy& clip,
                         std::string_view selector
@@ -54,14 +54,14 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   try
   {
-    using metall_manager = xpr::MetallJsonLines::metall_manager_type;
+    using metall_manager = xpr::metall_json_lines::metall_manager_type;
 
     const std::string dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
     const bool        countAll     = clip.get<bool>(COUNT_ALL_NAME);
     const bool        withoutNodes = clip.get<bool>(WO_NODES_NAME);
     const bool        withoutEdges = clip.get<bool>(WO_EDGES_NAME);
     metall_manager    mm{metall::open_read_only, dataLocation.data(), MPI_COMM_WORLD};
-    xpr::MetallGraph  g{mm, world};
+    xpr::metall_graph  g{mm, world};
     const std::size_t numNodes = countLines(withoutNodes, countAll, g.nodes(), world.rank(), clip, NODES_SELECTOR);
     const std::size_t numEdges = countLines(withoutEdges, countAll, g.edges(), world.rank(), clip, EDGES_SELECTOR);
 

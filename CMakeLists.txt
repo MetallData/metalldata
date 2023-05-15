@@ -14,7 +14,7 @@ include(FetchContent)
 #
 #  Options
 #
-option(METALLDATA_USE_PRIVATEER "Use Privateer in Metall" ON)
+option(METALLDATA_USE_PRIVATEER "Use Privateer in Metall" OFF)
 if (APPLE AND METALLDATA_USE_PRIVATEER)
     message(WARNING "Turn off Privateer on MacOS")
     set(METALLDATA_USE_PRIVATEER OFF)

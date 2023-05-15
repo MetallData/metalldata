@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-/// \brief Demonstrates how to run Json expression predicates on a MetallJsonLines
+/// \brief Demonstrates how to run Json expr::metall_json_linesession predicates on a MetallJsonLines
 
 #include <iostream>
 #include <fstream>
@@ -11,7 +11,7 @@
 #include <boost/json.hpp>
 #include "mjl-common.hpp"
 
-namespace xpr     = experimental;
+namespace xpr = experimental;
 
 namespace
 {
@@ -39,14 +39,14 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   try
   {
-    using metall_manager = xpr::MetallJsonLines::metall_manager_type;
+    using metall_manager = xpr::metall_json_lines::metall_manager_type;
 
-    const std::string    dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
-    const bool           countAll     = clip.get<bool>(COUNT_ALL_NAME);
-    metall_manager       mm{metall::open_read_only, dataLocation.data(), MPI_COMM_WORLD};
-    xpr::MetallJsonLines lines{mm, world};
-    const std::size_t    res          = countAll ? lines.count()
-                                                 : lines.filter(filter(world.rank(), clip)).count();
+    const std::string      dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
+    const bool             countAll     = clip.get<bool>(COUNT_ALL_NAME);
+    metall_manager         mm{metall::open_read_only, dataLocation.data(), MPI_COMM_WORLD};
+    xpr::metall_json_lines lines{mm, world};
+    const std::size_t      res          = countAll ? lines.count()
+                                                   : lines.filter(filter(world.rank(), clip)).count();
 
     if (world.rank() == 0)
     {

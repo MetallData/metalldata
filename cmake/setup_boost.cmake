@@ -21,6 +21,7 @@ function(prepare_fetchcontent_boost)
             "libs/integer;"
             "libs/intrusive;"
             "libs/io;"
+            "libs/iostreams;"
             "libs/core;"
             "libs/align;"
             "libs/predef;"
@@ -68,6 +69,8 @@ function(get_boost_include_dirs)
             ${Boost_SOURCE_DIR}/libs/iterator/include
             ${Boost_SOURCE_DIR}/libs/container/include
             ${Boost_SOURCE_DIR}/libs/unordered/include
+            ${Boost_SOURCE_DIR}/libs/iostreams/include
+            ${Boost_SOURCE_DIR}/libs/system/include
             ${Boost_SOURCE_DIR}/libs/format/include
             ${Boost_SOURCE_DIR}/libs/range/include
             ${Boost_SOURCE_DIR}/libs/concept_check/include

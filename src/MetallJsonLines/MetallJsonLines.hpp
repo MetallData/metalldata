@@ -19,9 +19,9 @@
 namespace msg
 {
 
-struct ProcessDataMJL
+struct process_data_mjl
 {
-  // repeated from MetallJsonLines class
+  // repeated from metall_json_lines class
   using lines_type       = json_bento::box<metall::manager::allocator_type<std::byte> >;
   using accessor_type    = lines_type::value_accessor;
 
@@ -33,13 +33,13 @@ struct ProcessDataMJL
   projector_type*           projector;
 };
 
-ProcessDataMJL mjlState;
+process_data_mjl mjlState;
 
 
 //
-// MetallJsonLines::head messages
+// metall_json_lines::head messages
 
-struct RowResponse
+struct row_response
 {
   void operator()(std::vector<std::string> rows)
   {
@@ -49,7 +49,7 @@ struct RowResponse
   }
 };
 
-struct RowRequest
+struct row_request
 {
   void operator()(ygm::comm* w, std::size_t numrows) const
   {
@@ -62,7 +62,7 @@ struct RowRequest
     const int  fromOther = numrows - fromThis;
 
     if ((fromOther > 0) && (world.size() != (world.rank()+1)))
-      world.async( world.rank()+1, RowRequest{}, fromOther );
+      world.async( world.rank()+1, row_request{}, fromOther );
 
     mjlState.selectedRows->resize(fromThis);
 
@@ -76,14 +76,14 @@ struct RowRequest
       response.emplace_back(serial.str());
     }
 
-    world.async(0, RowResponse{}, response);
+    world.async(0, row_response{}, response);
   }
 };
 
 //
-// MetallJsonLines::info reduction operator
+// metall_json_lines::info reduction operator
 
-struct InfoReduction
+struct info_reduction
 {
   std::vector<int> operator()(const std::vector<int>& lhs, const std::vector<int>& rhs) const
   {
@@ -101,7 +101,7 @@ namespace
 {
 
 template <class Fn, class Vector>
-void _simpleForAllSelected(Fn fn, Vector& vector, std::size_t maxrows)
+void _simple_for_all_selected(Fn fn, Vector& vector, std::size_t maxrows)
 {
   std::size_t const lim = std::min(vector.size(), maxrows);
 
@@ -114,14 +114,14 @@ template < class Fn
          , class Vector
          , class FilterFns
          >
-void _forAllSelected( Fn fn,
+void _for_all_selected( Fn fn,
                       Vector& vector,
                       FilterFns& filterfn,
                       std::size_t maxrows = std::numeric_limits<std::size_t>::max()
                     )
 {
   if (filterfn.empty())
-    return _simpleForAllSelected<Fn>(std::move(fn), vector, maxrows);
+    return _simple_for_all_selected<Fn>(std::move(fn), vector, maxrows);
 
   std::size_t const lim = std::min(vector.size(), maxrows);
   std::size_t       i   = 0;
@@ -167,10 +167,10 @@ T& checked_deref(T* ptr, const char* errmsg)
     return *ptr;
   }
 
-  throw std::runtime_error("Unable to open MetallJsonLines");
+  throw std::runtime_error("Unable to open metall_json_lines");
 }
 
-struct ImportSummary : std::tuple<std::size_t, std::size_t>
+struct import_summary : std::tuple<std::size_t, std::size_t>
 {
   using base = std::tuple<std::size_t, std::size_t>;
   using base::base;
@@ -190,7 +190,7 @@ struct ImportSummary : std::tuple<std::size_t, std::size_t>
 };
 
 
-struct MetallJsonLines
+struct metall_json_lines
 {
     using lines_type            = json_bento::box<metall::manager::allocator_type<std::byte> >;
     using accessor_type         = lines_type::value_accessor;
@@ -205,20 +205,20 @@ struct MetallJsonLines
     //
     // ctors
 
-    MetallJsonLines(metall_manager_type& mgr, ygm::comm& world)
+    metall_json_lines(metall_manager_type& mgr, ygm::comm& world)
     : ygmcomm(world),
       metallmgr(mgr),
       vector(checked_deref(metallmgr.get_local_manager().find<lines_type>(metall::unique_instance).first, ERR_OPEN))
     {}
 
-    MetallJsonLines(metall_manager_type& mgr, ygm::comm& world, const char* key)
+    metall_json_lines(metall_manager_type& mgr, ygm::comm& world, const char* key)
     : ygmcomm(world),
       metallmgr(mgr),
       vector(checked_deref(metallmgr.get_local_manager().find<lines_type>(key).first, ERR_OPEN))
     {}
 
-    MetallJsonLines(metall_manager_type& mgr, ygm::comm& world, std::string_view key)
-    : MetallJsonLines(mgr, world, key.data())
+    metall_json_lines(metall_manager_type& mgr, ygm::comm& world, std::string_view key)
+    : metall_json_lines(mgr, world, key.data())
     {}
 
 
@@ -235,11 +235,11 @@ struct MetallJsonLines
       std::vector<std::string> remoteRows;
       std::vector<std::size_t> selectedRows;
 
-      msg::mjlState = msg::ProcessDataMJL{&vector, &remoteRows, &selectedRows, &projector};
+      msg::mjlState = msg::process_data_mjl{&vector, &remoteRows, &selectedRows, &projector};
 
       // phase 1: make all local selections
       {
-        forAllSelected( [&selectedRows](int rownum, const accessor_type&) -> void
+        for_all_selected( [&selectedRows](int rownum, const accessor_type&) -> void
                         {
                           selectedRows.emplace_back(rownum);
                         },
@@ -254,7 +254,7 @@ struct MetallJsonLines
       //          rank 0: start filling result vector
       {
         if (isMainRank() && (selectedRows.size() < numrows) && !isLastRank())
-          ygmcomm.async( ygmcomm.rank()+1, msg::RowRequest{}, (numrows-selectedRows.size()) );
+          ygmcomm.async( ygmcomm.rank()+1, msg::row_request{}, (numrows-selectedRows.size()) );
 
         for (std::uint64_t i : selectedRows)
           res.emplace_back(projector(vector.at(i)));
@@ -270,28 +270,28 @@ struct MetallJsonLines
     }
 
     /// returns the number of elements in the local container
-    std::size_t countAllLocal() const
+    std::size_t local_size() const
     {
       return vector.size();
     }
 
     /// calls \ref accessor with each row, for up to \ref maxrows (per local container) times
-    void forAllSelected( visitor_type accessor,
-                         std::size_t maxrows = std::numeric_limits<std::size_t>::max()
-                       ) const
+    void for_all_selected( visitor_type accessor,
+                           std::size_t maxrows = std::numeric_limits<std::size_t>::max()
+                         ) const
     {
-      _forAllSelected( std::move(accessor), vector, filterfn, maxrows );
+      _for_all_selected( std::move(accessor), vector, filterfn, maxrows );
     }
 
     /// returns the number of selected elements in the local container
-    std::size_t countSelected() const
+    std::size_t count_selected() const
     {
-      std::size_t selected = countAllLocal();
+      std::size_t selected = local_size();
 
       if (filterfn.size())
       {
         selected = 0;
-        forAllSelected([&selected](std::size_t, const accessor_type&) -> void { ++selected; });
+        for_all_selected([&selected](std::size_t, const accessor_type&) -> void { ++selected; });
       }
 
       return selected;
@@ -305,14 +305,14 @@ struct MetallJsonLines
       std::size_t        total = vector.size();
 
       // phase 1: count locally
-      std::size_t        selected = countSelected();
+      std::size_t        selected = count_selected();
 
       // phase 2: reduce globally
       //          rank 0: produce result object
       {
         std::vector<int> inf = { int(ygmcomm.rank()), int(total), int(selected) };
 
-        inf = ygmcomm.all_reduce(inf, msg::InfoReduction{});
+        inf = ygmcomm.all_reduce(inf, msg::info_reduction{});
 
         if (isMainRank())
         {
@@ -336,7 +336,7 @@ struct MetallJsonLines
     std::size_t count() const
     {
       // phase 1: count locally
-      std::size_t selected = countSelected();
+      std::size_t selected = count_selected();
 
       // phase 2: reduce globally
       std::size_t totalSelected = ygmcomm.all_reduce_sum(selected);
@@ -360,14 +360,14 @@ struct MetallJsonLines
 
       // phase 1: update records locally
       {
-        _forAllSelected( [&updcount, fn = std::move(updater)](int rownum, accessor_type obj) -> void
-                         {
-                           ++updcount;
-                           fn(rownum, obj);
-                         },
-                         vector,
-                         filterfn
-                       );
+        _for_all_selected( [&updcount, fn = std::move(updater)](int rownum, accessor_type obj) -> void
+                           {
+                             ++updcount;
+                             fn(rownum, obj);
+                           },
+                           vector,
+                           filterfn
+                         );
       }
 
       // phase 2: compute total update count
@@ -381,11 +381,11 @@ struct MetallJsonLines
     /// \param  filter      a function that accepts or rejects a JSON line
     /// \param  transformer a function that transforms a JSON entry before it is stored
     /// \return a summary of how many lines were imported and rejected.
-    ImportSummary
-    readJsonFiles( const std::vector<std::string>&                       files,
-                   std::function<bool(const boost::json::value&)>        filter      = acceptAll,
-                   std::function<boost::json::value(boost::json::value)> transformer = identityTransformer
-                 )
+    import_summary
+    read_json_files( const std::vector<std::string>&                       files,
+                     std::function<bool(const boost::json::value&)>        filter      = accept_all,
+                     std::function<boost::json::value(boost::json::value)> transformer = identity_transformer
+                   )
     {
       // namespace mtljsn = metall::json::json;
 
@@ -427,13 +427,13 @@ struct MetallJsonLines
     }
 
     /// imports a json files and returns the number of imported rows
-    ImportSummary
-    readJsonFile(std::string file)
+    import_summary
+    read_json_file(std::string file)
     {
       std::vector<std::string> files;
 
       files.emplace_back(std::move(file));
-      return readJsonFiles(files);
+      return read_json_files(files);
     }
 
     //
@@ -444,13 +444,13 @@ struct MetallJsonLines
     /// \note *this is returned to allow operation chaining on the container
     ///       e.g., mjl.filter(...).count();
     /// \{
-    MetallJsonLines& filter(filter_type fn)
+    metall_json_lines& filter(filter_type fn)
     {
       filterfn.emplace_back(std::move(fn));
       return *this;
     }
 
-    MetallJsonLines& filter(std::vector<filter_type> fns)
+    metall_json_lines& filter(std::vector<filter_type> fns)
     {
       std::move(fns.begin(), fns.end(), std::back_inserter(filterfn));
       return *this;
@@ -490,7 +490,7 @@ struct MetallJsonLines
     // static creators
 
     static
-    void createNew(metall_manager_type& manager, ygm::comm&)
+    void create_new(metall_manager_type& manager, ygm::comm&)
     {
       auto&       mgr = manager.get_local_manager();
       const auto* vec = mgr.construct<lines_type>(metall::unique_instance)(mgr.get_allocator());
@@ -499,7 +499,7 @@ struct MetallJsonLines
     }
 
     static
-    void createNew(metall_manager_type& manager, ygm::comm&, std::vector<std::string_view> metallkeys)
+    void create_new(metall_manager_type& manager, ygm::comm&, std::vector<std::string_view> metallkeys)
     {
       auto& mgr = manager.get_local_manager();
 
@@ -512,13 +512,13 @@ struct MetallJsonLines
     }
 
     static
-    void createNew(metall_manager_type& manager, ygm::comm& comm, std::string_view metallkey)
+    void create_new(metall_manager_type& manager, ygm::comm& comm, std::string_view metallkey)
     {
-      createNew(manager, comm, { metallkey });
+      create_new(manager, comm, { metallkey });
     }
 
     static
-    void checkState(metall_manager_type& manager, ygm::comm&)
+    void check_state(metall_manager_type& manager, ygm::comm&)
     {
       auto&       mgr = manager.get_local_manager();
       const auto* vec = mgr.find<lines_type>(metall::unique_instance).first;
@@ -527,7 +527,7 @@ struct MetallJsonLines
     }
 
     static
-    void checkState(metall_manager_type& manager, ygm::comm&, std::vector<std::string_view> keys)
+    void check_state(metall_manager_type& manager, ygm::comm&, std::vector<std::string_view> keys)
     {
       auto& mgr = manager.get_local_manager();
 
@@ -540,18 +540,18 @@ struct MetallJsonLines
     }
 
     static
-    void checkState(metall_manager_type& manager, ygm::comm& comm, std::string_view key)
+    void check_state(metall_manager_type& manager, ygm::comm& comm, std::string_view key)
     {
-      checkState(manager, comm, { key });
+      check_state(manager, comm, { key });
     }
 
     static
     bool
-    acceptAll(const boost::json::value&) { return true; }
+    accept_all(const boost::json::value&) { return true; }
 
     static
     boost::json::value
-    identityTransformer(boost::json::value val) { return val; }
+    identity_transformer(boost::json::value val) { return val; }
 
   private:
     ygm::comm&                           ygmcomm;
@@ -562,14 +562,14 @@ struct MetallJsonLines
     bool isMainRank() const { return 0 == ygmcomm.rank(); }
     bool isLastRank() const { return 1 == ygmcomm.size() - ygmcomm.rank(); }
 
-    static constexpr char const* ERR_OPEN      = "unable to open MetallJsonLines object";
-    static constexpr char const* ERR_CONSTRUCT = "unable to construct MetallJsonLines object";
+    static constexpr char const* ERR_OPEN      = "unable to open metall_json_lines object";
+    static constexpr char const* ERR_CONSTRUCT = "unable to construct metall_json_lines object";
 
-    MetallJsonLines()                                  = delete;
-    MetallJsonLines(MetallJsonLines&&)                 = delete;
-    MetallJsonLines(const MetallJsonLines&)            = delete;
-    MetallJsonLines& operator=(MetallJsonLines&&)      = delete;
-    MetallJsonLines& operator=(const MetallJsonLines&) = delete;
+    metall_json_lines()                                  = delete;
+    metall_json_lines(metall_json_lines&&)                 = delete;
+    metall_json_lines(const metall_json_lines&)            = delete;
+    metall_json_lines& operator=(metall_json_lines&&)      = delete;
+    metall_json_lines& operator=(const metall_json_lines&) = delete;
 };
 
 }

@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-/// \brief Implements the construction of a MetallJsonLines object.
+/// \brief Implements the construction of a metall_json_lines object.
 
 #include "mjl-common.hpp"
 
@@ -36,7 +36,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   try
   {
-    using metall_manager = xpr::MetallJsonLines::metall_manager_type;
+    using metall_manager = xpr::metall_json_lines::metall_manager_type;
 
   // the real thing
     // try to create the object
@@ -44,13 +44,13 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
     const bool       overwrite    = clip.get<bool>(ARG_ALWAYS_CREATE_NAME);
 
     if (overwrite)
-      removeDirectoryAndContent(world, dataLocation);
+      remove_directory_and_content(world, dataLocation);
 
     if (!std::filesystem::is_directory(dataLocation))
     {
       metall_manager mm{metall::create_only, dataLocation.data(), MPI_COMM_WORLD};
 
-      xpr::MetallJsonLines::createNew(mm, world);
+      xpr::metall_json_lines::create_new(mm, world);
     }
     else
     {
@@ -60,7 +60,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
       metall_manager mm{metall::open_read_only, dataLocation.data(), MPI_COMM_WORLD};
 
       // check that storage is in consistent state
-      xpr::MetallJsonLines::checkState(mm, world);
+      xpr::metall_json_lines::check_state(mm, world);
     }
 
     world.barrier();

@@ -54,17 +54,17 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
 
   try
   {
-    using metall_manager = xpr::MetallJsonLines::metall_manager_type;
+    using metall_manager = xpr::metall_json_lines::metall_manager_type;
 
-    const ARG_EDGE_FILES_TYPE      edgeFiles    = clip.get<ARG_EDGE_FILES_TYPE>(ARG_EDGE_FILES_NAME);
-    const ARG_AUTO_VERTEX_TYPE     edgeVertexFields = clip.get<ARG_AUTO_VERTEX_TYPE>(ARG_AUTO_VERTEX_NAME);
+    const ARG_EDGE_FILES_TYPE     edgeFiles    = clip.get<ARG_EDGE_FILES_TYPE>(ARG_EDGE_FILES_NAME);
+    const ARG_AUTO_VERTEX_TYPE    edgeVertexFields = clip.get<ARG_AUTO_VERTEX_TYPE>(ARG_AUTO_VERTEX_NAME);
     //~ const ARG_AUTO_SRC_VERTEX_TYPE edgeSrcLogic = clip.get<ARG_AUTO_SRC_VERTEX_TYPE>(ARG_AUTO_SRC_VERTEX_NAME);
     //~ const ARG_AUTO_SRC_VERTEX_TYPE edgeTgtLogic = clip.get<ARG_AUTO_TGT_VERTEX_TYPE>(ARG_AUTO_TGT_VERTEX_NAME);
-    const std::string              dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
-    metall_manager                 mm{metall::open_only, dataLocation.data(), MPI_COMM_WORLD};
-    xpr::MetallGraph               g{mm, world};
-    std::vector<std::string_view>  edgeVertexFieldsVw{edgeVertexFields.begin(), edgeVertexFields.end()};
-    const xpr::ImportSummary       summary      = g.readEdgeFiles(edgeFiles, edgeVertexFieldsVw);
+    const std::string             dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION);
+    metall_manager                mm{metall::open_only, dataLocation.data(), MPI_COMM_WORLD};
+    xpr::metall_graph              g{mm, world};
+    std::vector<std::string_view> edgeVertexFieldsVw{edgeVertexFields.begin(), edgeVertexFields.end()};
+    const xpr::import_summary     summary      = g.read_edge_files(edgeFiles, edgeVertexFieldsVw);
 
     if (world.rank() == 0)
     {
