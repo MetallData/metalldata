@@ -41,7 +41,7 @@ inline void value_from(const T &value,
     const auto src_obj = value.as_object();
     auto trg_obj = accessor.emplace_object();
     for (const auto &kv : src_obj) {
-      auto elem = trg_obj[kv.key()];
+      auto elem = trg_obj[kv.key().data()];
       value_from(kv.value(), elem);
     }
   } else if (value.is_null()) {
