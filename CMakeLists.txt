@@ -20,6 +20,8 @@ if (APPLE AND METALLDATA_USE_PRIVATEER)
     set(METALLDATA_USE_PRIVATEER OFF)
 endif ()
 
+option(METALLDATA_BUILD_TESTS "Build tests" OFF)
+
 
 #
 #  Threads
