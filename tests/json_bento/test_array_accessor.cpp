@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -12,7 +12,7 @@
 using bento_type = json_bento::box<>;
 
 TEST(ArrayAccessorTest, Init) {
-  bento_type bento;
+  bento_type         bento;
   boost::json::value value;
   value.emplace_array();
   auto accessor = bento[bento.push_back(value)].as_array();
@@ -20,7 +20,7 @@ TEST(ArrayAccessorTest, Init) {
 }
 
 TEST(ArrayAccessorTest, Reference) {
-  bento_type bento;
+  bento_type         bento;
   boost::json::value value;
   value.emplace_array();
   value.as_array().push_back(static_cast<int64_t>(10));
@@ -38,7 +38,7 @@ TEST(ArrayAccessorTest, Reference) {
 }
 
 TEST(ArrayAccessorTest, Emplace) {
-  bento_type bento;
+  bento_type         bento;
   boost::json::value value;
   value.emplace_array();
   auto accessor = bento[bento.push_back(value)].as_array();
@@ -59,7 +59,7 @@ TEST(ArrayAccessorTest, Emplace) {
 }
 
 TEST(ArrayAccessorTest, Iterator) {
-  bento_type bento;
+  bento_type         bento;
   boost::json::value value;
   value.emplace_array();
   value.as_array().push_back(static_cast<int64_t>(10));
@@ -94,7 +94,7 @@ TEST(ArrayAccessorTest, Iterator) {
 
   {
     const auto const_accessor = accessor;
-    auto cit = const_accessor.begin();
+    auto       cit            = const_accessor.begin();
     EXPECT_EQ((*cit).as_int64(), 10);
     EXPECT_EQ(cit->as_int64(), 10);
     ++cit;
@@ -126,7 +126,7 @@ TEST(ArrayAccessorTest, Iterator) {
 }
 
 TEST(ArrayAccessorTest, Resize) {
-  bento_type bento;
+  bento_type         bento;
   boost::json::value value;
   value.emplace_array();
   value.as_array().resize(2);

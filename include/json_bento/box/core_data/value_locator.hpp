@@ -11,10 +11,10 @@
 namespace json_bento::jbdtl {
 
 class value_locator {
-public:
+ public:
   using index_type = uint64_t;
 
-private:
+ private:
   enum data_tag : uint8_t {
     null,
     bool_value,
@@ -28,14 +28,14 @@ private:
 
   union data_type {
     index_type index;
-    bool bool_value;
-    int64_t int64_value;
-    uint64_t uint64_value;
-    double double_value;
-    void reset() { uint64_value = 0; }
+    bool       bool_value;
+    int64_t    int64_value;
+    uint64_t   uint64_value;
+    double     double_value;
+    void       reset() { uint64_value = 0; }
   };
 
-public:
+ public:
   static constexpr std::size_t max_index() {
     return std::numeric_limits<index_type>::max();
   }
@@ -172,9 +172,9 @@ public:
     m_tag = data_tag::null;
   }
 
-private:
+ private:
   data_type m_data;
-  data_tag m_tag;
+  data_tag  m_tag;
 };
 
-} // namespace json_bento::jbdtl
+}  // namespace json_bento::jbdtl

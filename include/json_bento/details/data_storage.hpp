@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -36,18 +36,18 @@ class data_storage {
       typename std::allocator_traits<Alloc>::const_void_pointer;
 
  public:
-  using value_type = T;
+  using value_type     = T;
   using allocator_type = Alloc;
   using pointer =
       typename std::pointer_traits<void_pointer>::template rebind<T>;
   using const_pointer =
       typename std::pointer_traits<const_void_pointer>::template rebind<T>;
-  using reference = T &;
+  using reference       = T &;
   using const_reference = const value_type &;
 
   template <bool is_const>
   class basic_iterator;
-  using iterator = basic_iterator<false>;
+  using iterator       = basic_iterator<false>;
   using const_iterator = basic_iterator<true>;
 
   data_storage() = default;
@@ -60,10 +60,10 @@ class data_storage {
 
   ~data_storage() noexcept = default;
 
-  data_storage(const data_storage &) = default;
+  data_storage(const data_storage &)     = default;
   data_storage(data_storage &&) noexcept = default;
 
-  data_storage &operator=(const data_storage &) = default;
+  data_storage &operator=(const data_storage &)     = default;
   data_storage &operator=(data_storage &&) noexcept = default;
 
   reference operator[](const std::size_t id) { return this->at(id); };
@@ -94,9 +94,7 @@ class data_storage {
 
   std::size_t size() const { return m_storage.size() - m_free_slots.size(); }
 
-  std::size_t capacity() const {
-    return m_storage.size();
-  }
+  std::size_t capacity() const { return m_storage.size(); }
 
   void erase(const std::size_t id) {
     m_storage.at(id).~value_type();
@@ -104,8 +102,8 @@ class data_storage {
   }
 
   void clear() {
-      m_storage.clear();
-      m_free_slots.clear();
+    m_storage.clear();
+    m_free_slots.clear();
   }
 
   iterator begin() { return iterator(0, &m_storage, &m_free_slots); }
@@ -125,7 +123,7 @@ class data_storage {
   allocator_type get_allocator() const { return m_storage.get_allocator(); }
 
  private:
-  storage_type m_storage{};
+  storage_type           m_storage{};
   free_slot_storage_type m_free_slots{};
 };
 
@@ -142,8 +140,8 @@ class data_storage<T, Alloc>::basic_iterator {
 
   basic_iterator() = default;
 
-  basic_iterator(const std::size_t init_index,
-                 const storage_type *const storage,
+  basic_iterator(const std::size_t                   init_index,
+                 const storage_type *const           storage,
                  const free_slot_storage_type *const free_slot_storage)
       : m_storage(storage),
         m_free_slot_storage(free_slot_storage),
@@ -182,8 +180,7 @@ class data_storage<T, Alloc>::basic_iterator {
   }
 
   void priv_move_to_first_valid_pos() {
-    while (m_index < m_storage->size() &&
-           m_free_slot_storage->count(m_index)) {
+    while (m_index < m_storage->size() && m_free_slot_storage->count(m_index)) {
       ++m_index;
     }
   }
@@ -193,8 +190,7 @@ class data_storage<T, Alloc>::basic_iterator {
       return;
     }
     ++m_index;
-    while (m_index < m_storage->size() &&
-           m_free_slot_storage->count(m_index)) {
+    while (m_index < m_storage->size() && m_free_slot_storage->count(m_index)) {
       ++m_index;
     }
   }
@@ -204,7 +200,7 @@ class data_storage<T, Alloc>::basic_iterator {
       m_storage{nullptr};
   typename std::pointer_traits<void_pointer>::template rebind<
       const free_slot_storage_type>
-      m_free_slot_storage{nullptr};
+              m_free_slot_storage{nullptr};
   std::size_t m_index{0};
 };
 

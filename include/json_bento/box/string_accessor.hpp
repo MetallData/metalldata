@@ -1,13 +1,13 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #include <iostream>
-#include <string_view>
 #include <string>
+#include <string_view>
 
 #include <json_bento/box/accessor_fwd.hpp>
 #include <json_bento/details/compact_string_storage.hpp>
@@ -23,16 +23,16 @@ class string_accessor {
           storage_allocator_type>::pointer>::template rebind<storage_t>;
 
  public:
-  using char_type = typename storage_t::char_type;
-  using iterator = typename storage_t::string_type::iterator;
+  using char_type      = typename storage_t::char_type;
+  using iterator       = typename storage_t::string_type::iterator;
   using const_iterator = typename storage_t::string_type::const_iterator;
 
   string_accessor(const std::size_t id, storage_t* const storage)
       : m_id(id), m_storage(storage) {}
 
-  string_accessor(const string_accessor&) = default;
-  string_accessor(string_accessor&&) noexcept = default;
-  string_accessor& operator=(const string_accessor&) = default;
+  string_accessor(const string_accessor&)                = default;
+  string_accessor(string_accessor&&) noexcept            = default;
+  string_accessor& operator=(const string_accessor&)     = default;
   string_accessor& operator=(string_accessor&&) noexcept = default;
 
   string_accessor& operator=(const char_type* const s) {
@@ -100,17 +100,16 @@ class string_accessor {
   const_iterator end() const { return m_storage->end_at(m_id); }
 
  private:
-  std::size_t m_id{0};
+  std::size_t       m_id{0};
   storage_pointer_t m_storage{nullptr};
 };
 
-}  // namespace json::jbdtl
+}  // namespace json_bento::jbdtl
 
 template <typename storage_allocator_type>
 std::ostream& operator<<(
-    std::ostream& os,
+    std::ostream&                                                     os,
     const json_bento::jbdtl::string_accessor<storage_allocator_type>& sa) {
   os << sa.c_str();
   return os;
 }
-
