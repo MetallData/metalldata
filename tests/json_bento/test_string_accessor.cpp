@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -16,9 +16,9 @@ TEST(StringAccessorTest, Empty) {
     boost::json::value bj_string;
     bj_string.emplace_string();
 
-    box_type box;
+    box_type   box;
     const auto id = box.push_back(bj_string);
-    auto sa = box[id].as_string();
+    auto       sa = box[id].as_string();
     EXPECT_TRUE(sa.empty());
   }
 
@@ -26,9 +26,9 @@ TEST(StringAccessorTest, Empty) {
     boost::json::value bj_string;
     bj_string.emplace_string() = "Hello, world!";
 
-    box_type box;
+    box_type   box;
     const auto id = box.push_back(bj_string);
-    auto sa = box[id].as_string();
+    auto       sa = box[id].as_string();
     EXPECT_FALSE(sa.empty());
   }
 }
@@ -38,9 +38,9 @@ TEST(StringAccessorTest, Size) {
     boost::json::value bj_string;
     bj_string.emplace_string();
 
-    box_type box;
+    box_type   box;
     const auto id = box.push_back(bj_string);
-    auto sa = box[id].as_string();
+    auto       sa = box[id].as_string();
     EXPECT_EQ(sa.size(), 0);
     EXPECT_EQ(sa.length(), 0);
   }
@@ -49,9 +49,9 @@ TEST(StringAccessorTest, Size) {
     boost::json::value bj_string;
     bj_string.emplace_string() = "Hello";
 
-    box_type box;
+    box_type   box;
     const auto id = box.push_back(bj_string);
-    auto sa = box[id].as_string();
+    auto       sa = box[id].as_string();
     EXPECT_EQ(sa.size(), 5);
     EXPECT_EQ(sa.length(), 5);
   }
@@ -62,9 +62,9 @@ TEST(StringAccessorTest, CStr) {
     boost::json::value bj_string;
     bj_string.emplace_string();
 
-    box_type box;
+    box_type   box;
     const auto id = box.push_back(bj_string);
-    auto sa = box[id].as_string();
+    auto       sa = box[id].as_string();
     EXPECT_STREQ(sa.c_str(), "");
   }
 
@@ -72,9 +72,9 @@ TEST(StringAccessorTest, CStr) {
     boost::json::value bj_string;
     bj_string.emplace_string() = "Hello, world!";
 
-    box_type box;
+    box_type   box;
     const auto id = box.push_back(bj_string);
-    auto sa = box[id].as_string();
+    auto       sa = box[id].as_string();
     EXPECT_STREQ(sa.c_str(), "Hello, world!");
   }
 }
@@ -84,9 +84,9 @@ TEST(StringAccessorTest, Data) {
     boost::json::value bj_string;
     bj_string.emplace_string();
 
-    box_type box;
+    box_type   box;
     const auto id = box.push_back(bj_string);
-    auto sa = box[id].as_string();
+    auto       sa = box[id].as_string();
     EXPECT_STREQ(sa.data(), "");
   }
 
@@ -94,9 +94,9 @@ TEST(StringAccessorTest, Data) {
     boost::json::value bj_string;
     bj_string.emplace_string() = "Hello, world!";
 
-    box_type box;
+    box_type   box;
     const auto id = box.push_back(bj_string);
-    auto sa = box[id].as_string();
+    auto       sa = box[id].as_string();
     EXPECT_STREQ(sa.data(), "Hello, world!");
   }
 }
@@ -105,9 +105,9 @@ TEST(StringAccessorTest, Clear) {
   boost::json::value bj_string;
   bj_string.emplace_string() = "Hello, world!";
 
-  box_type box;
+  box_type   box;
   const auto id = box.push_back(bj_string);
-  auto sa = box[id].as_string();
+  auto       sa = box[id].as_string();
   EXPECT_STREQ(sa.c_str(), "Hello, world!");
   sa.clear();
   EXPECT_STREQ(sa.c_str(), "");
@@ -122,9 +122,9 @@ TEST(StringAccessorTest, Assign) {
   boost::json::value bj_string;
   bj_string.emplace_string() = "Hello, world!";
 
-  box_type box;
+  box_type   box;
   const auto id = box.push_back(bj_string);
-  auto sa = box[id].as_string();
+  auto       sa = box[id].as_string();
   EXPECT_STREQ(sa.c_str(), "Hello, world!");
   sa = "Goodbye, world!";
   EXPECT_STREQ(sa.c_str(), "Goodbye, world!");
@@ -137,9 +137,9 @@ TEST(StringAccessorTest, Iterator) {
   boost::json::value bj_string;
   bj_string.emplace_string() = "Hello, world!";
 
-  box_type box;
+  box_type   box;
   const auto id = box.push_back(bj_string);
-  auto sa = box[id].as_string();
+  auto       sa = box[id].as_string();
 
   auto it = sa.begin();
   EXPECT_EQ(*it, 'H');
@@ -175,9 +175,9 @@ TEST(StringAccessorTest, Conversion) {
   boost::json::value bj_string;
   bj_string.emplace_string() = "Hello, world!";
 
-  box_type box;
+  box_type   box;
   const auto id = box.push_back(bj_string);
-  auto sa = box[id].as_string();
+  auto       sa = box[id].as_string();
 
   std::string s = static_cast<std::string>(sa);
   EXPECT_EQ(s, "Hello, world!");

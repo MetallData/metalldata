@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -21,22 +21,22 @@ class vector {
       "Different allocate value type");
 
  public:
-  using value_type = T;
-  using allocator_type = Allocator;
-  using size_type = std::size_t;
+  using value_type      = T;
+  using allocator_type  = Allocator;
+  using size_type       = std::size_t;
   using difference_type = std::ptrdiff_t;
-  using reference = value_type&;
+  using reference       = value_type&;
   using const_reference = const value_type&;
-  using pointer = typename std::allocator_traits<Allocator>::pointer;
+  using pointer         = typename std::allocator_traits<Allocator>::pointer;
   using const_pointer =
       typename std::allocator_traits<Allocator>::const_pointer;
-  using iterator = value_type*;
+  using iterator       = value_type*;
   using const_iterator = const value_type*;
 
   explicit vector(const allocator_type& alloc = allocator_type())
       : m_allocator(alloc) {}
 
-  vector(const size_type capacity,
+  vector(const size_type       capacity,
          const allocator_type& alloc = allocator_type())
       : m_allocator(alloc) {
     std::tie(m_storage, m_capacity) = priv_allocate(capacity);
@@ -133,7 +133,7 @@ class vector {
   void priv_extend(const std::size_t new_capacity_request) {
     if (m_capacity >= new_capacity_request) return;
 
-    pointer new_storage;
+    pointer   new_storage;
     size_type new_capacity;
     std::tie(new_storage, new_capacity) = priv_allocate(new_capacity_request);
 
@@ -144,7 +144,7 @@ class vector {
     priv_deallocate(m_storage, m_capacity);
 
     m_capacity = new_capacity;
-    m_storage = new_storage;
+    m_storage  = new_storage;
   }
 
   template <typename... Args>
@@ -159,10 +159,9 @@ class vector {
   }
 
   allocator_type m_allocator{};
-  pointer m_storage{nullptr};
-  size_type m_capacity{0};
-  size_type m_size{0};
+  pointer        m_storage{nullptr};
+  size_type      m_capacity{0};
+  size_type      m_size{0};
 };
 
 }  // namespace json_bento::jbdtl
-

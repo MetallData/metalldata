@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -20,8 +20,8 @@ namespace json_bento::jbdtl {
 template <typename core_data_allocator_type>
 class array_accessor {
  private:
-  using self_type = array_accessor<core_data_allocator_type>;
-  using core_data_t = core_data<core_data_allocator_type>;
+  using self_type     = array_accessor<core_data_allocator_type>;
+  using core_data_t   = core_data<core_data_allocator_type>;
   using value_locator = typename core_data_t::value_locator_type;
   using core_data_pointer_t =
       typename std::pointer_traits<typename std::allocator_traits<
@@ -31,8 +31,8 @@ class array_accessor {
 
  public:
   using value_accessor_type = value_accessor<core_data_allocator_type>;
-  using iterator = basic_iterator<false>;
-  using const_iterator = basic_iterator<true>;
+  using iterator            = basic_iterator<false>;
+  using const_iterator      = basic_iterator<true>;
 
   array_accessor(const std::size_t index, core_data_pointer_t core_data)
       : m_array_index(index), m_core_data(core_data) {}
@@ -52,7 +52,9 @@ class array_accessor {
     return this->operator[](size() - 1);
   }
 
-  std::size_t size() const { return m_core_data->array_storage.size(m_array_index); }
+  std::size_t size() const {
+    return m_core_data->array_storage.size(m_array_index);
+  }
 
   /// \brief Resize the array.
   /// \param size New size.
@@ -66,7 +68,8 @@ class array_accessor {
   void push_back(value_accessor_type value) {
     // TODO: implement more efficient one
     value_locator loc;
-    add_value(json_bento::value_to<boost::json::value>(value), *m_core_data, loc);
+    add_value(json_bento::value_to<boost::json::value>(value), *m_core_data,
+              loc);
     m_core_data->array_storage.push_back(m_array_index, std::move(loc));
   }
 
@@ -77,7 +80,7 @@ class array_accessor {
   template <typename Arg>
   value_accessor_type emplace_back(Arg &&arg) {
     boost::json::value value(std::forward<Arg>(arg));
-    value_locator loc;
+    value_locator      loc;
     add_value(value, *m_core_data, loc);
     m_core_data->array_storage.push_back(m_array_index, std::move(loc));
     return back();
@@ -97,10 +100,12 @@ class array_accessor {
 
   /// \brief Returns an allocator instance.
   /// \return Allocator instance.
-  auto get_allocator() const { return m_core_data->array_storage.get_allocator(); }
+  auto get_allocator() const {
+    return m_core_data->array_storage.get_allocator();
+  }
 
  private:
-  std::size_t m_array_index;
+  std::size_t         m_array_index;
   core_data_pointer_t m_core_data;
 };
 
@@ -111,11 +116,14 @@ class array_accessor<core_data_allocator_type>::basic_iterator {
  public:
   basic_iterator(std::size_t array_index, std::size_t position,
                  core_data_pointer_t core_data)
-      : m_array_index(array_index), m_position(position), m_core_data(core_data) {}
+      : m_array_index(array_index),
+        m_position(position),
+        m_core_data(core_data) {}
 
   bool operator==(const basic_iterator &other) const {
-    return m_core_data == other.m_core_data && m_array_index == other.m_array_index &&
-        m_position == other.m_position;
+    return m_core_data == other.m_core_data &&
+           m_array_index == other.m_array_index &&
+           m_position == other.m_position;
   }
 
   bool operator!=(const basic_iterator &other) const {
@@ -146,7 +154,8 @@ class array_accessor<core_data_allocator_type>::basic_iterator {
 
   /// \brief Dereference operator.
   /// \return Value accessor.
-  /// \warning This function returns a value_accessor_type instance rather than a reference.
+  /// \warning This function returns a value_accessor_type instance rather than
+  /// a reference.
   value_accessor_type operator*() const {
     return value_accessor_type(value_accessor_type::value_type_tag::array,
                                m_array_index, m_position, m_core_data);
@@ -154,13 +163,14 @@ class array_accessor<core_data_allocator_type>::basic_iterator {
 
   /// \brief Structure dereference operator.
   /// \return Value accessor.
-  /// \warning This function returns a value_accessor_type instance rather than a pointer.
-  /// This function expects the value_accessor_type has operator->() defined.
+  /// \warning This function returns a value_accessor_type instance rather than
+  /// a pointer. This function expects the value_accessor_type has operator->()
+  /// defined.
   value_accessor_type operator->() const { return operator*(); }
 
  private:
-  std::size_t m_array_index;
-  std::size_t m_position;
+  std::size_t         m_array_index;
+  std::size_t         m_position;
   core_data_pointer_t m_core_data;
 };
 }  // namespace json_bento::jbdtl

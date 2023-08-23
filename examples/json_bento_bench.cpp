@@ -1,11 +1,12 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
 /// \brief Run JSON Bento benchmark
-/// This benchmark measures the performance and memory usage of storing JSON data in Metall JSON and JSON Bento.
-/// This benchmark read JSON files that contain JSON line data.
+/// This benchmark measures the performance and memory usage of storing JSON
+/// data in Metall JSON and JSON Bento. This benchmark read JSON files that
+/// contain JSON line data.
 
 #include <filesystem>
 #include <fstream>
@@ -17,25 +18,25 @@
 #include <metall/detail/time.hpp>
 #include <metall/metall.hpp>
 
-#include <json_bento/json_bento.hpp>
 #include <json_bento/boost_json.hpp>
+#include <json_bento/json_bento.hpp>
 
-namespace bj = boost::json;
-namespace mj = metall::json;
+namespace bj     = boost::json;
+namespace mj     = metall::json;
 using bento_type = json_bento::box<metall::manager::allocator_type<std::byte>>;
 
 void print_usage(std::string_view program_name);
-void parse_options(int argc,
-                   char **argv,
-                   std::string &metall_datastore_path,
+void parse_options(int argc, char **argv, std::string &metall_datastore_path,
                    std::vector<std::string> &json_line_file_paths);
-std::vector<bj::value> read_json_files(const std::vector<std::string> &file_paths);
+std::vector<bj::value> read_json_files(
+    const std::vector<std::string> &file_paths);
 std::vector<std::string> search_file_paths(const std::string_view path);
-std::vector<std::string> search_file_paths(const std::vector<std::string> &paths);
+std::vector<std::string> search_file_paths(
+    const std::vector<std::string> &paths);
 void execute_command(const std::string_view command);
 
 int main(int argc, char **argv) {
-  std::string metall_datastore_path;
+  std::string              metall_datastore_path;
   std::vector<std::string> json_line_file_paths;
   parse_options(argc, argv, metall_datastore_path, json_line_file_paths);
 
@@ -47,7 +48,7 @@ int main(int argc, char **argv) {
     execute_command("rm -rf " + metall_datastore_path);
     metall::manager manager(metall::create_only, metall_datastore_path.c_str());
     using array_type = mj::array<metall::manager::allocator_type<std::byte>>;
-    auto *table = manager.construct<array_type>(metall::unique_instance)(
+    auto *table      = manager.construct<array_type>(metall::unique_instance)(
         manager.get_allocator());
 
     const auto start = metall::mtlldetail::elapsed_time_sec();
@@ -72,7 +73,7 @@ int main(int argc, char **argv) {
         manager.get_allocator());
 
     const auto start = metall::mtlldetail::elapsed_time_sec();
-    for (const auto &line: json_lines) {
+    for (const auto &line : json_lines) {
       bento->push_back(line);
     }
     std::cout << "Elapsed time (s)\t"
@@ -83,7 +84,8 @@ int main(int argc, char **argv) {
   execute_command("du -h -d 0 " + metall_datastore_path);
 
   // Verification
-  // Make sure that the data is stored correctly by comparing the input JSON data and the stored JSON data.
+  // Make sure that the data is stored correctly by comparing the input JSON
+  // data and the stored JSON data.
   std::cout << "\nVerification (for JSON Bento)" << std::endl;
   {
     metall::manager manager(metall::open_read_only,
@@ -97,7 +99,8 @@ int main(int argc, char **argv) {
     }
 
     for (std::size_t i = 0; i < json_lines.size(); ++i) {
-      if (json_bento::value_to<boost::json::value>(bento->at(i)) != json_lines.at(i)) {
+      if (json_bento::value_to<boost::json::value>(bento->at(i)) !=
+          json_lines.at(i)) {
         std::cerr << "Different JSON value at " << i << std::endl;
 
         std::cerr << "-- Input --" << std::endl;
@@ -119,17 +122,18 @@ std::vector<std::string> search_file_paths(const std::string_view path) {
   if (std::filesystem::is_regular_file(std::filesystem::path(path))) {
     paths.emplace_back(path);
   } else {
-    for (const auto &entry:
-        std::filesystem::recursive_directory_iterator(path)) {
+    for (const auto &entry :
+         std::filesystem::recursive_directory_iterator(path)) {
       if (entry.is_regular_file()) paths.emplace_back(entry.path());
     }
   }
   return paths;
 }
 
-std::vector<std::string> search_file_paths(const std::vector<std::string> &paths) {
+std::vector<std::string> search_file_paths(
+    const std::vector<std::string> &paths) {
   std::vector<std::string> found_paths;
-  for (const auto &p: paths) {
+  for (const auto &p : paths) {
     const auto ret = search_file_paths(p);
     found_paths.insert(found_paths.end(), ret.begin(), ret.end());
   }
@@ -137,9 +141,12 @@ std::vector<std::string> search_file_paths(const std::vector<std::string> &paths
 }
 
 void print_usage(std::string_view program_name) {
-  std::cout << "Usage: " << program_name << " [-d Metall datastore path] [Input JSON file/directory paths...]"
-            << "\n This program can find JSON files in given directories (no recursive search)."
-            << std::endl;
+  std::cout
+      << "Usage: " << program_name
+      << " [-d Metall datastore path] [Input JSON file/directory paths...]"
+      << "\n This program can find JSON files in given directories (no "
+         "recursive search)."
+      << std::endl;
 }
 
 void parse_options(int argc, char **argv, std::string &metall_datastore_path,
@@ -148,10 +155,13 @@ void parse_options(int argc, char **argv, std::string &metall_datastore_path,
 
   while ((opt = getopt(argc, argv, "d:h")) != -1) {
     switch (opt) {
-      case 'd':metall_datastore_path = optarg;
+      case 'd':
+        metall_datastore_path = optarg;
         break;
-      case 'h': [[fallthrough]];
-      default:print_usage(argv[0]);
+      case 'h':
+        [[fallthrough]];
+      default:
+        print_usage(argv[0]);
         std::abort();
     }
   }
@@ -169,26 +179,27 @@ void parse_options(int argc, char **argv, std::string &metall_datastore_path,
 
   std::cout << "Metall datastore path: " << metall_datastore_path << std::endl;
   std::cout << "JSON file paths:" << std::endl;
-  for (const auto &path: json_line_file_paths) {
+  for (const auto &path : json_line_file_paths) {
     std::cout << "  - " << path << std::endl;
   }
 }
 
 void execute_command(const std::string_view command) {
   std::cout << command << std::endl;
-  const int status = std::system(command.data());
+  const int  status  = std::system(command.data());
   const bool success = (status != -1) && !!(WIFEXITED(status));
   if (!success) {
     std::cerr << "Failed to execute " << command << std::endl;
   }
 }
 
-std::vector<bj::value> read_json_files(const std::vector<std::string> &file_paths) {
+std::vector<bj::value> read_json_files(
+    const std::vector<std::string> &file_paths) {
   std::vector<bj::value> table;
-  const auto start = metall::mtlldetail::elapsed_time_sec();
-  std::size_t count = 0;
-  for (const auto &f: file_paths) {
-    //std::cout << "Open " << f << std::endl;
+  const auto             start = metall::mtlldetail::elapsed_time_sec();
+  std::size_t            count = 0;
+  for (const auto &f : file_paths) {
+    // std::cout << "Open " << f << std::endl;
 
     std::ifstream ifs(f);
     if (!ifs.is_open()) {

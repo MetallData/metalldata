@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -17,10 +17,10 @@ namespace json_bento::jbdtl {
 template <typename pointer>
 class compact_string {
  public:
-  using char_type = char;
-  using size_type = std::size_t;
-  using view_type = std::string_view;
-  using iterator = char_type *;
+  using char_type      = char;
+  using size_type      = std::size_t;
+  using view_type      = std::string_view;
+  using iterator       = char_type *;
   using const_iterator = const char_type *;
 
  private:
@@ -223,4 +223,3 @@ class compact_string {
 };
 
 }  // namespace json_bento::jbdtl
-

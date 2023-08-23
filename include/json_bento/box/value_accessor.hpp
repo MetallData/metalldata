@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -20,7 +20,7 @@ namespace json_bento::jbdtl {
 template <typename core_data_allocator_type>
 class value_accessor {
  private:
-  using self_type = value_accessor<core_data_allocator_type>;
+  using self_type   = value_accessor<core_data_allocator_type>;
   using core_data_t = core_data<core_data_allocator_type>;
   using box_pointer_t =
       typename std::pointer_traits<typename std::allocator_traits<
@@ -32,17 +32,20 @@ class value_accessor {
 
  public:
   using string_type = typename core_data_t::string_type;
-  using object_accessor = json_bento::jbdtl::object_accessor<core_data_allocator_type>;
-  using array_accessor = json_bento::jbdtl::array_accessor<core_data_allocator_type>;
-  using string_accessor = json_bento::jbdtl::string_accessor<core_data_allocator_type>;
+  using object_accessor =
+      json_bento::jbdtl::object_accessor<core_data_allocator_type>;
+  using array_accessor =
+      json_bento::jbdtl::array_accessor<core_data_allocator_type>;
+  using string_accessor =
+      json_bento::jbdtl::string_accessor<core_data_allocator_type>;
 
   /// \note the following type is not intended to be exposed users and
   /// will be removed from the public interface.
-  using position_type = std::size_t; // TODO: move to private
+  using position_type = std::size_t;  // TODO: move to private
 
   /// \note the following type is not intended to be exposed users and
   /// will be removed from the public interface.
-  enum value_type_tag { // TODO: move to private
+  enum value_type_tag {  // TODO: move to private
     invalid,
     root,   // root value
     array,  // value in an array
@@ -57,13 +60,11 @@ class value_accessor {
       : m_tag(tag), m_pos0(pos0), m_pos1(pos1), m_box(box) {}
 
   /// \brief Dereference operator.
-  /// The purpose of this function is to enable structure dereference operator (->)
-  /// in iterators whose value type is value_accessor (e.g., array_accessor::iterator).
-  /// Specifically, this operator enables the following syntax:
-  /// \code
-  /// auto it = array_accessor.begin();
-  /// it->as_bool() = ...;
-  /// \endcode
+  /// The purpose of this function is to enable structure dereference operator
+  /// (->) in iterators whose value type is value_accessor (e.g.,
+  /// array_accessor::iterator). Specifically, this operator enables the
+  /// following syntax: \code auto it = array_accessor.begin(); it->as_bool() =
+  /// ...; \endcode
   value_accessor *operator->() { return this; }
 
   /// \brief Assign a bool value.
@@ -350,7 +351,7 @@ class value_accessor {
   /// \note The string accessor is invalidated if the value is modified.
   string_accessor emplace_string() {
     priv_reset();
-    const auto index = m_box->string_storage.emplace();
+    const auto index                     = m_box->string_storage.emplace();
     get_locator().emplace_string_index() = index;
     return string_accessor(index, &m_box->string_storage);
   }
@@ -359,7 +360,7 @@ class value_accessor {
   /// \return An array accessor instance to the new value as array.
   array_accessor emplace_array() {
     priv_reset();
-    const auto index = m_box->array_storage.push_back();
+    const auto index                    = m_box->array_storage.push_back();
     get_locator().emplace_array_index() = index;
     return array_accessor(index, m_box);
   }
@@ -368,7 +369,7 @@ class value_accessor {
   /// \return An object accessor instance to the new value as object.
   object_accessor emplace_object() {
     priv_reset();
-    const auto index = m_box->object_storage.push_back();
+    const auto index                     = m_box->object_storage.push_back();
     get_locator().emplace_object_index() = index;
     return object_accessor(index, m_box);
   }
@@ -399,7 +400,7 @@ class value_accessor {
                          const value_accessor &rhs) noexcept {
     // TODO: improve efficiency
     return json_bento::value_to<boost::json::value>(lhs) ==
-        json_bento::value_to<boost::json::value>(rhs);
+           json_bento::value_to<boost::json::value>(rhs);
   }
 
   /// \brief Return `true` if two values are not equal.
@@ -441,10 +442,9 @@ class value_accessor {
   }
 
   value_type_tag m_tag{value_type_tag::invalid};
-  position_type m_pos0{0};
-  position_type m_pos1{0};
-  box_pointer_t m_box{nullptr};
+  position_type  m_pos0{0};
+  position_type  m_pos1{0};
+  box_pointer_t  m_box{nullptr};
 };
 
 }  // namespace json_bento::jbdtl
-
