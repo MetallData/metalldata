@@ -10,7 +10,9 @@ jobs:
       CXX: g++-12
     steps:
       - uses: actions/checkout@v3
-      - name: Test
+      - name: Install OpenMPI
+        run: sudo apt-get install openmpi-bin libopenmpi-dev
+      - name: Build and test
         run: |
           cd $GITHUB_WORKSPACE
           mkdir build
