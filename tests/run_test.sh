@@ -162,4 +162,8 @@ fi
 
 echo "done."
 
-exit EXIT_CODE
+if [ $EXIT_CODE -eq 0 ]; then
+  exit 0
+else
+  exit $EXIT_CODE
+fi
