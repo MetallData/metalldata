@@ -1,10 +1,14 @@
 #pragma once
 
+#include <vector>
+#include <string>
+
 #include <boost/container/string.hpp>
 #include <boost/container/vector.hpp>
 
 #include <ygm/container/map.hpp>
 #include <ygm/container/set.hpp>
+#include <ygm/detail/ygm_ptr.hpp>
 
 #include "MetallJsonLines.hpp"
 
@@ -12,7 +16,7 @@ namespace msg {
 
 using distributed_string_set = ygm::container::set<std::string>;
 using distributed_adj_list =
-    ygm::container::map<std::string, std::vector<std::string> >;
+    ygm::container::map<std::string, std::vector<std::string>>;
 
 template <class T>
 struct ptr_guard {
@@ -99,13 +103,32 @@ struct conn_comp_mg {
 };
 
 conn_comp_mg* conn_comp_mg::ptr = nullptr;
+
+struct kcore_comp_mg {
+  // Use map here on purpose because
+  // many hash conflicts will happen if graph partitioning also uses the
+  // same hash function.
+  std::map<std::string, size_t> kcore_table;
+
+  static kcore_comp_mg* ptr;
+};
+
+kcore_comp_mg* kcore_comp_mg::ptr = nullptr;
+
+struct bfs_comp_mg {
+  std::map<std::string, size_t> level_table;
+
+  static bfs_comp_mg* ptr;
+};
+
+bfs_comp_mg* bfs_comp_mg::ptr = nullptr;
 }  // namespace
 
 namespace experimental {
 
 using metall_string =
     boost::container::basic_string<char, std::char_traits<char>,
-                                   metall::manager::allocator_type<char> >;
+                                   metall::manager::allocator_type<char>>;
 
 metall_json_lines::accessor_type get_key(metall_json_lines::accessor_type val,
                                          std::string_view                 key) {
@@ -209,7 +232,7 @@ struct metall_graph {
   using node_list_type = metall_json_lines;
   using key_store_type =
       boost::container::vector<metall_string,
-                               metall::manager::allocator_type<metall_string> >;
+                               metall::manager::allocator_type<metall_string>>;
   using metall_manager_type = metall_json_lines::metall_manager_type;
   using filter_type         = metall_json_lines::filter_type;
 
@@ -493,6 +516,195 @@ struct metall_graph {
     return totalRoots;
   }
 
+  std::vector<std::size_t> kcore(std::vector<filter_type> nfilt,
+                                 std::vector<filter_type> efilt,
+                                 int                      max_kcore) {
+    msg::ptr_guard cntStateGuard{kcore_comp_mg::ptr, new kcore_comp_mg{}};
+
+    //
+    // Allocate adjacency list
+    ygm::container::map<std::string, std::set<std::string>> adj_set(comm());
+    auto edgeAction = [&adj_set, edgeSrcKeyTxt = edgeSrcKey(),
+                       edgeTgtKeyTxt = edgeTgtKey()](
+                          std::size_t                             pos,
+                          const metall_json_lines::accessor_type& val) -> void {
+      const auto src = to_string(get_key(val, edgeTgtKeyTxt));
+      const auto dst = to_string(get_key(val, edgeSrcKeyTxt));
+      adj_set.async_visit(
+          src,
+          [](std::string key, std::set<std::string>& adj, std::string v) {
+            adj.insert(v);
+          },
+          dst);
+      adj_set.async_visit(
+          dst,
+          [](std::string key, std::set<std::string>& adj, std::string v) {
+            adj.insert(v);
+          },
+          src);
+    };
+    edgelst.filter(std::move(efilt)).for_all_selected(edgeAction);
+    comm().barrier();
+
+    // i-th item is the number of nodes in 'i'-kore.
+    std::vector<size_t> kcore_size_list;
+
+    // Compute k-core (from 0-core to 'max_kcore'-core)
+    auto& kcore_table = kcore_comp_mg::ptr->kcore_table;
+    for (int kcore = 1; kcore <= max_kcore; ++kcore) {
+      size_t global_total_pruned = 0;
+      while (true) {
+        size_t locally_pruned = 0;
+        adj_set.for_all(
+            [kcore, &adj_set, &locally_pruned, &kcore_table, this](
+                const std::string& vert, std::set<std::string>& adj) {
+              if (adj.empty() || adj.size() >= kcore) return;
+
+              // Found vertex to prune, go tell all neighbors of
+              // my demise
+              for (const auto& neighbor : adj) {
+                adj_set.async_visit(
+                    neighbor,
+                    [](const std::string&, std::set<std::string>& adj,
+                       const std::string& v) { adj.erase(v); },
+                    vert);
+              }
+              adj.clear();
+              kcore_table[vert] = kcore - 1;
+              ++locally_pruned;
+            });
+        comm().barrier();
+
+        const auto global_pruned = comm().all_reduce_sum(locally_pruned);
+        global_total_pruned += global_pruned;
+        if (global_pruned == 0) break;
+      }
+      kcore_size_list.emplace_back(global_total_pruned);
+    }
+
+    // Add the number of nodes whose k-core value is 'max_kcore'
+    const auto total =
+        std::accumulate(kcore_size_list.begin(), kcore_size_list.end(), 0);
+    kcore_size_list.emplace_back(adj_set.size() - total);
+
+    // Insert k-core values to the corresponding nodes' JSON data
+    auto kcore_setter = [&adj_set, nodeKeyTxt = nodeKey(), this](
+                            const std::size_t                       index,
+                            const metall_json_lines::accessor_type& val) {
+      assert(kcore_comp_mg::ptr != nullptr);
+      const std::string v = to_string(get_key(val, nodeKeyTxt));
+      comm().async(
+          adj_set.owner(v),
+          [](auto pcomm, const std::string& v, const int index,
+             ygm::ygm_ptr<metall_graph> pthis, const int src_rank) {
+            auto& kcore_table = kcore_comp_mg::ptr->kcore_table;
+            if (kcore_table.count(v) == 0) return;
+            pcomm->async(
+                src_rank,
+                [](auto, const int kcore, const int index,
+                   ygm::ygm_ptr<metall_graph> pthis) {
+                  pthis->nodelst.at(index).as_object()["kcore"] = kcore;
+                },
+                kcore_table.at(v), index, pthis);
+          },
+          v, index, ptr_this, comm().rank());
+    };
+    nodelst.for_all_selected(kcore_setter);
+    comm().barrier();
+
+    return kcore_size_list;
+  }
+
+  size_t bfs(std::vector<filter_type> nfilt, std::vector<filter_type> efilt,
+             std::string root, bool undirected = true) {
+    msg::ptr_guard cntStateGuard{bfs_comp_mg::ptr, new bfs_comp_mg{}};
+
+    //
+    // Allocate adjacency list
+    ygm::container::map<std::string, std::vector<std::string>> adj_list(comm());
+    auto edgeAction = [&adj_list, undirected, edgeSrcKeyTxt = edgeSrcKey(),
+                       edgeTgtKeyTxt = edgeTgtKey()](
+                          std::size_t                             pos,
+                          const metall_json_lines::accessor_type& val) -> void {
+      const auto src = to_string(get_key(val, edgeTgtKeyTxt));
+      const auto dst = to_string(get_key(val, edgeSrcKeyTxt));
+      adj_list.async_visit(
+          src,
+          [](std::string key, std::vector<std::string>& adj, std::string v) {
+            adj.push_back(v);
+            bfs_comp_mg::ptr->level_table[key] = -1;
+          },
+          dst);
+
+      if (!undirected) return;
+
+      adj_list.async_visit(
+          dst,
+          [](std::string key, std::vector<std::string>& adj, std::string v) {
+            adj.push_back(v);
+            bfs_comp_mg::ptr->level_table[key] = -1;
+          },
+          src);
+    };
+    edgelst.filter(std::move(efilt)).for_all_selected(edgeAction);
+    comm().barrier();
+
+    if (adj_list.is_mine(root)) {
+      bfs_comp_mg::ptr->level_table[root] = 0;
+    }
+    comm().cf_barrier();
+
+    size_t local_total_visited = 0;
+    for (size_t level = 0;; ++level) {
+      size_t count = 0;
+      adj_list.for_all([level, &count, &adj_list](
+                           const std::string&        v,
+                           std::vector<std::string>& adj) {
+        auto& current_lv = bfs_comp_mg::ptr->level_table.at(v);
+        if (level != current_lv) return;
+        ++count;
+
+        for (const auto& n : adj) {
+          adj_list.async_visit(
+              n,
+              [](std::string v, std::vector<std::string>& adj, size_t level) {
+                auto& current_lv = bfs_comp_mg::ptr->level_table.at(v);
+                if (current_lv == -1) {
+                  current_lv = level + 1;
+                }
+              },
+              level);
+        }
+      });
+      comm().barrier();
+      local_total_visited += count;
+      if (comm().all_reduce_sum(count) == 0) break;
+    }
+
+    auto level_setter = [&adj_list, nodeKeyTxt = nodeKey(), this](
+                            const std::size_t                       index,
+                            const metall_json_lines::accessor_type& val) {
+      const std::string v = to_string(get_key(val, nodeKeyTxt));
+      comm().async(
+          adj_list.owner(v),
+          [](auto pcomm, const std::string& v, const int index,
+             ygm::ygm_ptr<metall_graph> pthis, const int src_rank) {
+            pcomm->async(
+                src_rank,
+                [](auto, const size_t level, const int index,
+                   ygm::ygm_ptr<metall_graph> pthis) {
+                  pthis->nodelst.at(index).as_object()["bfs-level"] = level;
+                },
+                bfs_comp_mg::ptr->level_table.at(v), index, pthis);
+          },
+          v, index, ptr_this, comm().rank());
+    };
+    nodelst.for_all_selected(level_setter);
+    comm().barrier();
+
+    return comm().all_reduce_sum(local_total_visited);
+  }
+
   static void check_state(metall_manager_type& manager, ygm::comm& comm) {
     std::string_view edge_location_suffix_v{edge_location_suffix};
     std::string_view node_location_suffix_v{node_location_suffix};
@@ -512,9 +724,10 @@ struct metall_graph {
   }
 
  private:
-  edge_list_type  edgelst;
-  node_list_type  nodelst;
-  key_store_type* keys = nullptr;
+  edge_list_type             edgelst;
+  node_list_type             nodelst;
+  key_store_type*            keys = nullptr;
+  ygm::ygm_ptr<metall_graph> ptr_this{this};
 
   static constexpr const char* const edge_location_suffix = "edges";
   static constexpr const char* const node_location_suffix = "nodes";
