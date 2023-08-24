@@ -1,5 +1,5 @@
-// Copyright 2022 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2022 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -7,34 +7,34 @@
 
 #include "mg-common.hpp"
 
-namespace xpr     = experimental;
+namespace xpr = experimental;
 
-namespace
-{
+namespace {
 const std::string methodName = "__getitem__";
-const std::string expr = "expressions";
-} // anonymous
+const std::string expr       = "expressions";
+}  // namespace
 
-int ygm_main(ygm::comm& world, int argc, char** argv)
-{
+int ygm_main(ygm::comm& world, int argc, char** argv) {
   int            error_code = 0;
   clippy::clippy clip{methodName, "Sets the selector predicate(s)."};
 
   clip.member_of(MG_CLASS_NAME, "A " + MG_CLASS_NAME + " class");
 
-  clip.add_required<std::vector<boost::json::object>>(expr, "Expression selection");
+  clip.add_required<std::vector<boost::json::object>>(expr,
+                                                      "Expression selection");
   clip.add_selector<std::string>(NODES_SELECTOR, "Node selection key");
   clip.add_selector<std::string>(EDGES_SELECTOR, "Edge selection key");
-  clip.add_required_state<std::string>(ST_METALL_LOCATION, "Metall storage location");
+  clip.add_required_state<std::string>(ST_METALL_LOCATION,
+                                       "Metall storage location");
 
   // \note running on rank 0 suffices
-  if ((world.rank() == 0) && clip.parse(argc, argv)) { return 0; }
+  if ((world.rank() == 0) && clip.parse(argc, argv)) {
+    return 0;
+  }
 
   // the real thing
-  try
-  {
-    if (world.rank() == 0)
-    {
+  try {
+    if (world.rank() == 0) {
       std::string    location = clip.get_state<std::string>(ST_METALL_LOCATION);
       JsonExpression jsonExpression = clip.get<JsonExpression>(expr);
       JsonExpression selectedExpression;
@@ -49,21 +49,18 @@ int ygm_main(ygm::comm& world, int argc, char** argv)
       clippy::object state;
 
       state.set_val(ST_METALL_LOCATION, std::move(location));
-      state.set_val(ST_SELECTED,        std::move(selectedExpression));
+      state.set_val(ST_SELECTED, std::move(selectedExpression));
 
       clippy_type.set_val("__class__", MG_CLASS_NAME);
-      clippy_type.set_json("state",    std::move(state));
+      clippy_type.set_json("state", std::move(state));
 
-      res.set_json("__clippy_type__",  std::move(clippy_type));
+      res.set_json("__clippy_type__", std::move(clippy_type));
       clip.to_return(std::move(res));
     }
-  }
-  catch (const std::exception& err)
-  {
+  } catch (const std::exception& err) {
     error_code = 1;
     if (world.rank() == 0) clip.to_return(err.what());
   }
 
   return error_code;
 }
-

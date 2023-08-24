@@ -20,16 +20,17 @@
 
 namespace json_bento::jbdtl {
 
-template <typename Alloc> struct core_data {
-public:
+template <typename Alloc>
+struct core_data {
+ public:
   using allocator_type = Alloc;
-  using string_type = metall::container::basic_string<
+  using string_type    = metall::container::basic_string<
       char, std::char_traits<char>,
       typename std::allocator_traits<allocator_type>::template rebind_alloc<
           char>>;
-  using value_locator_type = value_locator;
-  using key_storage_type = key_store<allocator_type>;
-  using key_type = typename key_storage_type::key_type;
+  using value_locator_type  = value_locator;
+  using key_storage_type    = key_store<allocator_type>;
+  using key_type            = typename key_storage_type::key_type;
   using string_storage_type = compact_string_storage<allocator_type>;
   using array_storage_type =
       compact_adjacency_list<value_locator_type, allocator_type>;
@@ -45,19 +46,22 @@ public:
   core_data() = default;
 
   explicit core_data(allocator_type alloc)
-      : string_storage(alloc), root_value_storage(alloc), array_storage(alloc),
-        object_storage(alloc), key_storage(alloc) {}
+      : string_storage(alloc),
+        root_value_storage(alloc),
+        array_storage(alloc),
+        object_storage(alloc),
+        key_storage(alloc) {}
 
   ~core_data() noexcept = default;
 
-  string_storage_type string_storage{allocator_type{}};
+  string_storage_type     string_storage{allocator_type{}};
   root_value_storage_type root_value_storage{allocator_type{}};
-  array_storage_type array_storage{allocator_type{}};
-  object_storage_type object_storage{allocator_type{}};
-  key_storage_type key_storage{allocator_type{}};
+  array_storage_type      array_storage{allocator_type{}};
+  object_storage_type     object_storage{allocator_type{}};
+  key_storage_type        key_storage{allocator_type{}};
 };
 
-} // namespace json_bento::jbdtl
+}  // namespace json_bento::jbdtl
 
 // TODO: make a better implementation
 namespace json_bento::jbdtl {
@@ -115,11 +119,11 @@ inline void add_value(const value_type &value, core_data_type &core_data,
 /// \return The index of the added value.
 template <typename value_type, typename core_data_type>
 inline auto push_back_root_value(const value_type &source_value,
-                                 core_data_type &core_data) {
+                                 core_data_type   &core_data) {
   const auto idx = core_data.root_value_storage.size();
   core_data.root_value_storage.emplace_back();
   add_value(source_value, core_data, core_data.root_value_storage.back());
   return idx;
 }
 
-} // namespace json_bento::jbdtl
+}  // namespace json_bento::jbdtl

@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -13,7 +13,6 @@ namespace json_bento::jbdtl {
 /// \brief Pair of key value locators
 class key_value_pair {
  public:
-
   key_value_pair() = default;
   key_value_pair(key_locator key, value_locator value)
       : m_key(key), m_value(value) {}
@@ -31,7 +30,7 @@ class key_value_pair {
   const value_locator& value() const { return m_value; };
 
  private:
-  key_locator m_key;
+  key_locator   m_key;
   value_locator m_value;
 };
 

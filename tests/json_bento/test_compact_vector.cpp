@@ -1,15 +1,16 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
 #include <gtest/gtest.h>
 
-#include <metall/metall.hpp>
 #include <json_bento/details/compact_vector.hpp>
+#include <metall/metall.hpp>
 
 using vec_type =
-    json_bento::jbdtl::compact_vector<int, metall::manager::allocator_type<int>>;
+    json_bento::jbdtl::compact_vector<int,
+                                      metall::manager::allocator_type<int>>;
 
 template <typename vec_t>
 void test_helper(const std::size_t size, vec_t& vec) {
@@ -31,7 +32,7 @@ TEST(CompactVectorTest, Read) {
   metall::manager manager(metall::create_only, "/tmp/metall-test");
 
   {
-    vec_type vec;
+    vec_type    vec;
     const auto& const_vec = vec;
 
     EXPECT_EQ(vec.size(), 0);
@@ -59,7 +60,7 @@ TEST(CompactVectorTest, Capacity) {
   metall::manager manager(metall::create_only, "/tmp/metall-test");
 
   {
-    vec_type vec;
+    vec_type    vec;
     const auto& const_vec = vec;
 
     EXPECT_EQ(vec.capacity(), 0);
@@ -85,7 +86,7 @@ TEST(CompactVectorTest, Back) {
   metall::manager manager(metall::create_only, "/tmp/metall-test");
 
   {
-    vec_type vec;
+    vec_type    vec;
     const auto& const_vec = vec;
 
     vec.push_back(10, manager.get_allocator());
