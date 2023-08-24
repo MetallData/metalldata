@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -7,7 +7,8 @@
 
 #include <json_bento/details/compact_adjacency_list.hpp>
 
-using adj_type = json_bento::jbdtl::compact_adjacency_list<int, std::allocator<std::byte>>;
+using adj_type =
+    json_bento::jbdtl::compact_adjacency_list<int, std::allocator<std::byte>>;
 
 TEST(CompactAdjacencyListTest, AddRow) {
   adj_type list;
@@ -137,7 +138,7 @@ TEST(CompactAdjacencyListTest, Resize) {
   EXPECT_EQ(list.size(0), 0);
   list.push_back(0, 10);
 
-  list.resize(4); // Grow
+  list.resize(4);  // Grow
   EXPECT_EQ(list.size(), 4);
   EXPECT_EQ(list.size(0), 1);
   EXPECT_EQ(list.size(1), 0);
@@ -145,7 +146,7 @@ TEST(CompactAdjacencyListTest, Resize) {
   EXPECT_EQ(list.size(3), 0);
   EXPECT_EQ(list.at(0, 0), 10);
 
-  list.resize(1); // shrink
+  list.resize(1);  // shrink
   EXPECT_EQ(list.size(), 1);
   EXPECT_EQ(list.size(0), 1);
   EXPECT_EQ(list.at(0, 0), 10);

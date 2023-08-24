@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -11,15 +11,15 @@
 
 #include <metall/json/json.hpp>
 
+#include <json_bento/boost_json.hpp>
 #include <json_bento/box/array_accessor.hpp>
 #include <json_bento/box/core_data/core_data.hpp>
 #include <json_bento/box/key_value_pair_accessor.hpp>
 #include <json_bento/box/object_accessor.hpp>
-#include <json_bento/pretty_print.hpp>
 #include <json_bento/box/string_accessor.hpp>
 #include <json_bento/box/value_accessor.hpp>
+#include <json_bento/pretty_print.hpp>
 #include <json_bento/value_to.hpp>
-#include <json_bento/boost_json.hpp>
 
 namespace json_bento {
 
@@ -35,16 +35,16 @@ namespace mj = metall::json;
 template <typename Alloc = std::allocator<std::byte>>
 class box {
  private:
-  using self_type = box<Alloc>;
+  using self_type      = box<Alloc>;
   using core_data_type = jbdtl::core_data<Alloc>;
-  using value_locator = typename core_data_type::value_locator_type;
+  using value_locator  = typename core_data_type::value_locator_type;
 
  public:
-  using index_type = std::size_t;
-  using allocator_type = Alloc;
-  using value_accessor = jbdtl::value_accessor<Alloc>;
+  using index_type      = std::size_t;
+  using allocator_type  = Alloc;
+  using value_accessor  = jbdtl::value_accessor<Alloc>;
   using object_accessor = jbdtl::object_accessor<Alloc>;
-  using array_accessor = jbdtl::array_accessor<Alloc>;
+  using array_accessor  = jbdtl::array_accessor<Alloc>;
 
   box() = default;
 
@@ -77,9 +77,7 @@ class box {
 
   /// \brief Access the last item.
   /// \return Returns a value accessor instance.
-  value_accessor back() {
-    return at(size() - 1);
-  }
+  value_accessor back() { return at(size() - 1); }
 
   /// \brief Add an empty item at the end.
   /// \return Returns the ID of the added item.
@@ -144,4 +142,4 @@ class box {
  private:
   core_data_type m_box;
 };
-}
+}  // namespace json_bento

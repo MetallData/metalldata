@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -14,8 +14,8 @@
 #include <metall/container/unordered_map.hpp>
 #include <metall/utility/hash.hpp>
 
-#include <json_bento/details/compact_string.hpp>
 #include <json_bento/box/core_data/key_locator.hpp>
+#include <json_bento/details/compact_string.hpp>
 
 namespace json_bento::jbdtl {
 
@@ -23,7 +23,7 @@ template <typename Alloc = std::allocator<std::byte>>
 class key_store {
  public:
   using allocator_type = Alloc;
-  using key_type = std::string_view;
+  using key_type       = std::string_view;
 
  private:
   template <typename T>
@@ -54,26 +54,25 @@ class key_store {
 
   explicit key_store(allocator_type allocator) : m_map(allocator) {}
 
-  explicit key_store(const uint64_t hash_seed,
+  explicit key_store(const uint64_t        hash_seed,
                      const allocator_type &allocator = allocator_type())
       : m_hash_seed(hash_seed), m_map(allocator) {}
 
   // Delete all for now.
   // When implement them, make sure to copy compact_string explicitly.
-  key_store(const key_store &) = delete;
-  key_store(key_store &&) = delete;
+  key_store(const key_store &)            = delete;
+  key_store(key_store &&)                 = delete;
   key_store &operator=(const key_store &) = delete;
-  key_store &operator=(key_store &&) = delete;
+  key_store &operator=(key_store &&)      = delete;
 
-  ~key_store() {
-    clear();
-  }
+  ~key_store() { clear(); }
 
   key_locator find_or_add(const key_type &key) {
     const auto id = priv_find_or_generate_internal_id(key);
     assert(id != k_max_internal_id);
-    m_map.emplace(std::piecewise_construct, std::forward_as_tuple(id),
-                  std::forward_as_tuple(key.data(), key.length(), get_allocator()));
+    m_map.emplace(
+        std::piecewise_construct, std::forward_as_tuple(id),
+        std::forward_as_tuple(key.data(), key.length(), get_allocator()));
     return id;
   }
 
@@ -147,7 +146,7 @@ class key_store {
     return k_max_internal_id;  // Couldn't find
   }
 
-  static id_type priv_hash_key(const key_type &key,
+  static id_type priv_hash_key(const key_type                 &key,
                                [[maybe_unused]] const uint64_t seed) {
     auto hash = (id_type)metall::mtlldetail::MurmurHash64A(
         key.data(), (int)key.length(), seed);
@@ -164,10 +163,9 @@ class key_store {
     return new_id;
   }
 
-  uint64_t m_hash_seed{123};
+  uint64_t    m_hash_seed{123};
   std::size_t m_max_id_probe_distance{0};
-  map_type m_map;
+  map_type    m_map;
 };
 
 }  // namespace json_bento::jbdtl
-

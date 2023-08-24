@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -35,10 +35,10 @@ class compact_vector {
       typename std::pointer_traits<void_pointer>::template rebind<value_type>;
   using const_pointer = typename std::pointer_traits<
       const_void_pointer>::template rebind<value_type>;
-  using reference = value_type &;
+  using reference       = value_type &;
   using const_reference = const value_type &;
 
-  using iterator = pointer;
+  using iterator       = pointer;
   using const_iterator = const_pointer;
 
   compact_vector() {
@@ -57,12 +57,12 @@ class compact_vector {
     m_capacity_and_size = other.m_capacity_and_size;
     other.priv_update_capacity(0);
     other.priv_update_size(0);
-    m_data = std::move(other.m_data);
+    m_data       = std::move(other.m_data);
     other.m_data = nullptr;
   }
 
   compact_vector &operator=(const compact_vector &) = delete;
-  compact_vector &operator=(compact_vector &&) = delete;
+  compact_vector &operator=(compact_vector &&)      = delete;
 
   reference operator[](const std::size_t index) { return at(index); }
 
@@ -130,9 +130,9 @@ class compact_vector {
   const_iterator end() const { return m_data + size(); }
 
  private:
-  static constexpr uint64_t k_capacity_mask = 0xFFFF000000000000ULL;
+  static constexpr uint64_t k_capacity_mask     = 0xFFFF000000000000ULL;
   static constexpr uint64_t k_capacity_mask_lsb = get_lsb(k_capacity_mask);
-  static constexpr uint64_t k_size_mask = 0x0000FFFFFFFFFFFFULL;
+  static constexpr uint64_t k_size_mask         = 0x0000FFFFFFFFFFFFULL;
   static_assert(k_capacity_mask - ~k_size_mask == 0,
                 "Wrong mask values for capacity and size");
 
@@ -149,8 +149,8 @@ class compact_vector {
     const auto current_size = m_capacity_and_size & ~0xFFFF000000000000ULL;
     const auto new_capacity_log2 =
         (new_capacity == 0)
-        ? 0
-        : metall::mtlldetail::log2_dynamic(new_capacity) + 1;
+            ? 0
+            : metall::mtlldetail::log2_dynamic(new_capacity) + 1;
     m_capacity_and_size =
         (new_capacity_log2 << k_capacity_mask_lsb) | current_size;
   }
@@ -166,18 +166,18 @@ class compact_vector {
 
     // Move items to a new memory region
     const auto new_cap_power2 = metall::mtlldetail::next_power_of_2(new_cap);
-    auto new_data = std::allocator_traits<data_allocator_type>::allocate(
+    auto       new_data = std::allocator_traits<data_allocator_type>::allocate(
         allocator, new_cap_power2);
     assert(new_data);
     for (std::size_t i = 0; i < this->size(); ++i) {
-      new(metall::to_raw_pointer(&new_data[i])) T(std::move(m_data[i]));
+      new (metall::to_raw_pointer(&new_data[i])) T(std::move(m_data[i]));
     }
 
     priv_deallocate_data_array(allocator);
-    m_data = new_data;
+    m_data   = new_data;
     new_data = nullptr;
     priv_update_capacity(new_cap_power2);
-    //priv_update_size(old_size);
+    // priv_update_size(old_size);
   }
 
   void priv_resize(const std::size_t new_size, data_allocator_type allocator) {
@@ -191,7 +191,7 @@ class compact_vector {
     } else {
       priv_reserve(new_size, allocator);
       for (std::size_t i = size(); i < new_size; ++i) {
-        new(metall::to_raw_pointer(&m_data[i])) T();
+        new (metall::to_raw_pointer(&m_data[i])) T();
       }
     }
     priv_update_size(new_size);
@@ -209,24 +209,25 @@ class compact_vector {
     }
 
     // Move items to a new smaller memory region
-    // Cannot shrink to the exact size because the capacity must be a power of 2.
+    // Cannot shrink to the exact size because the capacity must be a power
+    // of 2.
     const auto size_power2 = metall::mtlldetail::next_power_of_2(size());
-    auto new_data = std::allocator_traits<data_allocator_type>::allocate(
+    auto       new_data = std::allocator_traits<data_allocator_type>::allocate(
         allocator, size_power2);
     assert(new_data);
     for (std::size_t i = 0; i < this->size(); ++i) {
-      new(metall::to_raw_pointer(&new_data[i])) T(std::move(m_data[i]));
+      new (metall::to_raw_pointer(&new_data[i])) T(std::move(m_data[i]));
     }
 
     priv_deallocate_data_array(allocator);
-    m_data = new_data;
+    m_data   = new_data;
     new_data = nullptr;
     priv_update_capacity(size_power2);
   }
 
   void priv_push_back(value_type &&value, data_allocator_type allocator) {
     resize(size() + 1, allocator);
-    new(metall::to_raw_pointer(&back())) value_type(std::move(value));
+    new (metall::to_raw_pointer(&back())) value_type(std::move(value));
   }
 
   void priv_clear(data_allocator_type allocator) {
@@ -245,7 +246,7 @@ class compact_vector {
     }
   }
 
-  void priv_destroy_item_at(const std::size_t index,
+  void priv_destroy_item_at(const std::size_t   index,
                             data_allocator_type allocator) noexcept {
     std::allocator_traits<data_allocator_type>::destroy(
         allocator, std::addressof(m_data[index]));
@@ -263,9 +264,8 @@ class compact_vector {
     priv_update_capacity(0);
   }
 
-  pointer m_data{nullptr};
+  pointer  m_data{nullptr};
   uint64_t m_capacity_and_size{0};
 };
 
 }  // namespace json_bento::jbdtl
-

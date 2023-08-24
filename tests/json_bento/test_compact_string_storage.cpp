@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -15,10 +15,10 @@ using storage_t = json_bento::jbdtl::compact_string_storage<>;
 template <typename storage_type>
 void read_test_helper(
     const std::unordered_multimap<std::string, std::size_t>& ref_table,
-    storage_type& storage) {
+    storage_type&                                            storage) {
   for (const auto& item : ref_table) {
     const auto* str = item.first.c_str();
-    const auto id = item.second;
+    const auto  id  = item.second;
     EXPECT_STREQ(storage.at(id).c_str(), str);
     EXPECT_STREQ(storage[id].c_str(), str);
   }
@@ -52,8 +52,8 @@ void test_helper(storage_t& storage) {
     std::size_t cnt = 0;
     for (auto& item : ref_table) {
       const auto& str = item.first;
-      auto& id = item.second;
-      id = storage.emplace(str);
+      auto&       id  = item.second;
+      id              = storage.emplace(str);
       ++cnt;
       EXPECT_EQ(storage.size(), cnt);
     }
