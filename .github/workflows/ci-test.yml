@@ -20,3 +20,5 @@ jobs:
           cmake ../ -DMETALLDATA_BUILD_TESTS=ON
           make -j8
           make test
+          cd ../tests
+          sh run_test.sh
