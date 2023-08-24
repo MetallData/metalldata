@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+EXIT_CODE=0
+
 exec_test()
 {
   # call: exec_test "$NP" "$BUILDROOT/src/MetallJsonLines/mjl-read_json" "mjl-init-names" 1
@@ -17,12 +19,14 @@ exec_test()
 
   if [ $? -ne 0 ]; then
     echo -e "\e[0;31m** FAILED\e[0m (non-zero return)"
+    $EXIT_CODE=1
   else
     ENDTIME=`date +%s`
     echo "$((ENDTIME-BEGTIME))s"
 
     if [ $CHECK -eq 1 ]; then
       cmp --silent $TEST.out $TEST.exp || echo -e "\e[0;31m** FAILED\e[0m (unexpected output)"
+      $EXIT_CODE=1
     fi
   fi
 }
@@ -157,3 +161,9 @@ if [ $KEEPFILES -ne 1 ]; then
 fi
 
 echo "done."
+
+if [ $EXIT_CODE -eq 0 ]; then
+  exit 0
+else
+  exit $EXIT_CODE
+fi
