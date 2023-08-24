@@ -21,4 +21,5 @@ jobs:
           make -j6
           make test
           cd ../tests
+          export OMPI_MCA_rmaps_base_oversubscribe=1
           bash run_test.sh
