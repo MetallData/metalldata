@@ -1,0 +1,20 @@
+name: CI Test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      CC: gcc-12
+      CXX: g++-12
+    steps:
+      - uses: actions/checkout@v3
+      - name: Test
+        run: |
+          cd $GITHUB_WORKSPACE
+          mkdir build
+          cd build
+          cmake ../ -DMETALLDATA_BUILD_TESTS=ON
+          make -j8
+          make test
