@@ -1,19 +1,19 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #include <iostream>
-#include <string>
 #include <json_bento/box/accessor_fwd.hpp>
+#include <string>
 
 namespace json_bento::jbdtl {
 template <typename allocator_type>
-inline void pretty_print_helper(std::ostream& os,
+inline void pretty_print_helper(std::ostream&                         os,
                                 const array_accessor<allocator_type>& ja,
-                                const std::string& indent,
+                                const std::string&                    indent,
                                 const int indent_size) {
   std::string new_indent = indent;
   new_indent.append(indent_size, ' ');
@@ -29,9 +29,9 @@ inline void pretty_print_helper(std::ostream& os,
 }
 
 template <typename allocator_type>
-inline void pretty_print_helper(std::ostream& os,
+inline void pretty_print_helper(std::ostream&                          os,
                                 const object_accessor<allocator_type>& jo,
-                                const std::string& indent,
+                                const std::string&                     indent,
                                 const int indent_size) {
   os << "{\n";
   std::string new_indent = indent;
@@ -49,9 +49,9 @@ inline void pretty_print_helper(std::ostream& os,
 }
 
 template <typename allocator_type>
-inline void pretty_print_helper(std::ostream& os,
+inline void pretty_print_helper(std::ostream&                         os,
                                 const value_accessor<allocator_type>& jv,
-                                const std::string& indent,
+                                const std::string&                    indent,
                                 const int indent_size) {
   if (jv.is_bool()) {
     os << std::boolalpha << jv.as_bool();
@@ -78,9 +78,9 @@ inline void pretty_print_helper(std::ostream& os,
 namespace json_bento {
 template <typename allocator_type>
 inline void pretty_print(const jbdtl::value_accessor<allocator_type>& jv,
-                         std::ostream& os = std::cout,
-                         const int indent_size = 2,
-                         const bool print_newline = true) {
+                         std::ostream& os            = std::cout,
+                         const int     indent_size   = 2,
+                         const bool    print_newline = true) {
   std::string indent;
   jbdtl::pretty_print_helper(os, jv, indent, indent_size);
   if (print_newline) os << std::endl;
@@ -88,9 +88,9 @@ inline void pretty_print(const jbdtl::value_accessor<allocator_type>& jv,
 
 template <typename allocator_type>
 inline void pretty_print(const jbdtl::object_accessor<allocator_type>& jo,
-                         std::ostream& os = std::cout,
-                         const int indent_size = 2,
-                         const bool print_newline = true) {
+                         std::ostream& os            = std::cout,
+                         const int     indent_size   = 2,
+                         const bool    print_newline = true) {
   std::string indent;
   jbdtl::pretty_print_helper(os, jo, indent, indent_size);
   if (print_newline) os << std::endl;
@@ -98,32 +98,35 @@ inline void pretty_print(const jbdtl::object_accessor<allocator_type>& jo,
 
 template <typename allocator_type>
 inline void pretty_print(const jbdtl::array_accessor<allocator_type>& ja,
-                         std::ostream& os = std::cout,
-                         const int indent_size = 2,
-                         const bool print_newline = true) {
+                         std::ostream& os            = std::cout,
+                         const int     indent_size   = 2,
+                         const bool    print_newline = true) {
   std::string indent;
   jbdtl::pretty_print_helper(os, ja, indent, indent_size);
   if (print_newline) os << std::endl;
 }
-}  // namespace json
+}  // namespace json_bento
 
 template <typename allocator_type>
 std::ostream& operator<<(
-    std::ostream& os, const json_bento::jbdtl::value_accessor<allocator_type>& jv) {
+    std::ostream&                                            os,
+    const json_bento::jbdtl::value_accessor<allocator_type>& jv) {
   json_bento::pretty_print(jv, os, 2, false);
   return os;
 }
 
 template <typename allocator_type>
 std::ostream& operator<<(
-    std::ostream& os, const json_bento::jbdtl::array_accessor<allocator_type>& ja) {
+    std::ostream&                                            os,
+    const json_bento::jbdtl::array_accessor<allocator_type>& ja) {
   json_bento::pretty_print(ja, os, 2, false);
   return os;
 }
 
 template <typename allocator_type>
 std::ostream& operator<<(
-    std::ostream& os, const json_bento::jbdtl::object_accessor<allocator_type>& jo) {
+    std::ostream&                                             os,
+    const json_bento::jbdtl::object_accessor<allocator_type>& jo) {
   json_bento::pretty_print(jo, os, 2, false);
   return os;
 }

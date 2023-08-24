@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -42,10 +42,11 @@ TEST(BoxTest, All) {
   auto value_accessor = bento->at(index);
 
   // Show the added item.
-  EXPECT_EQ(json_bento::value_to<boost::json::value>(value_accessor), boost::json::parse(json_string));
+  EXPECT_EQ(json_bento::value_to<boost::json::value>(value_accessor),
+            boost::json::parse(json_string));
 
   // -- Modify items --//
-  auto object_accessor = value_accessor.as_object();
+  auto object_accessor    = value_accessor.as_object();
   object_accessor["name"] = "Bob";
 
   auto array_accessor = object_accessor["answer"].emplace_array();

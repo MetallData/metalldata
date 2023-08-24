@@ -14,10 +14,10 @@ namespace json_bento::jbdtl {
 
 namespace {
 namespace bj = boost::json;
-} // namespace
+}  // namespace
 
 template <typename T, typename allocator_type>
-inline void value_from(const T &value,
+inline void value_from(const T                              &value,
                        jbdtl::value_accessor<allocator_type> accessor) {
   if (value.is_bool()) {
     accessor = value.as_bool();
@@ -31,7 +31,7 @@ inline void value_from(const T &value,
     accessor = value.as_string().c_str();
   } else if (value.is_array()) {
     const auto src_arr = value.as_array();
-    auto trg_arr = accessor.emplace_array();
+    auto       trg_arr = accessor.emplace_array();
     trg_arr.resize(value.as_array().size());
     for (std::size_t i = 0; i < src_arr.size(); ++i) {
       auto elem = trg_arr[i];
@@ -39,7 +39,7 @@ inline void value_from(const T &value,
     }
   } else if (value.is_object()) {
     const auto src_obj = value.as_object();
-    auto trg_obj = accessor.emplace_object();
+    auto       trg_obj = accessor.emplace_object();
     for (const auto &kv : src_obj) {
       auto elem = trg_obj[kv.key().data()];
       value_from(kv.value(), elem);
@@ -51,7 +51,7 @@ inline void value_from(const T &value,
   }
 }
 
-} // namespace json_bento::jbdtl
+}  // namespace json_bento::jbdtl
 
 namespace json_bento {
 
@@ -62,8 +62,8 @@ namespace json_bento {
 /// \param value The value to convert.
 /// \param accessor The JSON value accessor to convert to.
 template <typename T, typename allocator_type>
-inline void value_from(const T &value,
+inline void value_from(const T                              &value,
                        jbdtl::value_accessor<allocator_type> accessor) {
   return jbdtl::value_from(value, accessor);
 }
-} // namespace json_bento
+}  // namespace json_bento

@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -22,13 +22,13 @@ class compact_string_storage {
 
  public:
   // using view_type = typename compact_string_type::view_type;
-  using string_type = compact_string_type;
-  using char_type = typename string_type::char_type;
-  using allocator_type = Alloc;
-  using iterator = typename storage_type::iterator;
-  using const_iterator = typename storage_type::const_iterator;
-  using size_type = std::size_t;
-  using reference = string_type &;
+  using string_type     = compact_string_type;
+  using char_type       = typename string_type::char_type;
+  using allocator_type  = Alloc;
+  using iterator        = typename storage_type::iterator;
+  using const_iterator  = typename storage_type::const_iterator;
+  using size_type       = std::size_t;
+  using reference       = string_type &;
   using const_reference = const string_type &;
 
   compact_string_storage() = default;
@@ -38,7 +38,7 @@ class compact_string_storage {
 
   ~compact_string_storage() noexcept { clear(); }
 
-  compact_string_storage(const compact_string_storage &) = default;
+  compact_string_storage(const compact_string_storage &)     = default;
   compact_string_storage(compact_string_storage &&) noexcept = default;
 
   compact_string_storage &operator=(const compact_string_storage &) = default;
@@ -118,4 +118,3 @@ class compact_string_storage {
 };
 
 }  // namespace json_bento::jbdtl
-
