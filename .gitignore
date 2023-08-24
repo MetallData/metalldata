@@ -1,2 +1,11 @@
-/cmake-build-debug/
-/.idea/
+.swp
+build*/
+.cobaltlog
+.error
+.autosave
+.DS_Store
+cmake-build-*/
+.idea
+*~
+~*
+.vscode/
