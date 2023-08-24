@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -26,5 +26,5 @@ class string_accessor;
 
 template <typename storage_allocator_type>
 std::ostream &operator<<(
-    std::ostream &os,
+    std::ostream                                                     &os,
     const json_bento::jbdtl::string_accessor<storage_allocator_type> &sa);

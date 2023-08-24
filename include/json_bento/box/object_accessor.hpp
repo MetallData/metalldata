@@ -1,13 +1,13 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #include <memory>
-#include <type_traits>
 #include <optional>
+#include <type_traits>
 
 #include <json_bento/box/accessor_fwd.hpp>
 #include <json_bento/box/core_data/core_data.hpp>
@@ -18,7 +18,7 @@ template <typename core_data_allocator_type>
 class object_accessor {
  private:
   using core_data_t = core_data<core_data_allocator_type>;
-  using self_type = object_accessor<core_data_allocator_type>;
+  using self_type   = object_accessor<core_data_allocator_type>;
   template <bool is_const>
   class basic_iterator;
   using box_pointer_t =
@@ -26,12 +26,12 @@ class object_accessor {
           core_data_allocator_type>::pointer>::template rebind<core_data_t>;
 
  public:
-  using key_type = typename core_data_t::key_type;
+  using key_type            = typename core_data_t::key_type;
   using value_accessor_type = value_accessor<core_data_allocator_type>;
   using key_value_pair_accessor_type =
       key_value_pair_accessor<core_data_allocator_type>;
 
-  using iterator = basic_iterator<false>;
+  using iterator       = basic_iterator<false>;
   using const_iterator = basic_iterator<true>;
 
   object_accessor(const std::size_t index, box_pointer_t box)
@@ -46,8 +46,8 @@ class object_accessor {
 
     // Allocate a new item
     const auto key_loc = m_core_data->key_storage.find_or_add(key);
-    m_core_data->object_storage.push_back(m_object_index,
-                                          key_value_pair(key_loc, value_locator()));
+    m_core_data->object_storage.push_back(
+        m_object_index, key_value_pair(key_loc, value_locator()));
     return value_accessor_type(value_accessor_type::value_type_tag::object,
                                m_object_index, size() - 1, m_core_data);
   }
@@ -68,8 +68,7 @@ class object_accessor {
   /// \return The value associated with the key in std::optional if it exists;
   /// otherwise, empty std::optional (i.e., std::nullopt).
   std::optional<value_accessor_type> if_contains(const key_type &key) const {
-    if (contains(key))
-      return at(key);
+    if (contains(key)) return at(key);
     return std::nullopt;
   }
 
@@ -103,13 +102,15 @@ class object_accessor {
 
   /// \brief Returns an allocator instance.
   /// \return Allocator instance.
-  auto get_allocator() const { return m_core_data->object_storage.get_allocator(); }
+  auto get_allocator() const {
+    return m_core_data->object_storage.get_allocator();
+  }
 
  private:
   /// \brief Find the index of the item associated with key.
   std::size_t priv_find(const key_type &key) const {
-    const auto key_loc = m_core_data->key_storage.find(key);
-    std::size_t i = 0;
+    const auto  key_loc = m_core_data->key_storage.find(key);
+    std::size_t i       = 0;
     for (; i < m_core_data->object_storage.size(m_object_index); ++i) {
       auto &kv = m_core_data->object_storage.at(m_object_index, i);
       if (kv.key() == key_loc) {
@@ -120,8 +121,8 @@ class object_accessor {
   }
 
   std::size_t priv_count(const key_type &key) const {
-    const auto key_loc = m_core_data->key_storage.find(key);
-    std::size_t count = 0;
+    const auto  key_loc = m_core_data->key_storage.find(key);
+    std::size_t count   = 0;
     for (auto itr = m_core_data->object_storage.begin(m_object_index);
          itr != m_core_data->object_storage.end(m_object_index); ++itr) {
       if (itr->key() == key_loc) {
@@ -139,7 +140,7 @@ class object_accessor {
     return m_core_data->object_storage.end(m_object_index);
   }
 
-  std::size_t m_object_index;
+  std::size_t   m_object_index;
   box_pointer_t m_core_data;
 };
 
@@ -150,11 +151,14 @@ class object_accessor<core_data_allocator_type>::basic_iterator {
  public:
   basic_iterator(std::size_t object_index, std::size_t item_index,
                  box_pointer_t box)
-      : m_object_index(object_index), m_item_index(item_index), m_core_data(box) {}
+      : m_object_index(object_index),
+        m_item_index(item_index),
+        m_core_data(box) {}
 
   bool operator==(const basic_iterator &other) const {
-    return m_core_data == other.m_core_data && m_object_index == other.m_object_index &&
-        m_item_index == other.m_item_index;
+    return m_core_data == other.m_core_data &&
+           m_object_index == other.m_object_index &&
+           m_item_index == other.m_item_index;
   }
 
   bool operator!=(const basic_iterator &other) const {
@@ -174,23 +178,23 @@ class object_accessor<core_data_allocator_type>::basic_iterator {
 
   /// \brief Dereference operator.
   /// \return Key-value pair accessor.
-  /// \warning This function returns a key_value_pair_accessor_type instance rather than a reference.
+  /// \warning This function returns a key_value_pair_accessor_type instance
+  /// rather than a reference.
   key_value_pair_accessor_type operator*() const {
-    return key_value_pair_accessor_type(m_object_index, m_item_index, m_core_data);
+    return key_value_pair_accessor_type(m_object_index, m_item_index,
+                                        m_core_data);
   }
 
   /// \brief Structure dereference operator.
   /// \return Key-value pair accessor.
-  /// \warning This function returns a key_value_pair_accessor_type instance rather than a pointer.
-  /// This function expects the key_value_pair_accessor_type has operator->() defined.
-  key_value_pair_accessor_type operator->() const {
-    return operator*();
-  }
+  /// \warning This function returns a key_value_pair_accessor_type instance
+  /// rather than a pointer. This function expects the
+  /// key_value_pair_accessor_type has operator->() defined.
+  key_value_pair_accessor_type operator->() const { return operator*(); }
 
  private:
-  std::size_t m_object_index;
-  std::size_t m_item_index;
+  std::size_t   m_object_index;
+  std::size_t   m_item_index;
   box_pointer_t m_core_data;
 };
 }  // namespace json_bento::jbdtl
-

@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -11,7 +11,7 @@
 using box_type = json_bento::box<>;
 
 TEST(ObjectAccessorTest, Init) {
-  box_type box;
+  box_type           box;
   boost::json::value value;
   value.emplace_object();
   auto accessor = box[box.push_back(value)].as_object();
@@ -19,11 +19,11 @@ TEST(ObjectAccessorTest, Init) {
 }
 
 TEST(ObjectAccessorTest, Reference) {
-  box_type box;
+  box_type           box;
   boost::json::value value;
   value.emplace_object();
   value.as_object()["init"] = true;
-  auto accessor = box[box.push_back(value)].as_object();
+  auto accessor             = box[box.push_back(value)].as_object();
   EXPECT_EQ(accessor.size(), 1);
   EXPECT_TRUE(accessor.contains("init"));
   EXPECT_EQ(accessor.count("init"), 1);
@@ -57,7 +57,7 @@ TEST(ObjectAccessorTest, Reference) {
 }
 
 TEST(ObjectAccessorTest, ConstReference) {
-  box_type box;
+  box_type           box;
   boost::json::value value;
   value.emplace_object();
   value.as_object()["key0"] = true;
@@ -93,7 +93,7 @@ void test_iterator_helper(accessor_t& accessor) {
 }
 
 TEST(ObjectAccessorTest, IteratorForEach) {
-  box_type box;
+  box_type           box;
   boost::json::value value;
   value.emplace_object();
   value.as_object()["key0"] = true;
@@ -182,7 +182,7 @@ int check_iterator_value(const T it) {
 }
 
 TEST(ObjectAccessorTest, Iterator) {
-  box_type box;
+  box_type           box;
   boost::json::value value;
   value.emplace_object();
   value.as_object()["key0"] = true;
@@ -191,13 +191,14 @@ TEST(ObjectAccessorTest, Iterator) {
   auto accessor = box[box.push_back(value)].as_object();
 
   {
-    auto it = accessor.begin();
+    auto       it = accessor.begin();
     const auto x0 = check_iterator_value(it);
 
     ++it;
     const auto x1 = check_iterator_value(it);
 
-    EXPECT_TRUE((x0 == 1 && x1 == 10) || (x0 == 10 && x1 == 1)) << "++it did not move to the next element";
+    EXPECT_TRUE((x0 == 1 && x1 == 10) || (x0 == 10 && x1 == 1))
+        << "++it did not move to the next element";
 
     auto old_it = it++;
     EXPECT_EQ(check_iterator_value(old_it), x1);
@@ -206,7 +207,7 @@ TEST(ObjectAccessorTest, Iterator) {
 }
 
 TEST(ObjectAccessorTest, Find) {
-  box_type box;
+  box_type           box;
   boost::json::value value;
   value.emplace_object();
   value.as_object()["key0"] = true;
@@ -228,7 +229,7 @@ TEST(ObjectAccessorTest, Find) {
 }
 
 TEST(ObjectAccessorTest, IfContains) {
-  box_type box;
+  box_type           box;
   boost::json::value value;
   value.emplace_object();
   value.as_object()["key0"] = true;

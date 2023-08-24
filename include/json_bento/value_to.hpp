@@ -12,14 +12,14 @@ namespace json_bento {
 
 namespace {
 namespace bj = boost::json;
-} // namespace
+}  // namespace
 
 namespace jbdtl {
 
 /// Assumes that T has Boost.JSON or Metall JSON compatible interface.
 template <typename allocator_type, typename T>
 inline void value_to_helper(const value_accessor<allocator_type> &jv,
-                            T &out_value) {
+                            T                                    &out_value) {
   if (jv.is_bool()) {
     out_value = jv.as_bool();
   } else if (jv.is_int64()) {
@@ -31,15 +31,15 @@ inline void value_to_helper(const value_accessor<allocator_type> &jv,
   } else if (jv.is_string()) {
     out_value = jv.as_string().c_str();
   } else if (jv.is_array()) {
-    auto& out_array = out_value.emplace_array();
-    const auto &arr = jv.as_array();
+    auto       &out_array = out_value.emplace_array();
+    const auto &arr       = jv.as_array();
     out_array.resize(arr.size());
     for (std::size_t i = 0; i < arr.size(); ++i) {
       value_to_helper(arr[i], out_array[i]);
     }
   } else if (jv.is_object()) {
-    auto& trg_obj = out_value.emplace_object();
-    const auto obj = jv.as_object();
+    auto      &trg_obj = out_value.emplace_object();
+    const auto obj     = jv.as_object();
     for (const auto &kv : obj) {
 #if BOOST_VERSION >= 107900
       value_to_helper(kv.value(), trg_obj[kv.key()]);
@@ -52,8 +52,8 @@ inline void value_to_helper(const value_accessor<allocator_type> &jv,
   }
 }
 
-} // namespace jbdtl
-} // namespace json_bento
+}  // namespace jbdtl
+}  // namespace json_bento
 
 namespace json_bento {
 
@@ -77,8 +77,8 @@ inline T value_to(const jbdtl::value_accessor<allocator_type> &value) {
 /// \param out_value The instance for holding converted value.
 template <typename T, typename allocator_type>
 inline void value_to(const jbdtl::value_accessor<allocator_type> &value,
-                     T &out_value) {
+                     T                                           &out_value) {
   jbdtl::value_to_helper(value, out_value);
 }
 
-} // namespace json_bento
+}  // namespace json_bento

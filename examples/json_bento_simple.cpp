@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -10,8 +10,10 @@
 
 int main() {
   metall::manager manager(metall::create_only, "./metall-test-dir");
-  using bento_type = json_bento::box<metall::manager::allocator_type<std::byte>>;
-  auto *bento = manager.construct<bento_type>(metall::unique_instance)(manager.get_allocator());
+  using bento_type =
+      json_bento::box<metall::manager::allocator_type<std::byte>>;
+  auto *bento = manager.construct<bento_type>(metall::unique_instance)(
+      manager.get_allocator());
 
   std::string json_string = R"(
       {
@@ -40,11 +42,11 @@ int main() {
   // Show the added item.
   std::cout << value_accessor << std::endl;
   assert(boost::json::parse(json_string) ==
-      json_bento::value_to<boost::json::value>(value_accessor));
+         json_bento::value_to<boost::json::value>(value_accessor));
   std::cout << "#of added items: " << bento->size() << std::endl;
 
   // -- Modify items --//
-  auto object_accessor = value_accessor.as_object();
+  auto object_accessor    = value_accessor.as_object();
   object_accessor["name"] = "Bob";
 
   auto array_accessor = object_accessor["answer"].emplace_array();

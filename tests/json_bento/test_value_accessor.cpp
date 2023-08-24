@@ -1,5 +1,5 @@
-// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData Project Developers.
-// See the top-level COPYRIGHT file for details.
+// Copyright 2023 Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
 
@@ -16,7 +16,7 @@ TEST(ValueAccessorTest, IsType) {
   {
     boost::json::value bjv;
     bjv.emplace_null();
-    const auto id = box.push_back(bjv);
+    const auto id       = box.push_back(bjv);
     const auto accessor = box[id];
     EXPECT_TRUE(accessor.is_null());
     EXPECT_FALSE(accessor.is_bool());
@@ -31,7 +31,7 @@ TEST(ValueAccessorTest, IsType) {
   {
     boost::json::value bjv;
     bjv.emplace_bool();
-    const auto id = box.push_back(bjv);
+    const auto id       = box.push_back(bjv);
     const auto accessor = box[id];
     EXPECT_FALSE(accessor.is_null());
     EXPECT_TRUE(accessor.is_bool());
@@ -46,7 +46,7 @@ TEST(ValueAccessorTest, IsType) {
   {
     boost::json::value bjv;
     bjv.emplace_int64();
-    const auto id = box.push_back(bjv);
+    const auto id       = box.push_back(bjv);
     const auto accessor = box[id];
     EXPECT_FALSE(accessor.is_null());
     EXPECT_FALSE(accessor.is_bool());
@@ -61,7 +61,7 @@ TEST(ValueAccessorTest, IsType) {
   {
     boost::json::value bjv;
     bjv.emplace_uint64();
-    const auto id = box.push_back(bjv);
+    const auto id       = box.push_back(bjv);
     const auto accessor = box[id];
     EXPECT_FALSE(accessor.is_null());
     EXPECT_FALSE(accessor.is_bool());
@@ -76,7 +76,7 @@ TEST(ValueAccessorTest, IsType) {
   {
     boost::json::value bjv;
     bjv.emplace_uint64();
-    const auto id = box.push_back(bjv);
+    const auto id       = box.push_back(bjv);
     const auto accessor = box[id];
     EXPECT_FALSE(accessor.is_null());
     EXPECT_FALSE(accessor.is_bool());
@@ -91,7 +91,7 @@ TEST(ValueAccessorTest, IsType) {
   {
     boost::json::value bjv;
     bjv.emplace_double();
-    const auto id = box.push_back(bjv);
+    const auto id       = box.push_back(bjv);
     const auto accessor = box[id];
     EXPECT_FALSE(accessor.is_null());
     EXPECT_FALSE(accessor.is_bool());
@@ -106,7 +106,7 @@ TEST(ValueAccessorTest, IsType) {
   {
     boost::json::value bjv;
     bjv.emplace_array();
-    const auto id = box.push_back(bjv);
+    const auto id       = box.push_back(bjv);
     const auto accessor = box[id];
     EXPECT_FALSE(accessor.is_null());
     EXPECT_FALSE(accessor.is_bool());
@@ -121,7 +121,7 @@ TEST(ValueAccessorTest, IsType) {
   {
     boost::json::value bjv;
     bjv.emplace_object();
-    const auto id = box.push_back(bjv);
+    const auto id       = box.push_back(bjv);
     const auto accessor = box[id];
     EXPECT_FALSE(accessor.is_null());
     EXPECT_FALSE(accessor.is_bool());
@@ -138,9 +138,9 @@ TEST(ValueAccessorTest, AsType) {
   box_type box;
 
   {
-    boost::json::value bjv = static_cast<bool>(true);
-    const auto id = box.push_back(bjv);
-    const auto const_accessor = box[id];
+    boost::json::value bjv            = static_cast<bool>(true);
+    const auto         id             = box.push_back(bjv);
+    const auto         const_accessor = box[id];
     EXPECT_EQ(const_accessor.as_bool(), true);
 
     auto accessor = box[id];
@@ -152,9 +152,9 @@ TEST(ValueAccessorTest, AsType) {
   }
 
   {
-    boost::json::value bjv = static_cast<int64_t>(10);
-    const auto id = box.push_back(bjv);
-    const auto const_accessor = box[id];
+    boost::json::value bjv            = static_cast<int64_t>(10);
+    const auto         id             = box.push_back(bjv);
+    const auto         const_accessor = box[id];
     EXPECT_EQ(const_accessor.as_int64(), 10);
 
     auto accessor = box[id];
@@ -166,9 +166,9 @@ TEST(ValueAccessorTest, AsType) {
   }
 
   {
-    boost::json::value bjv = static_cast<uint64_t>(10);
-    const auto id = box.push_back(bjv);
-    const auto const_accessor = box[id];
+    boost::json::value bjv            = static_cast<uint64_t>(10);
+    const auto         id             = box.push_back(bjv);
+    const auto         const_accessor = box[id];
     EXPECT_EQ(const_accessor.as_uint64(), 10);
 
     auto accessor = box[id];
@@ -180,9 +180,9 @@ TEST(ValueAccessorTest, AsType) {
   }
 
   {
-    boost::json::value bjv = static_cast<double>(0.5);
-    const auto id = box.push_back(bjv);
-    const auto const_accessor = box[id];
+    boost::json::value bjv            = static_cast<double>(0.5);
+    const auto         id             = box.push_back(bjv);
+    const auto         const_accessor = box[id];
     EXPECT_DOUBLE_EQ(const_accessor.as_double(), 0.5);
 
     auto accessor = box[id];
@@ -195,8 +195,8 @@ TEST(ValueAccessorTest, AsType) {
 
   {
     boost::json::value bjv;
-    bjv.emplace_string() = "test";
-    const auto id = box.push_back(bjv);
+    bjv.emplace_string()      = "test";
+    const auto id             = box.push_back(bjv);
     const auto const_accessor = box[id];
     EXPECT_STREQ(const_accessor.as_string().c_str(), "test");
 
@@ -212,7 +212,7 @@ TEST(ValueAccessorTest, AsType) {
     boost::json::value bjv;
     bjv.emplace_array();
     bjv.as_array().push_back(static_cast<int64_t>(10));
-    const auto id = box.push_back(bjv);
+    const auto id             = box.push_back(bjv);
     const auto const_accessor = box[id];
     EXPECT_EQ(const_accessor.as_array()[0].as_int64(),
               static_cast<int64_t>(10));
@@ -228,8 +228,8 @@ TEST(ValueAccessorTest, AsType) {
   {
     boost::json::value bjv;
     bjv.emplace_object();
-    bjv.as_object()["key"] = static_cast<int64_t>(10);
-    const auto id = box.push_back(bjv);
+    bjv.as_object()["key"]    = static_cast<int64_t>(10);
+    const auto id             = box.push_back(bjv);
     const auto const_accessor = box[id];
     EXPECT_EQ(const_accessor.as_object().at("key").as_int64(),
               static_cast<int64_t>(10));
@@ -247,8 +247,8 @@ TEST(ValueAccessorTest, AsType) {
 TEST(ValueAccessorTest, Emplace) {
   box_type box;
 
-  const auto id = box.push_back(boost::json::value{});
-  auto accessor = box[id];
+  const auto id       = box.push_back(boost::json::value{});
+  auto       accessor = box[id];
 
   accessor.emplace_null();
   EXPECT_TRUE(accessor.is_null());
@@ -298,8 +298,8 @@ TEST(ValueAccessorTest, Parse) {
 
   box_type box;
 
-  const auto id = box.push_back(boost::json::value{});
-  auto accessor = box[id];
+  const auto id       = box.push_back(boost::json::value{});
+  auto       accessor = box[id];
   accessor.parse(json_string);
   EXPECT_EQ(accessor.as_object()["pi"].as_double(), 3.141);
   EXPECT_TRUE(accessor.as_object()["happy"].as_bool());
@@ -341,12 +341,12 @@ TEST(ValueAccessorTest, EqualOperator) {
 
   box_type box;
 
-  const auto id0 = box.push_back(boost::json::parse(json_string));
-  auto accessor0 = box[id0];
+  const auto id0       = box.push_back(boost::json::parse(json_string));
+  auto       accessor0 = box[id0];
   EXPECT_EQ(accessor0, accessor0);
 
-  const auto id1 = box.push_back(boost::json::parse(json_string));
-  auto accessor1 = box[id1];
+  const auto id1       = box.push_back(boost::json::parse(json_string));
+  auto       accessor1 = box[id1];
   EXPECT_EQ(accessor0, accessor1);
 
   accessor0.as_object()["pi"] = 3.14;
