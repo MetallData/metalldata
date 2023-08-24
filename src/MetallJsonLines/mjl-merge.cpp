@@ -12,9 +12,9 @@
 #include <numeric>
 
 //~ #include <bit>
-
-#include "clippy/clippy.hpp"
+//
 #include "mjl-common.hpp"
+#include "clippy/clippy.hpp"
 
 #include "MetallJsonLines-merge.hpp"
 
