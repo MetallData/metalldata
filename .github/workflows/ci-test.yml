@@ -21,4 +21,4 @@ jobs:
           make -j6
           make test
           cd ../tests
-          sh run_test.sh
+          bash run_test.sh
