@@ -240,6 +240,11 @@ struct metall_graph {
   using metall_manager_type = metall_json_lines::metall_manager_type;
   using filter_type         = metall_json_lines::filter_type;
 
+  enum file_type {
+    json,
+    parquet
+  };
+
   metall_graph(metall_manager_type& manager, ygm::comm& comm)
       : edgelst(manager, comm, edge_location_suffix),
         nodelst(manager, comm, node_location_suffix),
@@ -259,22 +264,40 @@ struct metall_graph {
   std::string_view edgeSrcKey() const { return keys->at(EDGE_SRCKEY_IDX); }
   std::string_view edgeTgtKey() const { return keys->at(EDGE_TGTKEY_IDX); }
 
-  import_summary read_vertex_files(const std::vector<std::string>& files) {
-    return nodelst.read_json_files(files, gen_keys_checker({nodeKey()}));
+  import_summary read_vertex_files(const std::vector<std::string>& files,
+                                   const file_type ftype = file_type::json) {
+    if (ftype == file_type::json) {
+      return nodelst.read_json_files(files, gen_keys_checker({nodeKey()}));
+    } else {
+      return nodelst.read_parquet_files(files, gen_keys_checker({nodeKey()}));
+    }
   }
 
   import_summary read_edge_files(const std::vector<std::string>& files,
+                                 const file_type ftype = file_type::json,
                                  std::vector<std::string_view> autoKeys = {}) {
-    if (autoKeys.empty())
-      return edgelst.read_json_files(
-          files, gen_keys_checker({edgeSrcKey(), edgeTgtKey()}));
+    if (autoKeys.empty()) {
+      if (ftype == file_type::json) {
+        return edgelst.read_json_files(
+            files, gen_keys_checker({edgeSrcKey(), edgeTgtKey()}));
+      } else {
+        return edgelst.read_parquet_files(
+            files, gen_keys_checker({edgeSrcKey(), edgeTgtKey()}));
+      }
+    }
 
     msg::ptr_guard cntStateGuard{count_data_mg::ptr,
                                  new count_data_mg{nodelst.comm()}};
-    import_summary res = edgelst.read_json_files(
-        files, gen_keys_checker(autoKeys),
-        gen_keys_generator({edgeSrcKey(), edgeTgtKey()}, autoKeys));
-
+    import_summary res;
+    if (ftype == file_type::json) {
+      res = edgelst.read_json_files(
+          files, gen_keys_checker(autoKeys),
+          gen_keys_generator({edgeSrcKey(), edgeTgtKey()}, autoKeys));
+    } else {
+      res = edgelst.read_parquet_files(
+          files, gen_keys_checker(autoKeys),
+          gen_keys_generator({edgeSrcKey(), edgeTgtKey()}, autoKeys));
+    }
     comm().barrier();
     persist_keys(nodelst, nodeKey(), count_data_mg::ptr->distributedKeys);
     return res;
