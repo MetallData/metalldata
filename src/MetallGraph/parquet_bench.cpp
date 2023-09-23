@@ -14,12 +14,25 @@ namespace xpr = experimental;
 int main(int argc, char** argv) {
   ygm::comm comm(&argc, &argv);
 
+  std::string        dataLocation;
   std::vector<std::string> edgeFiles;
+
+  // Parse arguments
+  if (comm.rank() == 0) {
+    if (argc < 3) {
+      std::cerr << "Usage: " << argv[0]
+                << " <data location> <edge file> [<edge file> ...]"
+                << std::endl;
+      return 1;
+    }
+    dataLocation = argv[1];
+    for (int i = 2; i < argc; ++i) {
+      edgeFiles.push_back(argv[i]);
+    }
+  }
 
   try {
     using metall_manager = xpr::metall_json_lines::metall_manager_type;
-
-    const std::string dataLocation = "/tmp/metall";
     metall_manager mm{metall::open_only, dataLocation.c_str(), MPI_COMM_WORLD};
     xpr::metall_graph             g{mm, comm};
     std::vector<std::string_view> edgeVertexFieldsVw{};
