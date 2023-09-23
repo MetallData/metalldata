@@ -80,7 +80,8 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
     std::vector<std::string_view> edgeVertexFieldsVw{edgeVertexFields.begin(),
                                                      edgeVertexFields.end()};
     const xpr::import_summary     summary =
-        g.read_edge_files(edgeFiles, edgeVertexFieldsVw);
+        g.read_edge_files(edgeFiles, xpr::metall_graph::file_type::json,
+                          edgeVertexFieldsVw);
 
     if (world.rank() == 0) {
       clip.to_return(summary.asJson());
