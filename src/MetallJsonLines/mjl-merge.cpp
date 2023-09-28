@@ -21,8 +21,6 @@
 namespace xpr = experimental;
 
 namespace {
-const bool DEBUG_TRACE = false;
-
 using StringVector = std::vector<std::string>;
 
 const std::string methodName = "merge";
@@ -44,6 +42,17 @@ const ColumnSelector DEFAULT_COLUMNS = {};
 
 //~ const std::string    ARG_SUFFIXES     = "suffixes";
 //~ const StringVector   DEFAULT_SUFFIXES{"_x", "_y"};
+
+template <class _allocator_type>
+mtljsn::value<_allocator_type> convertJsonTypeTo(
+    const bj::value& orig, const mtljsn::value<_allocator_type>& /*model*/) {
+  return mtljsn::value_from(orig, _allocator_type{});
+}
+
+JsonExpression selectionCriteria(bj::object& obj) {
+  return valueAt<JsonExpression>(obj, "__clippy_type__", "state", ST_SELECTED);
+}
+
 }  // namespace
 
 int ygm_main(ygm::comm& world, int argc, char** argv) {
