@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <ranges>
 
 #include <boost/functional/hash.hpp>
 #include <boost/json.hpp>
@@ -14,9 +15,32 @@ namespace bj     = boost::json;
 namespace mtljsn = metall::json;
 namespace xpr    = experimental;
 
+static constexpr bool DEBUG_TIME_MERGE  = true;
 static constexpr bool DEBUG_TRACE_MERGE = false;
 
 namespace {
+
+ColumnSelector
+append_suffix(const ColumnSelector& list, std::string_view suffix)
+{
+  ColumnSelector res;
+
+  std::transform( list.begin(), list.end(),
+                  std::back_inserter(res),
+                  [suffix](std::string_view name) -> std::string
+                  {
+                    std::string str;
+
+                    str.reserve(name.size() + suffix.size());
+                    str.append(name);
+                    str.append(suffix);
+                    return str;
+                  }
+                );
+
+  return res;
+}
+
 bj::value& valueOf(bj::object& object, const std::string& key) {
   //~ std::cerr << "[" << key << "] = " << object[key]
   //~ << std::endl;
@@ -180,9 +204,11 @@ void storeElem(JoinSide which, std::uint64_t h, int rank, int idx) {
   local.joinIndex[which].emplace_back(h, rank, idx);
 
   if (DEBUG_TRACE_MERGE && ((local.joinIndex[which].size() % (1 << 12)) == 0)) {
-    //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+    std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-    std::cerr << "storeElem: @" << which << " - "
+    //~ std::cerr
+    logfile
+              << "storeElem: @" << which << " - "
               << local.joinIndex[which].size() << "  from: " << rank << '.'
               << idx << std::endl;
   }
@@ -234,6 +260,17 @@ void storeCandidates(const std::vector<int>&          localInfo,
 
 void commJoinCandidates(ygm::comm& w, int dest, const std::vector<int>& rhsInfo,
                         const std::vector<JoinLeftInfo>& lhsInfo) {
+
+  if (DEBUG_TRACE_MERGE)
+  {
+    std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+
+    //~ std::cerr
+    logfile
+            << "mc " << dest << rhsInfo.size() << "/" << lhsInfo.size()
+            << std::endl;
+  }
+
   if (w.rank() == dest) {
     storeCandidates(rhsInfo, lhsInfo);
     return;
@@ -302,9 +339,11 @@ void computeMergeInfo(ygm::comm& world, const xpr::metall_json_lines& vec,
         std::uint64_t hval = computeHash(row, colsel, world);
 
         if (DEBUG_TRACE_MERGE && ((rownum % (1 << 12)) == 0)) {
-          //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+          std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-          std::cerr << "@computeMergeInfo r:" << world.rank() << ' ' << which
+          //~ std::cerr
+          logfile
+               << "@computeMergeInfo r:" << world.rank() << ' ' << which
                     << ' ' << rownum << ':' << hval << std::endl;
         }
 
@@ -312,12 +351,15 @@ void computeMergeInfo(ygm::comm& world, const xpr::metall_json_lines& vec,
       });
 
   if (DEBUG_TRACE_MERGE) {
-    //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+    std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-    std::cerr << "@computeMergeInfo " << which << std::endl;
+    //~ std::cerr
+    logfile
+         << "@computeMergeInfo " << which << std::endl;
   }
 }
 
+#if 0
 void emplace(xpr::metall_json_lines::accessor_type store,
              xpr::metall_json_lines::accessor_type val) {
   if (val.is_string())
@@ -374,16 +416,16 @@ void emplace(xpr::metall_json_lines::accessor_type store,
   }
 }
 
-template <class JsonObject, class JsonValue>
-void appendFields(JsonObject& rec, const JsonValue& other,
-                  const std::string& other_suffix) {
+template <class JsonValue>
+void appendFields(boost::json::object& obj, const JsonValue& other,
+                  const ColumnSelector& outfields) {
   assert(other.is_object());
 
   const auto& that = other.as_object();
 
   for (const auto& x : that) {
     // std:string_view    key = x.key();
-    auto        key = x.key();
+    const auto& key = x.key();
     std::string newkey(key.begin(), key.end());
 
     newkey += other_suffix;
@@ -391,44 +433,67 @@ void appendFields(JsonObject& rec, const JsonValue& other,
     emplace(rec[newkey], x.value());
   }
 }
+#endif
 
-template <class JsonObject, class JsonValue>
-void appendFields(JsonObject& rec, const JsonValue& other,
+boost::json::value
+toBoostJson(boost::json::value val)
+{
+  return val;
+}
+
+template <class _Alloc>
+boost::json::value
+toBoostJson(json_bento::jbdtl::value_accessor<_Alloc> acc)
+{
+  return json_bento::value_to<boost::json::value>(acc);
+}
+
+
+template <class JsonValue>
+void appendFields(boost::json::object& obj,
+                  const JsonValue& other,
                   const ColumnSelector& projlst,
-                  const std::string&    other_suffix) {
+                  const ColumnSelector& outfields) {
+/*
   if (projlst.empty()) {
-    appendFields(rec, other, other_suffix);
+    appendFields(rec, other, outfields);
     return;
   }
+*/
 
-  assert(other.is_object());
+  //~ assert(other.is_object());
   const auto& that = other.as_object();
+  const int   len  = projlst.size();
 
-  for (std::string key : projlst) {
-    if (auto const entry = that.if_contains(key)) {
-      key += other_suffix;
-      emplace(rec[key], std::move(*entry));
-      //~ emplace(rec[key], *entry);
+  for (int i = 0; i < len; ++i)
+  {
+    if (auto const entry = that.if_contains(projlst[i])) {
+      obj[outfields[i]] = toBoostJson(*entry);
     }
   }
 }
 
-void joinRecords(xpr::metall_json_lines::accessor_type        res,
-                 const xpr::metall_json_lines::accessor_type& lhs,
-                 const ColumnSelector& projlstLHS, const bj::value& rhs,
-                 const ColumnSelector& projlstRHS,
-                 const std::string&    lsuf = "_l",
-                 const std::string&    rsuf = "_r") {
-  auto obj = res.emplace_object();
+boost::json::value
+joinRecords(const xpr::metall_json_lines::accessor_type& lhs,
+            const ColumnSelector& lhsProjlst,
+            const ColumnSelector& lhsOutFields,
+            const bj::value& rhs,
+            const ColumnSelector& rhsProjlst,
+            const ColumnSelector& rhsOutFields) {
+  boost::json::value   val;
+  boost::json::object& obj = val.emplace_object();
 
-  appendFields(obj, lhs, projlstLHS, lsuf);
-  appendFields(obj, rhs, projlstRHS, rsuf);
+  appendFields(obj, lhs, lhsProjlst, lhsOutFields);
+  appendFields(obj, rhs, rhsProjlst, rhsOutFields);
+
+  return val;
 }
 
 void computeJoin(const xpr::metall_json_lines::accessor_type& lhs,
-                 const ColumnSelector& lhsOn, const ColumnSelector& projlstLeft,
+                 const ColumnSelector& lhsOn, const ColumnSelector& lhsProjList,
+                 const ColumnSelector& lhsOutFields,
                  const bj::value& rhs, const ColumnSelector& rhsOn,
-                 const ColumnSelector&   projlstRight,
+                 const ColumnSelector& rhsProjList, const ColumnSelector& rhsOutFields,
                  xpr::metall_json_lines& res) {
   static std::uint64_t CNT = 0;
 
@@ -437,8 +502,8 @@ void computeJoin(const xpr::metall_json_lines::accessor_type& lhs,
   assert(lhs.is_object());
   assert(rhs.is_object());
 
-  const auto lhsObj = lhs.as_object();
-  const auto rhsObj = rhs.as_object();
+  const auto& lhsObj = lhs.as_object();
+  const auto& rhsObj = rhs.as_object();
 
   for (int i = 0; i < N; ++i) {
     const ColumnSelector::value_type& lhsCol = lhsOn[i];
@@ -449,24 +514,25 @@ void computeJoin(const xpr::metall_json_lines::accessor_type& lhs,
     assert(lhsSub && rhsSub);
 
     // was: if ((*lhsSub) != (*rhsSub))
-    if (json_bento::value_to<boost::json::value>(*lhsSub) != *rhsSub) return;
+    if (toBoostJson(*lhsSub) != *rhsSub) return;
   }
 
   if (DEBUG_TRACE_MERGE) {
-    if (((CNT % (1 << 12)) == 0) || (CNT == 1)) std::cerr << "+out = " << CNT;
+    if ((((CNT % (1 << 12)) == 0) || (CNT == 1))) {
+      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-    //~ ++CNT;
+      //~ std::cerr
+      logfile
+              << "+out = " << CNT;
+    }
+
+    ++CNT;
   }
 
-  joinRecords(res.append_local(), lhs, projlstLeft, rhs, projlstRight, "_l",
-              "_r");
+  //~ res.append_local(joinRecords(lhs, lhsProjList, lhsOutFields,
+                               //~ rhs, rhsProjList, rhsOutFields));
 }
 
-template <class _allocator_type>
-mtljsn::value<_allocator_type> convertJsonTypeTo(
-    const bj::value& orig, const mtljsn::value<_allocator_type>& /*model*/) {
-  return mtljsn::value_from(orig, _allocator_type{});
-}
 
 void addJoinColumnsToOutput(const ColumnSelector& joincol,
                             ColumnSelector&       output) {
@@ -484,10 +550,6 @@ void addJoinColumnsToOutput(const ColumnSelector& joincol,
                     output.push_back(col);
                 });
 }
-
-JsonExpression selectionCriteria(bj::object& obj) {
-  return valueAt<JsonExpression>(obj, "__clippy_type__", "state", ST_SELECTED);
-}
 }  // namespace
 
 namespace experimental {
@@ -495,7 +557,10 @@ namespace experimental {
 std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
                   const metall_json_lines& rhsVec, ColumnSelector lhsOn,
                   ColumnSelector rhsOn, ColumnSelector lhsProj,
-                  ColumnSelector rhsProj) {
+                  ColumnSelector rhsProj,
+                  std::string lhsSuffix = "_l",
+                  std::string rhsSuffix = "_r"
+                  ) {
   using time_point = std::chrono::time_point<std::chrono::system_clock>;
 
   ygm::comm&     world       = resVec.comm();
@@ -506,7 +571,11 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
   //
   // phase 0: build index on corresponding nodes for merge operations
   if (DEBUG_TRACE_MERGE) {
-    std::cerr << "phase 0: @" << world.rank()
+    std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+
+    //~ std::cerr
+    logfile
+              << "phase 0: @" << world.rank()
               << " *l: " << lhsVec.local_size()  // << " @" << lhsLoc
               << " *r: " << rhsVec.local_size()  // << " @" << rhsLoc
               << std::endl;
@@ -520,9 +589,11 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
   computeMergeInfo(world, lhsVec, lhsOn, lhsData);
 
   if (DEBUG_TRACE_MERGE) {
-    //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+    std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-    std::cerr << "@done left now right" << std::endl;
+    //~ std::cerr
+    logfile
+            << "@done left now right" << std::endl;
   }
 
   //   right:
@@ -530,7 +601,7 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
   //     compute hash and send to designated node
   computeMergeInfo(world, rhsVec, rhsOn, rhsData);
 
-  if (DEBUG_TRACE_MERGE) {
+  if (DEBUG_TIME_MERGE) {
     //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
     time_point endtime_P0 = std::chrono::system_clock::now();
@@ -538,20 +609,26 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
                           endtime_P0 - starttime_P0)
                           .count();
 
-    std::cerr << "@barrier 0: elapsedTime: " << elapsedtime << "ms : "
-              << ((lhsVec.local_size() + rhsVec.local_size()) /
+    std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+
+          //~ std::cerr
+    logfile
+             << "@barrier 0: elapsedTime: " << elapsedtime << "ms : "
+             << ((lhsVec.local_size() + rhsVec.local_size()) /
                   (elapsedtime / 1000.0))
-              << " rec/s" << std::endl;
+             << " rec/s" << std::endl;
   }
 
   world.barrier();
 
   if (DEBUG_TRACE_MERGE) {
-    //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+    std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-    std::cerr << "phase 1: @" << world.rank()
-              << "  L: " << local.joinIndex[lhsData].size()
-              << "  R: " << local.joinIndex[rhsData].size() << std::endl;
+    //~ std::cerr
+    logfile
+            << "phase 1: @" << world.rank()
+            << "  L: " << local.joinIndex[lhsData].size()
+            << "  R: " << local.joinIndex[rhsData].size() << std::endl;
   }
 
   time_point starttime_P1 = std::chrono::system_clock::now();
@@ -617,24 +694,30 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
   local.joinIndex[lhsData].clear();
   local.joinIndex[rhsData].clear();
 
-  if (DEBUG_TRACE_MERGE) {
+  if (DEBUG_TIME_MERGE) {
     time_point endtime_P1 = std::chrono::system_clock::now();
     int elapsedtime = std::chrono::duration_cast<std::chrono::milliseconds>(
                           endtime_P1 - starttime_P1)
                           .count();
 
-    std::cerr << "@barrier 1: elapsedTime: " << elapsedtime
-              << "ms : " << std::endl;
+    std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+
+    //~ std::cerr
+    logfile
+            << "@barrier 1: elapsedTime: " << elapsedtime
+            << "ms : " << std::endl;
   }
 
   world.barrier();  // not needed
   time_point starttime_P2 = std::chrono::system_clock::now();
 
   if (DEBUG_TRACE_MERGE) {
-    //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+    std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-    std::cerr << "phase 2: @" << world.rank()
-              << "  M: " << local.mergeCandidates.size() << std::endl;
+    //~ std::cerr
+    logfile
+            << "phase 2: @" << world.rank()
+            << "  M: " << local.mergeCandidates.size() << std::endl;
   }
 
   // phase 2: send data to node that computes the join
@@ -674,14 +757,18 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
 
   local.mergeCandidates.clear();
 
-  if (DEBUG_TRACE_MERGE) {
+  if (DEBUG_TIME_MERGE) {
     time_point endtime_P2 = std::chrono::system_clock::now();
     int elapsedtime = std::chrono::duration_cast<std::chrono::milliseconds>(
                           endtime_P2 - starttime_P2)
                           .count();
 
-    std::cerr << "@barrier 2: elapsedTime: " << elapsedtime
-              << "ms : " << std::endl;
+    std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+
+    //~ std::cerr
+    logfile
+           << "@barrier 2: elapsedTime: " << elapsedtime
+           << "ms : " << std::endl;
   }
 
   world.barrier();
@@ -691,23 +778,28 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
   resVec.clear();
 
   if (DEBUG_TRACE_MERGE) {
-    //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+    std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-    std::cerr << "phase 3: @" << world.rank() << "  J: "
-              << local.joinData.size()
+    //~ std::cerr
+    logfile
+            << "phase 3: @" << world.rank() << "  J: "
+            << local.joinData.size()
               //~ << "  output to: " << outLoc.c_str()
-              << std::endl;
+            << std::endl;
   }
 
   // phase 3:
   //   process the join data and perform the actual joins
   {
+    ColumnSelector lhsOutFields = append_suffix(lhsProj, lhsSuffix);
+    ColumnSelector rhsOutFields = append_suffix(rhsProj, rhsSuffix);
+
     for (const JoinData& el : local.joinData) {
       for (int lhsIdx : el.indices()) {
         const metall_json_lines::accessor_type& lhsObj = lhsVec.at(lhsIdx);
 
         for (const bj::value& rhsObj : el.data()) {
-          computeJoin(lhsObj, lhsOn, lhsProj, rhsObj, rhsOn, rhsProj, resVec);
+          computeJoin(lhsObj, lhsOn, lhsProj, lhsOutFields, rhsObj, rhsOn, rhsProj, rhsOutFields, resVec);
         }
       }
     }
@@ -715,23 +807,28 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
 
   local.joinData.clear();
 
-  if (DEBUG_TRACE_MERGE) {
+  if (DEBUG_TIME_MERGE) {
     time_point endtime_P3 = std::chrono::system_clock::now();
     int elapsedtime = std::chrono::duration_cast<std::chrono::milliseconds>(
                           endtime_P3 - starttime_P3)
                           .count();
+    std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-    std::cerr << "@barrier 3: elapsedTime: " << elapsedtime
-              << "ms : " << std::endl;
+    //~ std::cerr
+    logfile
+            << "@barrier 3: elapsedTime: " << elapsedtime
+            << "ms : " << std::endl;
   }
 
   world.barrier();
 
   if (DEBUG_TRACE_MERGE) {
-    //~ std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+    std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-    std::cerr << "phase Z: @" << world.rank() << " *o: " << resVec.local_size()
-              << std::endl;
+    //~ std::cerr
+    logfile
+            << "phase Z: @" << world.rank() << " *o: " << resVec.local_size()
+            << std::endl;
   }
 
   // done
