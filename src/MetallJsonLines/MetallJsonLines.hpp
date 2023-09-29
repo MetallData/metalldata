@@ -428,10 +428,12 @@ struct metall_json_lines {
 
   /// appends a single element to the local container
   /// \{
-  accessor_type append_local(boost::json::value val = {}) {
-    vector.push_back(std::move(val));
+  accessor_type append_local(const boost::json::value& val = {}) {
+    // No benefit of moving boost object to JSON Bento now.
+    vector.push_back(val);
     return vector.back();
   }
+
   //~ accessor_type append_local() { return append_local(boost::json::value{}); }
   /// \}
 
