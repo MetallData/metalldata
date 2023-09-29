@@ -531,7 +531,7 @@ void computeJoin(const xpr::metall_json_lines::accessor_type& lhs,
 
 	boost::json::value val = joinRecords(lhs, lhsProjList, lhsOutFields, rhs, rhsProjList, rhsOutFields);
 
-  // res.append_local(std::move(val));
+  //res.append_local(val);
 }
 
 
