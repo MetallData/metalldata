@@ -101,7 +101,21 @@ class box {
   /// box jb;
   /// jb.push_back({{"key1", "value1" }, { "key2", 42 }});
   /// \endcode
-  index_type push_back(boost::json::value value) {
+  index_type push_back(const boost::json::value& value) {
+    return push_back_root_value(value, m_box);
+  }
+
+  /// \brief Add an item at the end.
+  /// \param value Value to add.
+  /// value can be any data type that can be parsed by boost::json::value.
+  /// \return Returns the ID of the added item.
+  /// \example
+  /// \code
+  /// boost::json::value value;
+  /// box jb;
+  /// jb.push_back(std::move(value));
+  /// \endcode
+  index_type push_back(boost::json::value&& value) {
     return push_back_root_value(value, m_box);
   }
 
