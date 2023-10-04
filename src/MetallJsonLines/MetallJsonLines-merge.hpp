@@ -534,7 +534,7 @@ bool equal_to(const xpr::metall_json_lines::accessor_type& lhs,
 
   if (lhs.is_object()) {
     if (!rhs.is_object()) return false;
-    const auto& lo = lhs.as_object();
+    const auto lo = lhs.as_object();
     const auto& ro = rhs.as_object();
     if (lo.size() != ro.size()) return false;
     for (auto litr : lo) {
