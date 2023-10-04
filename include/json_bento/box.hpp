@@ -123,8 +123,7 @@ class box {
   /// \param value Value to add.
   /// \return Returns the ID of the added item.
   index_type push_back(value_accessor value) {
-    // TODO: implement more efficient one
-    return push_back(value_to<boost::json::value>(value));
+    return push_back_root_value(value, m_box);
   }
 
   /// \brief Return the number of items.
