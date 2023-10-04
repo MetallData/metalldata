@@ -577,6 +577,8 @@ void computeJoin(const xpr::metall_json_lines::accessor_type& lhs,
       assert(toBoostJson(*lhsSub) != *rhsSub);
       return;
     }
+    // Just in case, for testing the new comparison feature.
+    assert(toBoostJson(*lhsSub) == *rhsSub);
   }
 
   if (DEBUG_TRACE_MERGE) {
