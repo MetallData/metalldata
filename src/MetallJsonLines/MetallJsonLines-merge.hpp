@@ -77,7 +77,7 @@ inline std::uint64_t stableHashDistribute(std::uint64_t n) {
   return c * xorShift(p * xorShift(n, 32), 32);
 }
 
-std::uint64_t stableHashCombine(std::uint64_t seed, std::uint64_t comp) {
+std::uint64_t stableHashCombine(std::size_t seed, std::uint64_t comp) {
   return boost::hash_combine(seed, comp), seed;
   //~ return std::rotl(seed, std::numeric_limits<std::uint64_t>::digits/3) ^
   //stableHashDistribute(comp);
