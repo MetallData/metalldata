@@ -150,10 +150,11 @@ class box {
   /// \brief Reserve additional memory for storing 'n' json items whose data
   /// types are the same as 'sample'. This function does not reserve memory for
   /// the keys because it takes time to count all keys used in 'sample'. This is
-  /// an experimental function.\tparam json_container_type A JSON container
-  /// type. \param sample A sample JSON value. \param n Number of items to
-  /// reserve additionally. This number is not the total number of items passed
-  /// to the reserve function in STL Containers..
+  /// an experimental function.
+  /// \tparam json_container_type A JSON container type.
+  /// \param sample A sample JSON value.
+  /// \param n Number of items to reserve additionally. This number is not the
+  /// total number of items passed to the reserve function in STL Containers.
   template <typename json_container_type>
   void reserve(const json_container_type& sample, const std::size_t n) {
     std::array<std::size_t, 4> counts{0, 0, 0, 0};
