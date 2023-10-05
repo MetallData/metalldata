@@ -122,7 +122,7 @@ inline std::uint64_t stableHashDistribute(std::uint64_t n) {
   return c * xorShift(p * xorShift(n, 32), 32);
 }
 
-std::uint64_t stableHashCombine(std::uint64_t seed, std::uint64_t comp) {
+std::uint64_t stableHashCombine(std::size_t seed, std::uint64_t comp) {
   return boost::hash_combine(seed, comp), seed;
   //~ return std::rotl(seed, std::numeric_limits<std::uint64_t>::digits/3) ^
   //stableHashDistribute(comp);
@@ -544,9 +544,67 @@ joinRecordsInPlace(xpr::metall_json_lines::accessor_type        res,
                    const ColumnSelector& rhsProjlst,
                    const ColumnSelector& rhsOutFields) {
   auto obj = res.emplace_object();
-
   appendFields(obj, lhs, lhsProjlst, lhsOutFields);
   appendFields(obj, rhs, rhsProjlst, rhsOutFields);
+}
+
+
+/// \brief Compare JSON Bento value with Boost JSON value.
+/// TODO: implement this feature in JSON Bento.
+bool equal_to(const xpr::metall_json_lines::accessor_type& lhs,
+              const bj::value&                             rhs) {
+
+  if (lhs.is_null()) {
+    return rhs.is_null();
+  }
+
+  if (lhs.is_bool()) {
+    return rhs.is_bool() && (lhs.as_bool() == rhs.as_bool());
+  }
+
+  if (lhs.is_int64()) {
+    return rhs.is_int64() && (lhs.as_int64() == rhs.as_int64());
+  }
+
+  if (lhs.is_uint64()) {
+    return rhs.is_uint64() && (lhs.as_uint64() == rhs.as_uint64());
+  }
+
+  if (lhs.is_double()) {
+    return rhs.is_double() && (lhs.as_double() == rhs.as_double());
+  }
+
+  if (lhs.is_string()) {
+    const auto  ls = lhs.as_string();
+    const auto& rs = rhs.as_string();
+    return rhs.is_string() && (ls.size() == rs.size()) &&
+           (std::strcmp(ls.data(), rs.data()) == 0);
+  }
+
+  if (lhs.is_array()) {
+    if (!rhs.is_array()) return false;
+    const auto  la = lhs.as_array();
+    const auto& ra = rhs.as_array();
+    if (la.size() != ra.size()) return false;
+    for (std::size_t i = 0; i < la.size(); ++i) {
+      if (!equal_to(la[i], ra[i])) return false;
+    }
+    return true;
+  }
+
+  if (lhs.is_object()) {
+    if (!rhs.is_object()) return false;
+    const auto lo = lhs.as_object();
+    const auto& ro = rhs.as_object();
+    if (lo.size() != ro.size()) return false;
+    for (auto litr : lo) {
+      if (!equal_to(litr->value(), ro.at(litr->key().data()))) return false;
+    }
+    return true;
+  }
+
+  assert(false);  // should not reach here
+  return false;
 }
 
 #if 0
@@ -576,8 +634,14 @@ void computeJoin(const JsonValue& lhs,
 
     assert(lhsSub && rhsSub);
 
-    if ((*lhsSub) != (*rhsSub)) return;
-    //~ if (toBoostJson(*lhsSub) != *rhsSub) return;
+    // was: if ((*lhsSub) != (*rhsSub))
+    if (!equal_to(*lhsSub, *rhsSub)) {
+      // Just in case, for testing the new comparison feature.
+      // assert(toBoostJson(*lhsSub) != *rhsSub);
+      return;
+    }
+    // Just in case, for testing the new comparison feature.
+    // assert(toBoostJson(*lhsSub) == *rhsSub);
   }
 
   if (DEBUG_TRACE_MERGE) {

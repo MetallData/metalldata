@@ -40,6 +40,16 @@ class string_accessor {
     return *this;
   }
 
+  friend bool operator==(const string_accessor& lhd,
+                         const string_accessor& rhd) noexcept {
+    return lhd.priv_get() == rhd.priv_get();
+  }
+
+  friend bool operator!=(const string_accessor& lhd,
+                         const string_accessor& rhd) noexcept {
+    return !(lhd == rhd);
+  }
+
   /// \brief Provides an explicit conversion to std::basic_string.
   /// \return A std::basic_string with the same data.
   explicit operator std::basic_string<char_type>() const {
@@ -58,20 +68,18 @@ class string_accessor {
 
   /// \brief Returns the number of CharT elements in the string.
   /// \return The number of CharT elements in the string.
-  std::size_t size() const noexcept { return m_storage->at(m_id).size(); }
+  std::size_t size() const noexcept { return priv_get().size(); }
 
   /// \brief Returns the number of CharT elements in the string.
   /// \return The number of CharT elements in the string.
-  std::size_t length() const noexcept { return m_storage->at(m_id).length(); }
+  std::size_t length() const noexcept { return priv_get().length(); }
 
   /// \brief Returns a pointer to a null-terminated character array with data
   /// equivalent to those stored in the string.
   /// Does not return a null-terminated character array if the stored string is
   /// empty.
   /// \return Pointer to the underlying character storage.
-  const char_type* c_str() const noexcept {
-    return m_storage->at(m_id).c_str();
-  }
+  const char_type* c_str() const noexcept { return priv_get().c_str(); }
 
   /// \brief Returns a pointer to a null-terminated character array with data
   /// equivalent to those stored in the string.
@@ -99,7 +107,20 @@ class string_accessor {
   /// \return An iterator to the end.
   const_iterator end() const { return m_storage->end_at(m_id); }
 
+  /// \brief Compares two character sequences.
+  /// Equivalent to std::basic_string::compare.
+  /// \return Negative value if this string is less than the other character
+  /// sequence, zero if the both character sequences are equal, positive value
+  /// if this string is greater than the other character sequence.
+  int compare(std::size_t pos1, std::size_t count1, const char_type* s,
+              std::size_t count2) const {
+    return priv_get().compare(pos1, count1, s, count2);
+  }
+
  private:
+  auto&       priv_get() { return m_storage->at(m_id); }
+  const auto& priv_get() const { return m_storage->at(m_id); }
+
   std::size_t       m_id{0};
   storage_pointer_t m_storage{nullptr};
 };

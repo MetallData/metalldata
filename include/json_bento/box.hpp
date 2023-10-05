@@ -88,7 +88,14 @@ class box {
   /// \brief Add an item at the end.
   /// \param value Value to add.
   /// \return Returns the ID of the added item.
-  index_type push_back(mj::value<allocator_type> value) {
+  index_type push_back(const mj::value<allocator_type>& value) {
+    return push_back_root_value(value, m_box);
+  }
+
+  /// \brief Add an item at the end.
+  /// \param value Value to add.
+  /// \return Returns the ID of the added item.
+  index_type push_back(mj::value<allocator_type>&& value) {
     return push_back_root_value(value, m_box);
   }
 
@@ -123,8 +130,7 @@ class box {
   /// \param value Value to add.
   /// \return Returns the ID of the added item.
   index_type push_back(value_accessor value) {
-    // TODO: implement more efficient one
-    return push_back(value_to<boost::json::value>(value));
+    return push_back_root_value(value, m_box);
   }
 
   /// \brief Return the number of items.
@@ -141,6 +147,22 @@ class box {
     m_box.key_storage.clear();
   }
 
+  /// \brief Reserve memory for storing 'n' 'sample' json items.
+  /// This function does not reserve memory for the keys because it takes time
+  /// to count all keys used in 'sample'. This is an experimental function.
+  /// \tparam json_container_type A JSON container type.
+  /// \param sample A sample JSON value.
+  /// \param n Number of items to reserve.
+  template <typename json_container_type>
+  void reserve(const json_container_type& sample, const std::size_t n) {
+    std::array<std::size_t, 4> counts{0, 0, 0, 0};
+    priv_count_types(sample, counts);
+    m_box.string_storage.reserve(m_box.string_storage.size() + counts[1] * n);
+    m_box.array_storage.reserve(m_box.array_storage.size() + counts[2] * n);
+    m_box.object_storage.reserve(m_box.object_storage.size() + counts[3] * n);
+    m_box.root_value_storage.reserve(m_box.root_value_storage.size() + n);
+  }
+
   /// \brief Shows statics of the JSON Bento instance.
   /// \param os Output stream to show the statistics.
   void profile(std::ostream& os = std::cout) const {
@@ -154,6 +176,35 @@ class box {
   }
 
  private:
+  template <typename json_container_type>
+  void priv_count_types(const json_container_type&  sample,
+                        std::array<std::size_t, 4>& counts) const {
+    // 0: primitive
+    // 1: string
+    // 2: array
+    // 3: object
+    if (sample.is_null()) {
+      ;  /// nothing to do
+    } else if (sample.is_bool() || sample.is_int64() || sample.is_uint64() ||
+               sample.is_double()) {
+      ++counts[0];
+    } else if (sample.is_string()) {
+      ++counts[1];
+    } else if (sample.is_array()) {
+      ++counts[2];
+      for (const auto& v : sample.as_array()) {
+        priv_count_types(v, counts);
+      }
+    } else if (sample.is_object()) {
+      ++counts[3];
+      for (const auto& v : sample.as_object()) {
+        priv_count_types(v.value(), counts);
+      }
+    } else {
+      assert(false);
+    }
+  }
+
   core_data_type m_box;
 };
 }  // namespace json_bento

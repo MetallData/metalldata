@@ -52,6 +52,18 @@ class object_accessor {
                                m_object_index, size() - 1, m_core_data);
   }
 
+  /// \brief Equal operator.
+  friend bool operator==(const object_accessor &lhs,
+                         const object_accessor &rhs) noexcept {
+    return lhs.priv_equal(lhs, rhs);
+  }
+
+  /// \brief Not-equal operator.
+  friend bool operator!=(const object_accessor &lhs,
+                         const object_accessor &rhs) noexcept {
+    return !(lhs == rhs);
+  }
+
   /// \brief Access a mapped value.
   /// \param key The key of the mapped value to access.
   /// \return A reference to the mapped value associated with 'key'.
@@ -107,6 +119,24 @@ class object_accessor {
   }
 
  private:
+  bool priv_equal(const object_accessor &lhs,
+                  const object_accessor &rhs) const noexcept {
+    if (lhs.size() != rhs.size()) {
+      return false;
+    }
+
+    for (auto lkv : lhs) {
+      auto ritr = rhs.find(lkv.key());
+      if (ritr == rhs.end()) {
+        return false;
+      }
+      if (lkv.value() != ritr->value()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /// \brief Find the index of the item associated with key.
   std::size_t priv_find(const key_type &key) const {
     const auto  key_loc = m_core_data->key_storage.find(key);
