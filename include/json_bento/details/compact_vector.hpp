@@ -92,6 +92,14 @@ class compact_vector {
     priv_resize(new_size, allocator);
   }
 
+  /// \brief Expand the capacity.
+  /// This function will not shrink the capacity.
+  /// \param new_capacity New capacity.
+  /// \param allocator Allocator.
+  void reserve(const std::size_t new_capacity, data_allocator_type allocator) {
+    priv_reserve(new_capacity, allocator);
+  }
+
   void push_back(value_type &&value, data_allocator_type allocator) {
     priv_push_back(std::forward<value_type>(value), allocator);
   }
