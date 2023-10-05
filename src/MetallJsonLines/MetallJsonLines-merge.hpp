@@ -15,8 +15,53 @@ namespace bj     = boost::json;
 namespace mtljsn = metall::json;
 namespace xpr    = experimental;
 
-static constexpr bool DEBUG_TIME_MERGE  = false;
+static constexpr bool DEBUG_TIME_MERGE  = true;
 static constexpr bool DEBUG_TRACE_MERGE = false;
+static constexpr bool DEBUG_MERGE_DATA  = false;
+
+template <bool On>
+struct MergeDataTracerT
+{
+    void trace(std::uint64_t llen, std::uint64_t rlen, std::uint64_t klen)
+    {
+			lhslen += llen;
+ 			rhslen += rlen;
+			keylen += klen;
+
+			if (klen > maxkeylen) maxkeylen = klen;
+    }
+
+    void datalength(std::uint64_t d) { datalen = d; }
+
+		std::uint64_t lhslen    = 0;
+		std::uint64_t rhslen    = 0;
+		std::uint64_t keylen    = 0;
+		std::uint64_t maxkeylen = 0;
+    long double   datalen   = 0.0;
+};
+
+template <>
+struct MergeDataTracerT<false>
+{
+  void trace(std::uint64_t, std::uint64_t, std::uint64_t) {}
+  void datalength(std::uint64_t) {}
+};
+
+std::ostream& operator<<(std::ostream& os, MergeDataTracerT<true> el)
+{
+  return os << "avg(lhslen): " << (el.lhslen / el.datalen)
+			      << "  avg(rhslen): " << (el.rhslen / el.datalen)
+					  << "  avg(keylen): " << (el.keylen / el.datalen)
+            << "  max(keylen): " << (el.maxkeylen)
+						<< "  len = " << el.datalen;
+}
+
+std::ostream& operator<<(std::ostream& os, MergeDataTracerT<false>)
+{
+  return os;
+}
+
+using MergeDataTracer = MergeDataTracerT<DEBUG_MERGE_DATA>;
 
 namespace {
 
@@ -135,19 +180,29 @@ struct JoinRegistry : std::tuple<std::uint64_t, int, int> {
   int           owner_index() const { return std::get<2>(*this); }
 };
 
-struct ByHashOwner {
+struct by_hash_owner {
   bool operator()(const JoinRegistry& lhs, const JoinRegistry& rhs) const {
-    std::uint64_t lskey = lhs.hash();
-    std::uint64_t rskey = rhs.hash();
+    {
+      const std::uint64_t lskey = lhs.hash();
+      const std::uint64_t rskey = rhs.hash();
 
-    if (lskey < rskey) return true;
-    if (lskey > rskey) return false;
+      if (lskey < rskey) return true;
+      if (lskey > rskey) return false;
+    }
 
-    return lhs.owner_rank() < rhs.owner_rank();
+    {
+      const int lsown = lhs.owner_rank();
+      const int rsown = rhs.owner_rank();
+
+      if (lsown < rsown) return true;
+      if (lsown > rsown) return false;
+    }
+
+    return lhs.owner_index() < rhs.owner_index();
   }
 };
 
-struct SameHash {
+struct same_hash_key {
   bool operator()(const JoinRegistry& rhs) const { return h == rhs.hash(); }
 
   const std::uint64_t h;
@@ -359,7 +414,6 @@ void computeMergeInfo(ygm::comm& world, const xpr::metall_json_lines& vec,
   }
 }
 
-#if 0
 void emplace(xpr::metall_json_lines::accessor_type store,
              xpr::metall_json_lines::accessor_type val) {
   if (val.is_string())
@@ -416,6 +470,7 @@ void emplace(xpr::metall_json_lines::accessor_type store,
   }
 }
 
+#if 0
 template <class JsonValue>
 void appendFields(boost::json::object& obj, const JsonValue& other,
                   const ColumnSelector& outfields) {
@@ -435,22 +490,9 @@ void appendFields(boost::json::object& obj, const JsonValue& other,
 }
 #endif
 
-boost::json::value
-toBoostJson(boost::json::value val)
-{
-  return val;
-}
 
-template <class _Alloc>
-boost::json::value
-toBoostJson(json_bento::jbdtl::value_accessor<_Alloc> acc)
-{
-  return json_bento::value_to<boost::json::value>(acc);
-}
-
-
-template <class JsonValue>
-void appendFields(boost::json::object& obj,
+template <class JsonObject, class JsonValue>
+void appendFields(JsonObject& obj,
                   const JsonValue& other,
                   const ColumnSelector& projlst,
                   const ColumnSelector& outfields) {
@@ -468,11 +510,12 @@ void appendFields(boost::json::object& obj,
   for (int i = 0; i < len; ++i)
   {
     if (auto const entry = that.if_contains(projlst[i])) {
-      obj[outfields[i]] = toBoostJson(*entry);
+      //~ obj[outfields[i]] = toBoostJson(*entry);
+      emplace(obj[outfields[i]], *entry);
     }
   }
 }
-
+/*
 boost::json::value
 joinRecords(const xpr::metall_json_lines::accessor_type& lhs,
             const ColumnSelector& lhsProjlst,
@@ -480,6 +523,7 @@ joinRecords(const xpr::metall_json_lines::accessor_type& lhs,
             const bj::value& rhs,
             const ColumnSelector& rhsProjlst,
             const ColumnSelector& rhsOutFields) {
+
   boost::json::value   val;
   boost::json::object& obj = val.emplace_object();
 
@@ -488,6 +532,22 @@ joinRecords(const xpr::metall_json_lines::accessor_type& lhs,
 
   return val;
 }
+*/
+
+template <class JsonValue>
+void
+joinRecordsInPlace(xpr::metall_json_lines::accessor_type        res,
+                   const JsonValue& lhs,
+                   const ColumnSelector& lhsProjlst,
+                   const ColumnSelector& lhsOutFields,
+                   const bj::value& rhs,
+                   const ColumnSelector& rhsProjlst,
+                   const ColumnSelector& rhsOutFields) {
+  auto obj = res.emplace_object();
+  appendFields(obj, lhs, lhsProjlst, lhsOutFields);
+  appendFields(obj, rhs, rhsProjlst, rhsOutFields);
+}
+
 
 /// \brief Compare JSON Bento value with Boost JSON value.
 /// TODO: implement this feature in JSON Bento.
@@ -547,7 +607,10 @@ bool equal_to(const xpr::metall_json_lines::accessor_type& lhs,
   return false;
 }
 
-void computeJoin(const xpr::metall_json_lines::accessor_type& lhs,
+#if 0
+
+template <class JsonValue>
+void computeJoin(const JsonValue& lhs,
                  const ColumnSelector& lhsOn, const ColumnSelector& lhsProjList,
                  const ColumnSelector& lhsOutFields,
                  const bj::value& rhs, const ColumnSelector& rhsOn,
@@ -574,11 +637,11 @@ void computeJoin(const xpr::metall_json_lines::accessor_type& lhs,
     // was: if ((*lhsSub) != (*rhsSub))
     if (!equal_to(*lhsSub, *rhsSub)) {
       // Just in case, for testing the new comparison feature.
-      assert(toBoostJson(*lhsSub) != *rhsSub);
+      // assert(toBoostJson(*lhsSub) != *rhsSub);
       return;
     }
     // Just in case, for testing the new comparison feature.
-    assert(toBoostJson(*lhsSub) == *rhsSub);
+    // assert(toBoostJson(*lhsSub) == *rhsSub);
   }
 
   if (DEBUG_TRACE_MERGE) {
@@ -593,10 +656,69 @@ void computeJoin(const xpr::metall_json_lines::accessor_type& lhs,
     ++CNT;
   }
 
-	boost::json::value val = joinRecords(lhs, lhsProjList, lhsOutFields, rhs, rhsProjList, rhsOutFields);
+/*
+  boost::json::value val = joinRecords(lhs, lhsProjList, lhsOutFields, rhs, rhsProjList, rhsOutFields);
 
-  //res.append_local(val);
+  res.append_local(val);
+*/
+  joinRecordsInPlace(res.append_local(), lhs, lhsProjList, lhsOutFields, rhs, rhsProjList, rhsOutFields);
 }
+
+#endif
+
+struct key_unifier
+{
+    using key_type = int;
+
+    key_type
+    operator()(const bj::value& obj, const ColumnSelector& keycols)
+    {
+      using iterator = std::vector< internal_key_rep >::iterator;
+
+      internal_key_rep thiskey = extract_key(obj, keycols);
+      iterator         keysaa  = keys.begin();
+      iterator         keyszz  = keys.end();
+      auto             keycomp = [thiskeyaa = thiskey.begin()]
+                                 (const internal_key_rep& thatkey) -> bool
+                                 {
+                                   return std::equal( thatkey.begin(), thatkey.end(),
+                                                      thiskeyaa,
+                                                      [](const bj::value* lhs, const bj::value* rhs)->bool
+                                                      {
+                                                        return (  (lhs == rhs)
+                                                               || (lhs && rhs && (*lhs == *rhs))
+                                                               );
+                                                      }
+                                                    );
+                                 };
+
+      if (iterator pos = std::find_if(keysaa, keyszz, keycomp); pos != keyszz)
+        return std::distance(keysaa, pos);
+
+      keys.emplace_back(std::move(thiskey));
+      return keys.size() - 1;
+    }
+
+		std::size_t len() const { return keys.size(); }
+
+    void clear() { keys.clear(); }
+
+  private:
+    using internal_key_rep = std::vector<const bj::value*>;
+
+    internal_key_rep extract_key(const bj::value& val, const ColumnSelector& keycols)
+    {
+      internal_key_rep res;
+      const bj::object& obj = val.as_object();
+
+      for (const std::string& key : keycols)
+        res.push_back(obj.if_contains(key));
+
+      return res;
+    }
+
+    std::vector< internal_key_rep > keys;
+};
 
 
 void addJoinColumnsToOutput(const ColumnSelector& joincol,
@@ -614,6 +736,13 @@ void addJoinColumnsToOutput(const ColumnSelector& joincol,
                       pos == lim)
                     output.push_back(col);
                 });
+}
+
+template <class Vector>
+void clear_vector(Vector& vec)
+{
+  Vector v;
+  v.swap(vec);
 }
 }  // namespace
 
@@ -701,9 +830,9 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
   // phase 1: perform preliminary merge based on hash
   //       a) sort the two indices
   std::sort(local.joinIndex[lhsData].begin(), local.joinIndex[lhsData].end(),
-            ByHashOwner{});
+            by_hash_owner{});
   std::sort(local.joinIndex[rhsData].begin(), local.joinIndex[rhsData].end(),
-            ByHashOwner{});
+            by_hash_owner{});
 
   //       b) send information of join candidates on left side to owners of
   //       right side
@@ -716,9 +845,9 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
     const std::uint64_t       lskey = lsbeg->hash();
     const std::uint64_t       rskey = rsbeg->hash();
     JoinIndex::const_iterator lseqr =
-        std::find_if_not(lsbeg + 1, lslim, SameHash{lsbeg->hash()});
+        std::find_if_not(lsbeg + 1, lslim, same_hash_key{lsbeg->hash()});
     JoinIndex::const_iterator rseqr =
-        std::find_if_not(rsbeg + 1, rslim, SameHash{rsbeg->hash()});
+        std::find_if_not(rsbeg + 1, rslim, same_hash_key{rsbeg->hash()});
 
     if (lskey < rskey) {
       lsbeg = lseqr;
@@ -756,8 +885,8 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
     }
   }
 
-  local.joinIndex[lhsData].clear();
-  local.joinIndex[rhsData].clear();
+  clear_vector(local.joinIndex[lhsData]);
+  clear_vector(local.joinIndex[rhsData]);
 
   if (DEBUG_TIME_MERGE) {
     time_point endtime_P1 = std::chrono::system_clock::now();
@@ -820,7 +949,7 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
     } while (beg != lim);
   }
 
-  local.mergeCandidates.clear();
+  clear_vector(local.mergeCandidates);
 
   if (DEBUG_TIME_MERGE) {
     time_point endtime_P2 = std::chrono::system_clock::now();
@@ -839,7 +968,6 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
   world.barrier();
 
   time_point starttime_P3 = std::chrono::system_clock::now();
-
   resVec.clear();
 
   if (DEBUG_TRACE_MERGE) {
@@ -856,21 +984,54 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
   // phase 3:
   //   process the join data and perform the actual joins
   {
-    ColumnSelector lhsOutFields = append_suffix(lhsProj, lhsSuffix);
-    ColumnSelector rhsOutFields = append_suffix(rhsProj, rhsSuffix);
+    ColumnSelector  lhsOutFields = append_suffix(lhsProj, lhsSuffix);
+    ColumnSelector  rhsOutFields = append_suffix(rhsProj, rhsSuffix);
+    ColumnSelector  packListLhs  = lhsProj;
+    key_unifier     keyUnifier;
+    MergeDataTracer datatrace;
+
+    addJoinColumnsToOutput(lhsOn, packListLhs);
+
+    std::vector<key_unifier::key_type> unifiedRhsKeyIndices;
+
+    metall_json_lines::metall_projector_type projectRow = projector(packListLhs);
 
     for (const JoinData& el : local.joinData) {
-      for (int lhsIdx : el.indices()) {
-        const metall_json_lines::accessor_type& lhsObj = lhsVec.at(lhsIdx);
+      const std::size_t rhsDataLen = el.data().size();
 
-        for (const bj::value& rhsObj : el.data()) {
-          computeJoin(lhsObj, lhsOn, lhsProj, lhsOutFields, rhsObj, rhsOn, rhsProj, rhsOutFields, resVec);
+      keyUnifier.clear();
+      unifiedRhsKeyIndices.clear();
+      unifiedRhsKeyIndices.reserve(rhsDataLen);
+
+      // preprocess join data
+      for (const bj::value& rhsObj : el.data())
+        unifiedRhsKeyIndices.push_back(keyUnifier(rhsObj, rhsOn));
+
+      for (int lhsIdx : el.indices()) {
+        // const metall_json_lines::accessor_type& lhsObj = lhsVec.at(lhsIdx);
+        bj::value             lhsObj = projectRow(lhsVec.at(lhsIdx));
+        key_unifier::key_type lhsKeyIndex = keyUnifier(lhsObj, lhsOn);
+
+        for (std::size_t i = 0; i < rhsDataLen; ++i) {
+          if (lhsKeyIndex == unifiedRhsKeyIndices[i])
+            joinRecordsInPlace(resVec.append_local(), lhsObj, lhsProj, lhsOutFields, el.data()[i], rhsProj, rhsOutFields);
         }
       }
+
+      datatrace.trace(el.indices().size(), rhsDataLen, keyUnifier.len());
     }
+
+    if (DEBUG_MERGE_DATA)
+		{
+      std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+
+      datatrace.datalength(local.joinData.size());
+
+			logfile << datatrace << std::endl;
+		}
   }
 
-  local.joinData.clear();
+  clear_vector(local.joinData);
 
   if (DEBUG_TIME_MERGE) {
     time_point endtime_P3 = std::chrono::system_clock::now();
