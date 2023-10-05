@@ -102,6 +102,10 @@ class vector {
     return priv_emplace_back(std::forward<Args>(args)...);
   }
 
+  void reserve(const size_type capacity_request) {
+    priv_extend(capacity_request);
+  }
+
   allocator_type get_allocator() const { return m_allocator; }
 
  private:
@@ -130,12 +134,12 @@ class vector {
     m_size = 0;
   }
 
-  void priv_extend(const std::size_t new_capacity_request) {
-    if (m_capacity >= new_capacity_request) return;
+  void priv_extend(const std::size_t min_capacity) {
+    if (min_capacity == 0 || m_capacity >= min_capacity) return;
 
     pointer   new_storage;
     size_type new_capacity;
-    std::tie(new_storage, new_capacity) = priv_allocate(new_capacity_request);
+    std::tie(new_storage, new_capacity) = priv_allocate(min_capacity);
 
     for (size_type i = 0; i < m_size; ++i) {
       new_storage[i] = std::move(m_storage[i]);
@@ -150,7 +154,7 @@ class vector {
   template <typename... Args>
   reference priv_emplace_back(Args&&... args) {
     if (size() + 1 > capacity()) {
-      priv_extend(size() == 0 ? 2 : size() * 2);
+      priv_extend(size() + 1);
     }
     new (metall::to_raw_pointer(m_storage + size()))
         value_type(std::forward<Args>(args)...);
