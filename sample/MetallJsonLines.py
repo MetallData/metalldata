@@ -165,3 +165,42 @@ merge(result, places, names[names.keys.name > "Pat"], on="id")
 
 ###
 
+
+
+
+
+
+###
+###
+###
+
+from clippy import clippy_import, config
+clippy_import("/g/g92/peterp/git/md/build2/src/MetallJsonLines")
+config.cmd_prefix = "srun"
+
+
+time mjl = MetallJsonLines("/dev/shm/peterp/data-X")
+#256> Wall time: 32.4 s
+#16> Wall time: 4.5 s
+
+time mjl.read_json(["/g/g92/peterp/workspace/data/data1.json", "/g/g92/peterp/workspace/data/data2.json", "/g/g92/peterp/workspace/data/data3.json", "/g/g92/peterp/workspace/data/data4.json"])
+#256> Wall time: 39.9 s
+#16> Wall time: 8.41 s
+
+time result = MetallJsonLines("/dev/shm/peterp/result-X")
+#256> Wall time: 40.1 s
+#16> Wall time: 4.14 s
+
+time merge(result, mjl, mjl, left_on=["p"], right_on=["s"], left_columns=["p", "d"], right_columns=["s", "d"])
+#256> Wall time: 1min 19s
+#16> Wall time: 14.5s
+#>Out[7]: 8704888
+
+
+
+
+
+
+
+
+
