@@ -250,6 +250,8 @@ function(setup_metall_target exe_name)
     elseif ()
         target_compile_definitions(${exe_name} PRIVATE "METALL_DISABLE_CXX17_FILESYSTEM_LIB")
     endif ()
+
+    target_compile_definitions(${exe_name} PRIVATE "METALL_DISABLE_CONCURRENCY")
 endfunction()
 
 add_subdirectory(src)
