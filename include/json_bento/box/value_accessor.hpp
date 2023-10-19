@@ -441,6 +441,7 @@ class value_accessor {
       return m_box->object_storage.at(m_pos0, m_pos1).value();
     }
     assert(false);
+    return m_box->root_value_storage.at(m_pos0); // dummy to remove warning
   }
 
   void priv_reset() {
