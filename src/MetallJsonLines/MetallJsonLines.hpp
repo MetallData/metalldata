@@ -143,13 +143,13 @@ void _for_all_selected(
 namespace experimental {
 
 template <class T>
-T& checked_deref(T* ptr, const char* errmsg) {
+T& checked_deref(T* ptr, const char* errmsg = "Failed pointer dereference") {
   if (ptr) {
     CXX_LIKELY;
     return *ptr;
   }
 
-  throw std::runtime_error("Unable to open metall_json_lines");
+  throw std::runtime_error(errmsg);
 }
 
 struct import_summary : std::tuple<std::size_t, std::size_t> {
@@ -369,10 +369,9 @@ struct metall_json_lines {
     std::size_t           rejected    = 0;
     std::size_t const     initialSize = vector.size();
     lines_type*           vec         = &vector;
-    metall_allocator_type alloc       = get_allocator();
 
     lineParser.for_all(
-        [&imported, &rejected, vec, alloc, filterFn = std::move(filter),
+        [&imported, &rejected, vec, filterFn = std::move(filter),
          transFn = std::move(transformer)](const std::string& line) -> void {
           boost::json::value jsonLine = boost::json::parse(line);
 
@@ -479,7 +478,7 @@ struct metall_json_lines {
   /// \}
 
   /// resets the filter
-  void clearFilter() { filterfn.clear(); }
+  void clear_filter() { filterfn.clear(); }
 
   //
   // local access/mutator functions
@@ -491,11 +490,15 @@ struct metall_json_lines {
   /// \}
 
   /// appends a single element to the local container
-  accessor_type append_local(boost::json::value val) {
-    vector.push_back(std::move(val));
+  /// \{
+  accessor_type append_local(const boost::json::value& val = {}) {
+    // No benefit of moving boost object to JSON Bento now.
+    vector.push_back(val);
     return vector.back();
   }
-  accessor_type append_local() { return append_local(boost::json::value{}); }
+
+  //~ accessor_type append_local() { return append_local(boost::json::value{}); }
+  /// \}
 
   //
   // others

@@ -46,6 +46,18 @@ class array_accessor {
     return (*const_cast<self_type *>(this))[position];
   }
 
+  /// \brief Equal operator.
+  friend bool operator==(const array_accessor &lhs,
+                         const array_accessor &rhs) noexcept {
+    return lhs.priv_equal(lhs, rhs);
+  }
+
+  /// \brief Not-equal operator.
+  friend bool operator!=(const array_accessor &lhs,
+                         const array_accessor &rhs) noexcept {
+    return !(lhs == rhs);
+  }
+
   value_accessor_type back() { return this->operator[](size() - 1); }
 
   const value_accessor_type back() const {
@@ -66,10 +78,8 @@ class array_accessor {
   /// Expand (resize) the array if capacity() < size() + 1.
   /// \param value Value to add.
   void push_back(value_accessor_type value) {
-    // TODO: implement more efficient one
     value_locator loc;
-    add_value(json_bento::value_to<boost::json::value>(value), *m_core_data,
-              loc);
+    add_value(value, *m_core_data, loc);
     m_core_data->array_storage.push_back(m_array_index, std::move(loc));
   }
 
@@ -105,6 +115,20 @@ class array_accessor {
   }
 
  private:
+  bool priv_equal(const array_accessor &lhs,
+                  const array_accessor &rhs) const noexcept {
+    if (lhs.size() != rhs.size()) {
+      return false;
+    }
+
+    for (std::size_t i = 0; i < lhs.size(); ++i) {
+      if (lhs[i] != rhs[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   std::size_t         m_array_index;
   core_data_pointer_t m_core_data;
 };

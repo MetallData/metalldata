@@ -263,6 +263,7 @@ function(setup_metall_target exe_name)
         target_link_libraries(${exe_name} PRIVATE Parquet::parquet_shared)
         target_compile_definitions(${exe_name} PRIVATE METALLDATA_USE_PARQUET)
     endif ()
+    target_compile_definitions(${exe_name} PRIVATE "METALL_DISABLE_CONCURRENCY")
 endfunction()
 
 add_subdirectory(src)

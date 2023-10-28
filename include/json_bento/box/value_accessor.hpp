@@ -398,22 +398,40 @@ class value_accessor {
   /// \brief Equal operator.
   friend bool operator==(const value_accessor &lhs,
                          const value_accessor &rhs) noexcept {
-    // TODO: improve efficiency
-    return json_bento::value_to<boost::json::value>(lhs) ==
-           json_bento::value_to<boost::json::value>(rhs);
+    return lhs.priv_equal(lhs, rhs);
   }
 
-  /// \brief Return `true` if two values are not equal.
-  /// Two values are equal when they are the
-  /// same kind and their referenced values
-  /// are equal, or when they are both integral
-  /// types and their integral representations are equal.
+  /// \brief Not-equal operator.
   friend bool operator!=(const value_accessor &lhs,
                          const value_accessor &rhs) noexcept {
     return !(lhs == rhs);
   }
 
  private:
+  bool priv_equal(const value_accessor &lhs,
+                  const value_accessor &rhs) const noexcept {
+    if (lhs.is_null()) {
+      return rhs.is_null();
+    } else if (lhs.is_bool()) {
+      return rhs.is_bool() && (lhs.as_bool() == rhs.as_bool());
+    } else if (lhs.is_int64()) {
+      return rhs.is_int64() && (lhs.as_int64() == rhs.as_int64());
+    } else if (lhs.is_uint64()) {
+      return rhs.is_uint64() && (lhs.as_uint64() == rhs.as_uint64());
+    } else if (lhs.is_double()) {
+      return rhs.is_double() && (lhs.as_double() == rhs.as_double());
+    } else if (lhs.is_string()) {
+      return rhs.is_string() && (lhs.as_string() == rhs.as_string());
+    } else if (lhs.is_array()) {
+      return rhs.is_array() && (lhs.as_array() == rhs.as_array());
+    } else if (lhs.is_object()) {
+      return rhs.is_object() && (lhs.as_object() == rhs.as_object());
+    }
+
+    assert(false);  // should not reach here
+    return false;
+  }
+
   value_locator &get_locator() const {
     if (m_tag == value_type_tag::root) {
       return m_box->root_value_storage.at(m_pos0);
@@ -423,6 +441,7 @@ class value_accessor {
       return m_box->object_storage.at(m_pos0, m_pos1).value();
     }
     assert(false);
+    return m_box->root_value_storage.at(m_pos0); // dummy to remove warning
   }
 
   void priv_reset() {

@@ -66,6 +66,8 @@ class compact_string_storage {
     return id;
   }
 
+  void reserve(const std::size_t capacity) { m_storage.reserve(capacity); }
+
   void assign(const std::size_t id, const char_type *s, size_type count) {
     m_storage[id].assign(s, count, get_allocator());
   }
