@@ -19,6 +19,11 @@ using ARG_VERTEX_FILES_TYPE             = std::vector<std::string>;
 const std::string ARG_VERTEX_FILES_NAME = "files";
 const std::string ARG_VERTEX_FILES_DESC =
     "A list of Json files that will be imported as vertices.";
+
+using ARG_FILE_FORMAT_TYPE             = std::string;
+const std::string ARG_FILE_FORMAT_NAME = "fileType";
+const std::string ARG_FILE_FORMAT_DESC = "file type";
+const ARG_FILE_FORMAT_TYPE ARG_FILE_FORMAT_DFLT = "json";
 }  // namespace
 
 int ygm_main(ygm::comm& world, int argc, char** argv) {
@@ -29,6 +34,8 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
 
   clip.add_required<ARG_VERTEX_FILES_TYPE>(ARG_VERTEX_FILES_NAME,
                                            ARG_VERTEX_FILES_DESC);
+  clip.add_optional<ARG_FILE_FORMAT_TYPE>(
+      ARG_FILE_FORMAT_NAME, ARG_FILE_FORMAT_DESC, ARG_FILE_FORMAT_DFLT);
   clip.add_required_state<std::string>(ST_METALL_LOCATION,
                                        "Metall storage location");
 
@@ -41,11 +48,21 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
 
     const ARG_VERTEX_FILES_TYPE vertexFiles =
         clip.get<ARG_VERTEX_FILES_TYPE>(ARG_VERTEX_FILES_NAME);
+    const ARG_FILE_FORMAT_TYPE fileType =
+        clip.get<ARG_FILE_FORMAT_TYPE>(ARG_FILE_FORMAT_NAME);
     const std::string dataLocation =
         clip.get_state<std::string>(ST_METALL_LOCATION);
     metall_manager mm{metall::open_only, dataLocation.data(), MPI_COMM_WORLD};
     xpr::metall_graph         g{mm, world};
-    const xpr::import_summary summary = g.read_vertex_files(vertexFiles);
+
+    xpr::metall_graph::file_type ftype;
+    if (fileType == "json") {
+      ftype = xpr::metall_graph::file_type::json;
+    } else if (fileType == "parquet") {
+      ftype = xpr::metall_graph::file_type::parquet;
+    }
+
+    const xpr::import_summary summary = g.read_vertex_files(vertexFiles, ftype);
 
     if (world.rank() == 0) {
       clip.to_return(summary.asJson());

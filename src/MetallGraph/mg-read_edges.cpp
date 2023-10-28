@@ -26,6 +26,11 @@ const std::string ARG_AUTO_VERTEX_DESC =
     "two field names from which the vertices are generated";
 const ARG_AUTO_VERTEX_TYPE ARG_AUTO_VERTEX_DFLT = {};
 
+using ARG_FILE_FORMAT_TYPE             = std::string;
+const std::string ARG_FILE_FORMAT_NAME = "fileType";
+const std::string ARG_FILE_FORMAT_DESC = "file type";
+const ARG_FILE_FORMAT_TYPE ARG_FILE_FORMAT_DFLT = "json";
+
 //~ using                              ARG_AUTO_SRC_VERTEX_TYPE =
 //boost::json::object; ~ const std::string ARG_AUTO_SRC_VERTEX_NAME =
 //"autoSourceVertex"; ~ const std::string ARG_AUTO_SRC_VERTEX_DESC = "a JSON
@@ -50,6 +55,8 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
                                          ARG_EDGE_FILES_DESC);
   clip.add_optional<ARG_AUTO_VERTEX_TYPE>(
       ARG_AUTO_VERTEX_NAME, ARG_AUTO_VERTEX_DESC, ARG_AUTO_VERTEX_DFLT);
+  clip.add_optional<ARG_FILE_FORMAT_TYPE>(
+      ARG_FILE_FORMAT_NAME, ARG_FILE_FORMAT_DESC, ARG_FILE_FORMAT_DFLT);
   //~ clip.add_optional<ARG_AUTO_SRC_VERTEX_TYPE>(ARG_AUTO_SRC_VERTEX_NAME,
   //ARG_AUTO_SRC_VERTEX_DESC, ARG_AUTO_SRC_VERTEX_DFLT); ~
   //clip.add_optional<ARG_AUTO_TGT_VERTEX_TYPE>(ARG_AUTO_TGT_VERTEX_NAME,
@@ -69,6 +76,8 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
         clip.get<ARG_EDGE_FILES_TYPE>(ARG_EDGE_FILES_NAME);
     const ARG_AUTO_VERTEX_TYPE edgeVertexFields =
         clip.get<ARG_AUTO_VERTEX_TYPE>(ARG_AUTO_VERTEX_NAME);
+    const ARG_FILE_FORMAT_TYPE fileType =
+        clip.get<ARG_FILE_FORMAT_TYPE>(ARG_FILE_FORMAT_NAME);
     //~ const ARG_AUTO_SRC_VERTEX_TYPE edgeSrcLogic =
     //clip.get<ARG_AUTO_SRC_VERTEX_TYPE>(ARG_AUTO_SRC_VERTEX_NAME); ~ const
     //ARG_AUTO_SRC_VERTEX_TYPE edgeTgtLogic =
@@ -79,9 +88,16 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
     xpr::metall_graph             g{mm, world};
     std::vector<std::string_view> edgeVertexFieldsVw{edgeVertexFields.begin(),
                                                      edgeVertexFields.end()};
-    const xpr::import_summary     summary =
-        g.read_edge_files(edgeFiles, xpr::metall_graph::file_type::json,
-                          edgeVertexFieldsVw);
+
+    xpr::metall_graph::file_type ftype;
+    if (fileType == "json") {
+      ftype = xpr::metall_graph::file_type::json;
+    } else if (fileType == "parquet") {
+      ftype = xpr::metall_graph::file_type::parquet;
+    }
+
+    const xpr::import_summary summary = g.read_edge_files(
+        edgeFiles, ftype, edgeVertexFieldsVw);
 
     if (world.rank() == 0) {
       clip.to_return(summary.asJson());
