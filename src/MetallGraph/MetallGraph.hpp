@@ -268,9 +268,13 @@ struct metall_graph {
                                    const file_type ftype = file_type::json) {
     if (ftype == file_type::json) {
       return nodelst.read_json_files(files, gen_keys_checker({nodeKey()}));
-    } else {
+    }
+#ifdef METALLDATA_USE_PARQUET
+    else if (ftype == file_type::parquet) {
       return nodelst.read_parquet_files(files, gen_keys_checker({nodeKey()}));
     }
+#endif
+    return import_summary{};
   }
 
   import_summary read_edge_files(const std::vector<std::string>& files,
@@ -280,10 +284,14 @@ struct metall_graph {
       if (ftype == file_type::json) {
         return edgelst.read_json_files(
             files, gen_keys_checker({edgeSrcKey(), edgeTgtKey()}));
-      } else {
+      }
+#ifdef METALLDATA_USE_PARQUET
+      else if (ftype == file_type::parquet) {
         return edgelst.read_parquet_files(
             files, gen_keys_checker({edgeSrcKey(), edgeTgtKey()}));
       }
+#endif
+    return import_summary{};
     }
 
     msg::ptr_guard cntStateGuard{count_data_mg::ptr,
@@ -293,11 +301,14 @@ struct metall_graph {
       res = edgelst.read_json_files(
           files, gen_keys_checker(autoKeys),
           gen_keys_generator({edgeSrcKey(), edgeTgtKey()}, autoKeys));
-    } else {
+    }
+#ifdef METALLDATA_USE_PARQUET
+    else if (ftype == file_type::parquet) {
       res = edgelst.read_parquet_files(
           files, gen_keys_checker(autoKeys),
           gen_keys_generator({edgeSrcKey(), edgeTgtKey()}, autoKeys));
     }
+#endif
     comm().barrier();
     persist_keys(nodelst, nodeKey(), count_data_mg::ptr->distributedKeys);
     return res;
@@ -584,16 +595,19 @@ struct metall_graph {
     edgelst.filter(std::move(efilt)).for_all_selected(edgeAction);
     comm().barrier();
 
+    const std::size_t num_nodes = comm().all_reduce_sum(nodelst.local_size());
+
     // i-th item is the number of nodes in 'i'-kore.
     std::vector<size_t> kcore_size_list;
+    std::size_t total_num_pruned = 0;
 
     // Compute k-core (from 0-core to 'max_kcore'-core)
     for (int kcore = 1; kcore <= max_kcore + 1; ++kcore) {
-      size_t global_total_pruned = 0;
+      size_t num_pruned = 0;
       while (true) {
-        size_t locally_pruned = 0;
+        size_t local_num_pruned = 0;
         adj_set.for_all(
-            [kcore, &adj_set, &locally_pruned, &kcore_table, this](
+            [kcore, &adj_set, &local_num_pruned, &kcore_table, this](
                 const std::string& vert, std::set<std::string>& adj) {
               if (adj.empty() || adj.size() >= kcore) return;
 
@@ -608,15 +622,18 @@ struct metall_graph {
               }
               adj.clear();
               kcore_table[vert] = kcore - 1;
-              ++locally_pruned;
+              ++local_num_pruned;
             });
         comm().barrier();
 
-        const auto global_pruned = comm().all_reduce_sum(locally_pruned);
-        global_total_pruned += global_pruned;
-        if (global_pruned == 0) break;
+        const auto n = comm().all_reduce_sum(local_num_pruned);
+        num_pruned += n;
+        if (n == 0) break;
       }
-      kcore_size_list.emplace_back(global_total_pruned);
+
+      total_num_pruned += num_pruned;
+      // comm().cerr0() << num_nodes << " - " << total_num_pruned << " " << num_pruned << std::endl;
+      kcore_size_list.emplace_back(num_nodes - total_num_pruned);
     }
 
     // Insert k-core values to the corresponding nodes' JSON data

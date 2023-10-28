@@ -420,25 +420,28 @@ struct metall_json_lines {
     metall_allocator_type         alloc       = get_allocator();
     static metall_json_lines&     ref_self    = *this;
     const auto&                   schema      = parquetParser.schema();
+    ygmcomm.cf_barrier();
 
     parquetParser.for_all([&imported, &rejected, alloc, &schema, this,
                            filterFn = std::move(filter),
                            transFn  = std::move(transformer)](
                               auto& stream_reader, const size_t&) -> void {
-      boost::json::value jsonLine{
-          ygm::io::detail::read_parquet_as_json(stream_reader, schema)};
-
+      boost::json::value jsonLine =
+          ygm::io::detail::read_parquet_as_json(stream_reader, schema);
       if (filterFn(jsonLine)) {
         const auto owner = imported % ygmcomm.size();
         ygmcomm.async(
             owner,
-            [](auto, const auto& data) { ref_self.vector.push_back(data); },
-            jsonLine);
+            [](auto, const auto& data) {
+              ref_self.vector.push_back(data);
+            },
+            transFn(jsonLine));
         ++imported;
       } else {
         ++rejected;
       }
     });
+    ygmcomm.barrier();
 
     assert(vector.size() == initialSize + imported);
 
