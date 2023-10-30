@@ -77,8 +77,8 @@ if (MPI_CXX_FOUND)
     if (NOT YGM_FOUND)
         set(JUST_INSTALL_YGM TRUE)
         FetchContent_Declare(YGM
-                GIT_REPOSITORY https://github.com/KIwabuchi/ygm.git
-                GIT_TAG feature/parquet_json
+                GIT_REPOSITORY https://github.com/LLNL/ygm.git
+                GIT_TAG develop
                 )
         FetchContent_MakeAvailable(YGM)
     endif ()
