@@ -1,6 +1,11 @@
 
 #pragma once
 
+#ifndef METALL_DISABLE_CONCURRENCY
+#define METALL_DISABLE_CONCURRENCY 1
+#endif
+
+
 #include <string_view>
 #include <utility>
 
@@ -498,6 +503,12 @@ struct metall_json_lines {
     // No benefit of moving boost object to JSON Bento now.
     vector.push_back(val);
     return vector.back();
+  }
+
+  template <class JsonValue>
+  void reserve(const JsonValue& val, std::size_t n)
+  {
+    vector.reserve(val, n);
   }
 
   //~ accessor_type append_local() { return append_local(boost::json::value{}); }

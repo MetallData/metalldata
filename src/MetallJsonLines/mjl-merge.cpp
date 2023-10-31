@@ -199,15 +199,14 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
     //       to open the output location and clear the content
     //       then add argument whether existing data should be kept or
     //       overwritten
-    remove_directory_and_content(world, outLocVw);
+    //~ remove_directory_and_content(world, outLocVw);
 
     timer.segment("out-rmdir");
 
-    metall_manager outMgr{metall::create_only, outLoc.data(), MPI_COMM_WORLD};
+    metall_manager outMgr{metall::open_only, outLoc.data(), MPI_COMM_WORLD};
 
     timer.segment("out-mgr");
 
-    xpr::metall_json_lines::create_new(outMgr, world);
     xpr::metall_json_lines outVec{outMgr, world};
 
     timer.segment("out-open");
