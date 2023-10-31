@@ -491,61 +491,67 @@ void appendFields(boost::json::object& obj, const JsonValue& other,
 #endif
 
 
-template <class JsonObject, class JsonValue>
-void appendFields(JsonObject& obj,
-                  const JsonValue& other,
-                  const ColumnSelector& projlst,
-                  const ColumnSelector& outfields) {
+
+//~ template <class JsonValue>
+
+using output_fn = std::function<void(xpr::metall_json_lines::accessor_type::object_accessor, const bj::value&)>;
+
 /*
-  if (projlst.empty()) {
-    appendFields(rec, other, outfields);
-    return;
-  }
-*/
-
-  //~ assert(other.is_object());
-  const auto& that = other.as_object();
-  const int   len  = projlst.size();
-
-  for (int i = 0; i < len; ++i)
-  {
-    if (auto const entry = that.if_contains(projlst[i])) {
-      //~ obj[outfields[i]] = toBoostJson(*entry);
-      emplace(obj[outfields[i]], *entry);
-    }
-  }
-}
-/*
-boost::json::value
-joinRecords(const xpr::metall_json_lines::accessor_type& lhs,
-            const ColumnSelector& lhsProjlst,
-            const ColumnSelector& lhsOutFields,
-            const bj::value& rhs,
-            const ColumnSelector& rhsProjlst,
-            const ColumnSelector& rhsOutFields) {
-
-  boost::json::value   val;
-  boost::json::object& obj = val.emplace_object();
-
-  appendFields(obj, lhs, lhsProjlst, lhsOutFields);
-  appendFields(obj, rhs, rhsProjlst, rhsOutFields);
-
-  return val;
-}
-*/
-
-template <class JsonValue>
-void
-joinRecordsInPlace(xpr::metall_json_lines::accessor_type        res,
-                   const JsonValue& lhs,
                    const ColumnSelector& lhsProjlst,
                    const ColumnSelector& lhsOutFields,
-                   const bj::value& rhs,
+
                    const ColumnSelector& rhsProjlst,
                    const ColumnSelector& rhsOutFields) {
+*/
+
+void
+joinRecordsInPlace(xpr::metall_json_lines::accessor_type        res,
+                   const bj::value& lhs,
+                   output_fn lhs_append,
+                   const bj::value& rhs,
+                   output_fn rhs_append) {
   auto obj = res.emplace_object();
-  appendFields(obj, lhs, lhsProjlst, lhsOutFields);
-  appendFields(obj, rhs, rhsProjlst, rhsOutFields);
+  lhs_append(obj, lhs);
+  rhs_append(obj, rhs);
+}
+
+output_fn
+make_output_function(ColumnSelector projlst, std::string suffix)
+{
+  if (projlst.empty())
+  {
+    // if the projection list is empty, copy over all fields
+    return [sf = std::move(suffix)]
+           (xpr::metall_json_lines::accessor_type::object_accessor res, const bj::value& val)->void
+           {
+             assert(val.is_object());
+             const auto& that = val.as_object();
+
+             for (const auto& elem : that) {
+               const auto& key = elem.key();
+               std::string newkey(key.begin(), key.end());
+
+               newkey += sf;
+               emplace(res[newkey], elem.value());
+             }
+           };
+  }
+
+  // precompute output field list and then copy over selected fields (in projlst)
+  return [pl = std::move(projlst), of = append_suffix(projlst, suffix)]
+         (xpr::metall_json_lines::accessor_type::object_accessor res, const bj::value& val)->void
+         {
+           assert(val.is_object());
+
+           const auto& that = val.as_object();
+           const int   len  = pl.size();
+
+           for (int i = 0; i < len; ++i) {
+             if (auto const entry = that.if_contains(pl[i])) {
+               emplace(res[of[i]], *entry);
+             }
+           }
+         };
 }
 
 
@@ -849,7 +855,6 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
 
     std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-          //~ std::cerr
     logfile
              << "@barrier 0: elapsedTime: " << elapsedtime << "ms : "
              << ((lhsVec.local_size() + rhsVec.local_size()) /
@@ -862,7 +867,6 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
   if (DEBUG_TRACE_MERGE) {
     std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
-    //~ std::cerr
     logfile
             << "phase 1: @" << world.rank()
             << "  L: " << local.joinIndex[lhsData].size()
@@ -1028,9 +1032,9 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
   // phase 3:
   //   process the join data and perform the actual joins
   {
-    ColumnSelector  lhsOutFields = append_suffix(lhsProj, lhsSuffix);
-    ColumnSelector  rhsOutFields = append_suffix(rhsProj, rhsSuffix);
     ColumnSelector  packListLhs  = lhsProj;
+    output_fn       lhsOutFn     = make_output_function(std::move(lhsProj), std::move(lhsSuffix));
+    output_fn       rhsOutFn     = make_output_function(std::move(rhsProj), std::move(rhsSuffix));
     key_unifier     keyUnifier;
     MergeDataTracer datatrace;
 
@@ -1056,13 +1060,12 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
       // resVec.reserve(el.data().front(), el.data().size() * el.indices().size());
 
       for (int lhsIdx : el.indices()) {
-        //~ const metall_json_lines::accessor_type& lhsObj = lhsVec.at(lhsIdx);
         bj::value             lhsObj = projectRow(lhsVec.at(lhsIdx));
 
         if (key_unifier::key_type lhsKeyIndex = keyUnifier.find(lhsObj, lhsOn); lhsKeyIndex >= 0) {
           for (std::size_t i = 0; i < rhsDataLen; ++i) {
             if (lhsKeyIndex == unifiedRhsKeyIndices[i])
-              joinRecordsInPlace(resVec.append_local(), lhsObj, lhsProj, lhsOutFields, el.data()[i], rhsProj, rhsOutFields);
+              joinRecordsInPlace(resVec.append_local(), lhsObj, lhsOutFn, el.data()[i], rhsOutFn);
           }
         }
       }
