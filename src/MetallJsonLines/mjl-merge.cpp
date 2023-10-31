@@ -21,10 +21,13 @@
 
 #include "MetallJsonLines-merge.hpp"
 
+
 namespace xpr = experimental;
 
 namespace {
 using StringVector = std::vector<std::string>;
+
+const bool LOG_TIMING = false;
 
 const std::string methodName = "merge";
 const std::string ARG_OUTPUT = "output";
@@ -68,7 +71,11 @@ struct Timer : std::vector<std::tuple<const char*, time_point> >
     segment("");
   }
 
-  void segment(const char* desc) { base::emplace_back(desc, std::chrono::system_clock::now()); }
+  void segment(const char* desc)
+  {
+    if (LOG_TIMING)
+      base::emplace_back(desc, std::chrono::system_clock::now());
+  }
 };
 
 std::ostream& operator<<(std::ostream& os, Timer& timer)
@@ -225,10 +232,13 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
     if (world.rank() == 0) clip.to_return(err.what());
   }
 
-  std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
-  timer.segment("post");
+  if (LOG_TIMING)
+  {
+    std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
+    timer.segment("post");
 
-  logfile << timer << std::endl;
+    logfile << timer << std::endl;
+  }
 
   return error_code;
 }
