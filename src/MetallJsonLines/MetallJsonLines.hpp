@@ -11,6 +11,11 @@
 
 #include <ygm/comm.hpp>
 #include <ygm/io/csv_parser.hpp>
+#include <ygm/detail/cereal_boost_json.hpp>
+#ifdef METALLDATA_USE_PARQUET
+#include <ygm/io/arrow_parquet_parser.hpp>
+#include <ygm/io/detail/arrow_parquet_json_converter.hpp>
+#endif
 
 #include <experimental/cxx-compat.hpp>
 
@@ -394,6 +399,67 @@ struct metall_json_lines {
     files.emplace_back(std::move(file));
     return read_json_files(files);
   }
+
+#if METALLDATA_USE_PARQUET
+  /// imports Parquet files and returns the number of imported rows
+  /// Parquet data are read as JSON values
+  /// \param  files       a list of Parquet data files that will be imported
+  /// \param  filter      a function that accepts or rejects an JSON item
+  /// \param  transformer a function that transforms a JSON entry before it is
+  /// stored \return a summary of how many lines were imported and rejected.
+  import_summary read_parquet_files(
+      const std::vector<std::string>&                       files,
+      std::function<bool(const boost::json::value&)>        filter = accept_all,
+      std::function<boost::json::value(boost::json::value)> transformer =
+          identity_transformer) {
+
+    ygm::io::arrow_parquet_parser parquetParser{ygmcomm, files};
+    std::size_t                   imported    = 0;
+    std::size_t                   rejected    = 0;
+    std::size_t const             initialSize = vector.size();
+    metall_allocator_type         alloc       = get_allocator();
+    static metall_json_lines&     ref_self    = *this;
+    const auto&                   schema      = parquetParser.schema();
+    ygmcomm.cf_barrier();
+
+    parquetParser.for_all([&imported, &rejected, alloc, &schema, this,
+                           filterFn = std::move(filter),
+                           transFn  = std::move(transformer)](
+                              auto& stream_reader, const size_t&) -> void {
+      boost::json::value jsonLine =
+          ygm::io::detail::read_parquet_as_json(stream_reader, schema);
+      if (filterFn(jsonLine)) {
+        const auto owner = imported % ygmcomm.size();
+        ygmcomm.async(
+            owner,
+            [](auto, const auto& data) {
+              ref_self.vector.push_back(data);
+            },
+            transFn(jsonLine));
+        ++imported;
+      } else {
+        ++rejected;
+      }
+    });
+    ygmcomm.barrier();
+
+    assert(vector.size() == initialSize + imported);
+
+    // phase 2: compute total number of imported rows
+    int totalImported = ygmcomm.all_reduce_sum(imported);
+    int totalRejected = ygmcomm.all_reduce_sum(rejected);
+
+    return {totalImported, totalRejected};
+  }
+
+  /// imports Parquet files and returns the number of imported rows
+  import_summary read_parquet_file(std::string file) {
+    std::vector<std::string> files;
+
+    files.emplace_back(std::move(file));
+    return read_parquet_files(files);
+  }
+#endif
 
   //
   // filter setters

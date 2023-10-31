@@ -3,7 +3,7 @@
 MetallData is an HPC platform for interactive data science applications at HPC-scales.  It provides an ecosystem for persistent distributed data structures, including algorithms, interactivity and storage.
 
 Contents:
-* MetallJsonLines: a prototype backend for a distributed and persistent data store that can be used from Python, using clippy. MetallJsonLines builds on Metall, ygm, clippy, and clippy-cpp. 
+* MetallJsonLines: a prototype backend for a distributed and persistent data store that can be used from Python, using clippy. MetallJsonLines builds on Metall, ygm, clippy, and clippy-cpp.
 * MetallGraph: a prototype graph data structure that consists of two MetallJsonLines stores (vertices + edges)
 
 ## Required
@@ -38,6 +38,11 @@ If one prefers to use Spack to install the libraries, type `spack install [packa
 - YGM (required)
 - Clippy-cpp (required)
 
+### Apache Parquet
+
+To read Parquet files, specify the CMake option `METALLDATA_USE_PARQUET=on`.
+Ensure that Apache Arrow (with Parquet support) is installed on the system.
+MetallData has been tested with version 13.0.0.
 
 ## License
 
