@@ -15,7 +15,7 @@ namespace bj     = boost::json;
 namespace mtljsn = metall::json;
 namespace xpr    = experimental;
 
-static constexpr bool DEBUG_TIME_MERGE  = true;
+static constexpr bool DEBUG_TIME_MERGE  = false;
 static constexpr bool DEBUG_TRACE_MERGE = false;
 static constexpr bool DEBUG_MERGE_DATA  = false;
 
@@ -24,19 +24,19 @@ struct MergeDataTracerT
 {
     void trace(std::uint64_t llen, std::uint64_t rlen, std::uint64_t klen)
     {
-			lhslen += llen;
- 			rhslen += rlen;
-			keylen += klen;
+      lhslen += llen;
+      rhslen += rlen;
+      keylen += klen;
 
-			if (klen > maxkeylen) maxkeylen = klen;
+      if (klen > maxkeylen) maxkeylen = klen;
     }
 
     void datalength(std::uint64_t d) { datalen = d; }
 
-		std::uint64_t lhslen    = 0;
-		std::uint64_t rhslen    = 0;
-		std::uint64_t keylen    = 0;
-		std::uint64_t maxkeylen = 0;
+    std::uint64_t lhslen    = 0;
+    std::uint64_t rhslen    = 0;
+    std::uint64_t keylen    = 0;
+    std::uint64_t maxkeylen = 0;
     long double   datalen   = 0.0;
 };
 
@@ -50,10 +50,10 @@ struct MergeDataTracerT<false>
 std::ostream& operator<<(std::ostream& os, MergeDataTracerT<true> el)
 {
   return os << "avg(lhslen): " << (el.lhslen / el.datalen)
-			      << "  avg(rhslen): " << (el.rhslen / el.datalen)
-					  << "  avg(keylen): " << (el.keylen / el.datalen)
+            << "  avg(rhslen): " << (el.rhslen / el.datalen)
+            << "  avg(keylen): " << (el.keylen / el.datalen)
             << "  max(keylen): " << (el.maxkeylen)
-						<< "  len = " << el.datalen;
+            << "  len = " << el.datalen;
 }
 
 std::ostream& operator<<(std::ostream& os, MergeDataTracerT<false>)
@@ -549,6 +549,12 @@ joinRecordsInPlace(xpr::metall_json_lines::accessor_type        res,
 }
 
 
+bool equal_to(const bj::value&                             lhs,
+              const bj::value&                             rhs)
+{
+  return lhs == rhs;
+}
+
 /// \brief Compare JSON Bento value with Boost JSON value.
 /// TODO: implement this feature in JSON Bento.
 bool equal_to(const xpr::metall_json_lines::accessor_type& lhs,
@@ -673,7 +679,7 @@ struct key_unifier
     key_type
     operator()(const bj::value& obj, const ColumnSelector& keycols)
     {
-      using iterator = std::vector< internal_key_rep >::iterator;
+      using iterator = std::vector< internal_key_rep >::const_iterator;
 
       internal_key_rep thiskey = extract_key(obj, keycols);
       iterator         keysaa  = keys.begin();
@@ -699,17 +705,55 @@ struct key_unifier
       return keys.size() - 1;
     }
 
-		std::size_t len() const { return keys.size(); }
+    template <class JsonObject>
+    key_type
+    find(const JsonObject& acc, const ColumnSelector& keycols) const
+    {
+      using iterator       = std::vector< internal_key_rep >::const_iterator;
+      using metall_key_rep = decltype(extract_key(acc, keycols));
+      using json_element   = metall_key_rep::value_type;
+
+      metall_key_rep   thiskey = extract_key(acc, keycols);
+      iterator         keysaa  = keys.begin();
+      iterator         keyszz  = keys.end();
+      auto             keycomp = [thiskeyaa = thiskey.begin()]
+                                 (const internal_key_rep& thatkey) -> bool
+                                 {
+                                   return std::equal( thatkey.begin(), thatkey.end(),
+                                                      thiskeyaa,
+                                                      [](const bj::value* lhs, json_element rhs)->bool
+                                                      {
+                                                        if (!lhs) return !rhs;
+                                                        if (!rhs) return false;
+
+                                                        return equal_to(*rhs, *lhs);
+                                                      }
+                                                    );
+                                 };
+
+      if (iterator pos = std::find_if(keysaa, keyszz, keycomp); pos != keyszz)
+        return std::distance(keysaa, pos);
+
+      return -1;
+    }
+
+
+    std::size_t len() const { return keys.size(); }
 
     void clear() { keys.clear(); }
 
   private:
     using internal_key_rep = std::vector<const bj::value*>;
 
-    internal_key_rep extract_key(const bj::value& val, const ColumnSelector& keycols)
+    template <class JsonValue>
+    auto
+    extract_key(const JsonValue& val, const ColumnSelector& keycols) const
+      -> std::vector<decltype(val.as_object().if_contains(""))>
     {
-      internal_key_rep res;
-      const bj::object& obj = val.as_object();
+      using result_type = decltype(extract_key(val, keycols));
+
+      result_type res;
+      const auto& obj = val.as_object();
 
       for (const std::string& key : keycols)
         res.push_back(obj.if_contains(key));
@@ -1007,14 +1051,19 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
       for (const bj::value& rhsObj : el.data())
         unifiedRhsKeyIndices.push_back(keyUnifier(rhsObj, rhsOn));
 
-      for (int lhsIdx : el.indices()) {
-        // const metall_json_lines::accessor_type& lhsObj = lhsVec.at(lhsIdx);
-        bj::value             lhsObj = projectRow(lhsVec.at(lhsIdx));
-        key_unifier::key_type lhsKeyIndex = keyUnifier(lhsObj, lhsOn);
+      // \todo this seems to be too sloppy and slowing down performance
+      //       -> produce a precise prototype object before retrying resreve
+      // resVec.reserve(el.data().front(), el.data().size() * el.indices().size());
 
-        for (std::size_t i = 0; i < rhsDataLen; ++i) {
-          if (lhsKeyIndex == unifiedRhsKeyIndices[i])
-            joinRecordsInPlace(resVec.append_local(), lhsObj, lhsProj, lhsOutFields, el.data()[i], rhsProj, rhsOutFields);
+      for (int lhsIdx : el.indices()) {
+        //~ const metall_json_lines::accessor_type& lhsObj = lhsVec.at(lhsIdx);
+        bj::value             lhsObj = projectRow(lhsVec.at(lhsIdx));
+
+        if (key_unifier::key_type lhsKeyIndex = keyUnifier.find(lhsObj, lhsOn); lhsKeyIndex >= 0) {
+          for (std::size_t i = 0; i < rhsDataLen; ++i) {
+            if (lhsKeyIndex == unifiedRhsKeyIndices[i])
+              joinRecordsInPlace(resVec.append_local(), lhsObj, lhsProj, lhsOutFields, el.data()[i], rhsProj, rhsOutFields);
+          }
         }
       }
 
@@ -1022,13 +1071,13 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
     }
 
     if (DEBUG_MERGE_DATA)
-		{
+    {
       std::ofstream logfile{clippy::clippyLogFile, std::ofstream::app};
 
       datatrace.datalength(local.joinData.size());
 
-			logfile << datatrace << std::endl;
-		}
+      logfile << datatrace << std::endl;
+    }
   }
 
   clear_vector(local.joinData);
