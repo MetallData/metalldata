@@ -40,7 +40,7 @@ class compact_adjacency_list {
   using row_iterator          = typename row_list_type::iterator;
   using const_row_iterator    = typename row_list_type::const_iterator;
 
-  compact_adjacency_list(){};
+  compact_adjacency_list() = default;
 
   explicit compact_adjacency_list(const allocator_type &alloc)
       : m_allocator(alloc) {}
@@ -92,6 +92,14 @@ class compact_adjacency_list {
 
   void resize(const std::size_t row, const std::size_t size) {
     m_table.at(row).resize(size, m_allocator);
+  }
+
+  void reserve(const std::size_t capacity) {
+    m_table.reserve(capacity, m_allocator);
+  }
+
+  void reserve(const std::size_t row, const std::size_t capacity) {
+    m_table.at(row).reserve(capacity, m_allocator);
   }
 
   std::size_t push_back() {

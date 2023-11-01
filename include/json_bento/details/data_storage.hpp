@@ -92,6 +92,8 @@ class data_storage {
     return empty_slot_pos;
   }
 
+  void reserve(const std::size_t n) { m_storage.reserve(n); }
+
   std::size_t size() const { return m_storage.size() - m_free_slots.size(); }
 
   std::size_t capacity() const { return m_storage.size(); }

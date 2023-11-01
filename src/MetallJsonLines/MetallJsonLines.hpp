@@ -1,6 +1,11 @@
 
 #pragma once
 
+#ifndef METALL_DISABLE_CONCURRENCY
+#define METALL_DISABLE_CONCURRENCY 1
+#endif
+
+
 #include <string_view>
 #include <utility>
 
@@ -11,6 +16,11 @@
 
 #include <ygm/comm.hpp>
 #include <ygm/io/csv_parser.hpp>
+#include <ygm/detail/cereal_boost_json.hpp>
+#ifdef METALLDATA_USE_PARQUET
+#include <ygm/io/arrow_parquet_parser.hpp>
+#include <ygm/io/detail/arrow_parquet_json_converter.hpp>
+#endif
 
 #include <experimental/cxx-compat.hpp>
 
@@ -138,13 +148,13 @@ void _for_all_selected(
 namespace experimental {
 
 template <class T>
-T& checked_deref(T* ptr, const char* errmsg) {
+T& checked_deref(T* ptr, const char* errmsg = "Failed pointer dereference") {
   if (ptr) {
     CXX_LIKELY;
     return *ptr;
   }
 
-  throw std::runtime_error("Unable to open metall_json_lines");
+  throw std::runtime_error(errmsg);
 }
 
 struct import_summary : std::tuple<std::size_t, std::size_t> {
@@ -364,10 +374,9 @@ struct metall_json_lines {
     std::size_t           rejected    = 0;
     std::size_t const     initialSize = vector.size();
     lines_type*           vec         = &vector;
-    metall_allocator_type alloc       = get_allocator();
 
     lineParser.for_all(
-        [&imported, &rejected, vec, alloc, filterFn = std::move(filter),
+        [&imported, &rejected, vec, filterFn = std::move(filter),
          transFn = std::move(transformer)](const std::string& line) -> void {
           boost::json::value jsonLine = boost::json::parse(line);
 
@@ -396,6 +405,67 @@ struct metall_json_lines {
     return read_json_files(files);
   }
 
+#if METALLDATA_USE_PARQUET
+  /// imports Parquet files and returns the number of imported rows
+  /// Parquet data are read as JSON values
+  /// \param  files       a list of Parquet data files that will be imported
+  /// \param  filter      a function that accepts or rejects an JSON item
+  /// \param  transformer a function that transforms a JSON entry before it is
+  /// stored \return a summary of how many lines were imported and rejected.
+  import_summary read_parquet_files(
+      const std::vector<std::string>&                       files,
+      std::function<bool(const boost::json::value&)>        filter = accept_all,
+      std::function<boost::json::value(boost::json::value)> transformer =
+          identity_transformer) {
+
+    ygm::io::arrow_parquet_parser parquetParser{ygmcomm, files};
+    std::size_t                   imported    = 0;
+    std::size_t                   rejected    = 0;
+    std::size_t const             initialSize = vector.size();
+    metall_allocator_type         alloc       = get_allocator();
+    static metall_json_lines&     ref_self    = *this;
+    const auto&                   schema      = parquetParser.schema();
+    ygmcomm.cf_barrier();
+
+    parquetParser.for_all([&imported, &rejected, alloc, &schema, this,
+                           filterFn = std::move(filter),
+                           transFn  = std::move(transformer)](
+                              auto& stream_reader, const size_t&) -> void {
+      boost::json::value jsonLine =
+          ygm::io::detail::read_parquet_as_json(stream_reader, schema);
+      if (filterFn(jsonLine)) {
+        const auto owner = imported % ygmcomm.size();
+        ygmcomm.async(
+            owner,
+            [](auto, const auto& data) {
+              ref_self.vector.push_back(data);
+            },
+            transFn(jsonLine));
+        ++imported;
+      } else {
+        ++rejected;
+      }
+    });
+    ygmcomm.barrier();
+
+    assert(vector.size() == initialSize + imported);
+
+    // phase 2: compute total number of imported rows
+    int totalImported = ygmcomm.all_reduce_sum(imported);
+    int totalRejected = ygmcomm.all_reduce_sum(rejected);
+
+    return {totalImported, totalRejected};
+  }
+
+  /// imports Parquet files and returns the number of imported rows
+  import_summary read_parquet_file(std::string file) {
+    std::vector<std::string> files;
+
+    files.emplace_back(std::move(file));
+    return read_parquet_files(files);
+  }
+#endif
+
   //
   // filter setters
 
@@ -416,7 +486,7 @@ struct metall_json_lines {
   /// \}
 
   /// resets the filter
-  void clearFilter() { filterfn.clear(); }
+  void clear_filter() { filterfn.clear(); }
 
   //
   // local access/mutator functions
@@ -428,11 +498,21 @@ struct metall_json_lines {
   /// \}
 
   /// appends a single element to the local container
-  accessor_type append_local(boost::json::value val) {
-    vector.push_back(std::move(val));
+  /// \{
+  accessor_type append_local(const boost::json::value& val = {}) {
+    // No benefit of moving boost object to JSON Bento now.
+    vector.push_back(val);
     return vector.back();
   }
-  accessor_type append_local() { return append_local(boost::json::value{}); }
+
+  template <class JsonValue>
+  void reserve(const JsonValue& val, std::size_t n)
+  {
+    vector.reserve(val, n);
+  }
+
+  //~ accessor_type append_local() { return append_local(boost::json::value{}); }
+  /// \}
 
   //
   // others

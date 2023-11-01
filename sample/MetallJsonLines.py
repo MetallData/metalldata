@@ -165,3 +165,107 @@ merge(result, places, names[names.keys.name > "Pat"], on="id")
 
 ###
 
+
+
+
+
+
+###
+###
+###
+
+from clippy import clippy_import, config
+clippy_import("/g/g92/peterp/git/md/build/src/MetallJsonLines")
+config.cmd_prefix = "srun"
+
+
+time mjl = MetallJsonLines("/dev/shm/peterp/data-X")
+#256> Wall time: 32.4 s
+#16> Wall time: 4.5 s
+
+time mjl.read_json(["/g/g92/peterp/workspace/data/data1.json", "/g/g92/peterp/workspace/data/data2.json", "/g/g92/peterp/workspace/data/data3.json", "/g/g92/peterp/workspace/data/data4.json"])
+#256> Wall time: 39.9 s
+#16> Wall time: 8.41 s
+
+time result = MetallJsonLines("/dev/shm/peterp/result-X")
+#256> Wall time: 40.1 s
+#16> Wall time: 4.14 s
+
+time merge(result, mjl, mjl, left_on=["p"], right_on=["s"], left_columns=["p", "d"], right_columns=["s", "d"])
+#256> Wall time: 1min 19s
+#16> Wall time: 14.5s
+#>Out[7]: 8704888
+
+
+
+
+
+
+
+###
+###
+###
+
+from clippy import clippy_import, config
+clippy_import("/g/g92/peterp/git/md/build/src/MetallJsonLines")
+config.cmd_prefix = "srun"
+
+
+time mjl = MetallJsonLines("/dev/shm/peterp/reddit-X")
+#512> Wall time: 2.27 s
+
+time mjl.read_json(["/p/lustre3/llamag/reddit/comments/RC_2010-07", "/p/lustre3/llamag/reddit/comments/RC_2010-08", "/p/lustre3/llamag/reddit/comments/RC_2010-09", "/p/lustre3/llamag/reddit/comments/RC_2010-10", "/p/lustre3/llamag/reddit/comments/RC_2010-11", "/p/lustre3/llamag/reddit/comments/RC_2010-12"])
+#512> Wall time: 7.06 s
+#> 29678800
+
+
+
+time result = MetallJsonLines("/dev/shm/peterp/result-X")
+#512 > Wall time: 1.82 s
+
+time merge(result, mjl, mjl, left_on=["parent_id"], right_on=["link_id"], left_columns=["id", "parent_id", "author"], right_columns=["id", "link_id", "author"])
+#512 > Wall time: 1.08 s
+#> 3149471769
+
+
+
+
+
+
+
+###
+###
+###
+
+from clippy import clippy_import, config
+clippy_import("/g/g92/peterp/git/md/build/src/MetallJsonLines")
+config.cmd_prefix = "srun"
+
+
+time mjl = MetallJsonLines("/dev/shm/peterp/reddit-X")
+#512> Wall time: 2.27 s
+
+
+time mjl.read_json(["/p/lustre3/llamag/reddit/comments/RC_2010-01", "/p/lustre3/llamag/reddit/comments/RC_2010-02", "/p/lustre3/llamag/reddit/comments/RC_2010-03", "/p/lustre3/llamag/reddit/comments/RC_2010-04", "/p/lustre3/llamag/reddit/comments/RC_2010-05", "/p/lustre3/llamag/reddit/comments/RC_2010-06", "/p/lustre3/llamag/reddit/comments/RC_2010-07", "/p/lustre3/llamag/reddit/comments/RC_2010-08", "/p/lustre3/llamag/reddit/comments/RC_2010-09", "/p/lustre3/llamag/reddit/comments/RC_2010-10", "/p/lustre3/llamag/reddit/comments/RC_2010-11", "/p/lustre3/llamag/reddit/comments/RC_2010-12"])
+#512> Wall time: 7.67 s
+#> 48489057
+
+
+time result = MetallJsonLines("/dev/shm/peterp/result-X")
+#512 > Wall time: 1.82 s
+
+time merge(result, mjl, mjl, left_on=["parent_id"], right_on=["link_id"], left_columns=["id", "parent_id", "author"], right_columns=["id", "link_id", "author"])
+#512 > Wall time: 1.41 s
+#> 4894410202
+
+
+
+
+
+time merge(result, mjl, mjl, left_on=["id"], right_on=["link_id"], left_columns=["id", "parent_id", "author"], right_columns=["id", "link_id", "author"])
+
+
+
+
+
+

@@ -7,15 +7,14 @@
 
 #pragma once
 
+#ifndef METALL_DISABLE_CONCURRENCY
+#define METALL_DISABLE_CONCURRENCY 1
+#endif
+
 #include <limits>
 #include <optional>
 #include <string>
 #include <system_error>
-
-#include <metall/container/vector.hpp>
-#include <metall/json/json.hpp>
-#include <metall/metall.hpp>
-#include <metall/utility/metall_mpi_adaptor.hpp>
 
 #include <ygm/comm.hpp>
 
