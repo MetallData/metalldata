@@ -35,14 +35,18 @@ TEST(BoxTest, All) {
       }
     )";
 
-  // Add an item.
-  const auto index = bento->push_back(boost::json::parse(json_string));
+  auto data = boost::json::parse(json_string);
 
-  // Access the added item.
+
+  const auto index = bento->push_back(data);
+
+  bento->reserve(data, 10);
+  bento->push_back(data);
+
   auto value_accessor = bento->at(index);
-
-  // Show the added item.
   EXPECT_EQ(json_bento::value_to<boost::json::value>(value_accessor),
+            boost::json::parse(json_string));
+  EXPECT_EQ(json_bento::value_to<boost::json::value>(bento->back()),
             boost::json::parse(json_string));
 
   // -- Modify items --//
