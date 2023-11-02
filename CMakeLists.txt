@@ -85,23 +85,24 @@ if (MPI_CXX_FOUND)
 endif ()
 
 
-#
-#  ZSTD
-#
-find_package(zstd QUIET)
-if (NOT zstd_FOUND)
-  FetchContent_Declare(zstd
-          GIT_REPOSITORY https://github.com/facebook/zstd.git
-          GIT_TAG v1.5.4
-          )
-  FetchContent_MakeAvailable(zstd)
-  list(APPEND CMAKE_MODULE_PATH "${zstd_SOURCE_DIR}/build/cmake")
-endif ()
+
 
 #
 # Privateer
 #
 if (METALLDATA_USE_PRIVATEER)
+    #
+    #  ZSTD
+    #
+    find_package(zstd QUIET)
+    if (NOT zstd_FOUND)
+    FetchContent_Declare(zstd
+            GIT_REPOSITORY https://github.com/facebook/zstd.git
+            GIT_TAG v1.5.4
+            )
+    FetchContent_MakeAvailable(zstd)
+    list(APPEND CMAKE_MODULE_PATH "${zstd_SOURCE_DIR}/build/cmake")
+    endif ()
     find_package(Privateer QUIET)
     if (NOT Privateer_FOUND)
         FetchContent_Declare(Privateer
@@ -155,7 +156,7 @@ include_cxx_filesystem_library()
 #
 function(add_common_compile_options name)
     # Common
-    target_compile_options(${name} PRIVATE -Wall -Wextra -pedantic)
+    #target_compile_options(${name} PRIVATE -Wall -Wextra -pedantic)
 
     # Debug
     target_compile_options(${name} PRIVATE $<$<CONFIG:Debug>:-O0>)
