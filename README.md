@@ -22,6 +22,7 @@ mkdir build
 cd build
 cmake ../
 make
+pip install --user git+https://github.com/llnl/clippy
 ```
 
 
