@@ -19,6 +19,9 @@ config.cmd_prefix = 'srun -N 1 -n 4 -p pvis --mpibind=off'
 # load executables
 clippy_import("/PATH/TO/METALLDATA/BUILD/src/MetallJsonLines")
 
+clippy_import("/PATH/TO/METALLDATA/BUILD/src/MetallJsonLines")
+clippy_import("/g/g92/peterp/git/md/build/src/MetallJsonLines/")
+
 ## open jsonlines object and import data
 mjl = MetallJsonLines("/PATH/TO/DATASTORE/jframe-1_4")
 
@@ -180,16 +183,13 @@ config.cmd_prefix = "srun"
 
 
 time mjl = MetallJsonLines("/dev/shm/peterp/data-X")
-#256> Wall time: 32.4 s
-#16> Wall time: 4.5 s
+#256> Wall time: 2.26 s
 
 time mjl.read_json(["/g/g92/peterp/workspace/data/data1.json", "/g/g92/peterp/workspace/data/data2.json", "/g/g92/peterp/workspace/data/data3.json", "/g/g92/peterp/workspace/data/data4.json"])
-#256> Wall time: 39.9 s
-#16> Wall time: 8.41 s
+#256> Wall time: 7.53 s
 
 time result = MetallJsonLines("/dev/shm/peterp/result-X")
-#256> Wall time: 40.1 s
-#16> Wall time: 4.14 s
+#256> Wall time: 1.89 s
 
 time merge(result, mjl, mjl, left_on=["p"], right_on=["s"], left_columns=["p", "d"], right_columns=["s", "d"])
 #256> Wall time: 1min 19s
@@ -218,6 +218,7 @@ time mjl.read_json(["/p/lustre3/llamag/reddit/comments/RC_2010-07", "/p/lustre3/
 #512> Wall time: 7.06 s
 #> 29678800
 
+reddit.read_json(["/p/lustre3/llamag/reddit/comments/RC_2010-10", "/p/lustre3/llamag/reddit/comments/RC_2010-11", "/p/lustre3/llamag/reddit/comments/RC_2010-12"])
 
 
 time result = MetallJsonLines("/dev/shm/peterp/result-X")
@@ -234,8 +235,8 @@ time merge(result, mjl, mjl, left_on=["parent_id"], right_on=["link_id"], left_c
 
 
 ###
-###
-###
+### salloc -N 8 -n 512 -A hpcgeda -p pbatch -t 1:0:0 --mpibind=off
+### salloc -N 8 -n 512 -A hpcgeda -p pdebug -t 1:0:0 --mpibind=off
 
 from clippy import clippy_import, config
 clippy_import("/g/g92/peterp/git/md/build/src/MetallJsonLines")
@@ -243,7 +244,7 @@ config.cmd_prefix = "srun"
 
 
 time mjl = MetallJsonLines("/dev/shm/peterp/reddit-X")
-#512> Wall time: 2.27 s
+#2048> Wall time: 2.27 s
 
 
 time mjl.read_json(["/p/lustre3/llamag/reddit/comments/RC_2010-01", "/p/lustre3/llamag/reddit/comments/RC_2010-02", "/p/lustre3/llamag/reddit/comments/RC_2010-03", "/p/lustre3/llamag/reddit/comments/RC_2010-04", "/p/lustre3/llamag/reddit/comments/RC_2010-05", "/p/lustre3/llamag/reddit/comments/RC_2010-06", "/p/lustre3/llamag/reddit/comments/RC_2010-07", "/p/lustre3/llamag/reddit/comments/RC_2010-08", "/p/lustre3/llamag/reddit/comments/RC_2010-09", "/p/lustre3/llamag/reddit/comments/RC_2010-10", "/p/lustre3/llamag/reddit/comments/RC_2010-11", "/p/lustre3/llamag/reddit/comments/RC_2010-12"])
