@@ -19,6 +19,9 @@ config.cmd_prefix = 'srun -N 1 -n 4 -p pvis --mpibind=off'
 # load executables
 clippy_import("/PATH/TO/METALLDATA/BUILD/src/MetallJsonLines")
 
+clippy_import("/PATH/TO/METALLDATA/BUILD/src/MetallJsonLines")
+clippy_import("/g/g92/peterp/git/md/build/src/MetallJsonLines/")
+
 ## open jsonlines object and import data
 mjl = MetallJsonLines("/PATH/TO/DATASTORE/jframe-1_4")
 
@@ -218,6 +221,7 @@ time mjl.read_json(["/p/lustre3/llamag/reddit/comments/RC_2010-07", "/p/lustre3/
 #512> Wall time: 7.06 s
 #> 29678800
 
+reddit.read_json(["/p/lustre3/llamag/reddit/comments/RC_2010-10", "/p/lustre3/llamag/reddit/comments/RC_2010-11", "/p/lustre3/llamag/reddit/comments/RC_2010-12"])
 
 
 time result = MetallJsonLines("/dev/shm/peterp/result-X")
@@ -234,8 +238,8 @@ time merge(result, mjl, mjl, left_on=["parent_id"], right_on=["link_id"], left_c
 
 
 ###
-###
-###
+### salloc -N 8 -n 512 -A hpcgeda -p pbatch -t 1:0:0 --mpibind=off
+### salloc -N 8 -n 512 -A hpcgeda -p pdebug -t 1:0:0 --mpibind=off
 
 from clippy import clippy_import, config
 clippy_import("/g/g92/peterp/git/md/build/src/MetallJsonLines")
@@ -243,7 +247,7 @@ config.cmd_prefix = "srun"
 
 
 time mjl = MetallJsonLines("/dev/shm/peterp/reddit-X")
-#512> Wall time: 2.27 s
+#2048> Wall time: 2.27 s
 
 
 time mjl.read_json(["/p/lustre3/llamag/reddit/comments/RC_2010-01", "/p/lustre3/llamag/reddit/comments/RC_2010-02", "/p/lustre3/llamag/reddit/comments/RC_2010-03", "/p/lustre3/llamag/reddit/comments/RC_2010-04", "/p/lustre3/llamag/reddit/comments/RC_2010-05", "/p/lustre3/llamag/reddit/comments/RC_2010-06", "/p/lustre3/llamag/reddit/comments/RC_2010-07", "/p/lustre3/llamag/reddit/comments/RC_2010-08", "/p/lustre3/llamag/reddit/comments/RC_2010-09", "/p/lustre3/llamag/reddit/comments/RC_2010-10", "/p/lustre3/llamag/reddit/comments/RC_2010-11", "/p/lustre3/llamag/reddit/comments/RC_2010-12"])
