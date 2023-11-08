@@ -68,7 +68,9 @@ struct row_request {
     const int  fromOther = numrows - fromThis;
 
     if ((fromOther > 0) && (world.size() != (world.rank() + 1)))
+    {
       world.async(world.rank() + 1, row_request{}, fromOther);
+    }
 
     mjlState.selectedRows->resize(fromThis);
 
@@ -117,7 +119,7 @@ void _for_all_selected(
   if (filterfn.empty())
     return _simple_for_all_selected<Fn>(std::move(fn), vector, maxrows);
 
-  std::size_t const lim = std::min(vector.size(), maxrows);
+  std::size_t const lim = vector.size();
   std::size_t       i   = 0;
 
   while (maxrows && (lim != i)) {
@@ -230,7 +232,7 @@ struct metall_json_lines {
     // phase 1: make all local selections
     {
       for_all_selected(
-          [&selectedRows](int rownum, const accessor_type&) -> void {
+          [&selectedRows](std::size_t rownum, const accessor_type&) -> void {
             selectedRows.emplace_back(rownum);
           },
           numrows);
@@ -243,8 +245,12 @@ struct metall_json_lines {
     //          rank 0: start filling result vector
     {
       if (isMainRank() && (selectedRows.size() < numrows) && !isLastRank())
+      {
+        std::cerr << "send row request " << selectedRows.size() << ":" << numrows
+                  << std::endl;
         ygmcomm.async(ygmcomm.rank() + 1, msg::row_request{},
                       (numrows - selectedRows.size()));
+      }
 
       for (std::uint64_t i : selectedRows)
         res.emplace_back(projector(vector.at(i)));
