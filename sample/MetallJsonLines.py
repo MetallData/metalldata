@@ -183,16 +183,13 @@ config.cmd_prefix = "srun"
 
 
 time mjl = MetallJsonLines("/dev/shm/peterp/data-X")
-#256> Wall time: 32.4 s
-#16> Wall time: 4.5 s
+#256> Wall time: 2.26 s
 
 time mjl.read_json(["/g/g92/peterp/workspace/data/data1.json", "/g/g92/peterp/workspace/data/data2.json", "/g/g92/peterp/workspace/data/data3.json", "/g/g92/peterp/workspace/data/data4.json"])
-#256> Wall time: 39.9 s
-#16> Wall time: 8.41 s
+#256> Wall time: 7.53 s
 
 time result = MetallJsonLines("/dev/shm/peterp/result-X")
-#256> Wall time: 40.1 s
-#16> Wall time: 4.14 s
+#256> Wall time: 1.89 s
 
 time merge(result, mjl, mjl, left_on=["p"], right_on=["s"], left_columns=["p", "d"], right_columns=["s", "d"])
 #256> Wall time: 1min 19s

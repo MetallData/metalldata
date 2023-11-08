@@ -500,10 +500,11 @@ using output_fn = std::function<void(xpr::metall_json_lines::accessor_type::obje
 void
 join_records_in_place( xpr::metall_json_lines::accessor_type res,
                        const bj::value& lhs,
-                       output_fn lhs_append,
+                       const output_fn& lhs_append,
                        const bj::value& rhs,
-                       output_fn rhs_append) {
+                       const output_fn& rhs_append) {
   auto obj = res.emplace_object();
+
   lhs_append(obj, lhs);
   rhs_append(obj, rhs);
 }
@@ -530,8 +531,10 @@ make_output_function(ColumnSelector projlst, std::string suffix)
            };
   }
 
+  ColumnSelector outFieldList = append_suffix(projlst, suffix);
+
   // precompute output field list and then copy over selected fields (in projlst)
-  return [pl = std::move(projlst), of = append_suffix(projlst, suffix)]
+  return [pl = std::move(projlst), of = std::move(outFieldList)]
          (xpr::metall_json_lines::accessor_type::object_accessor res, const bj::value& val)->void
          {
            assert(val.is_object());
@@ -540,7 +543,7 @@ make_output_function(ColumnSelector projlst, std::string suffix)
            const int   len  = pl.size();
 
            for (int i = 0; i < len; ++i) {
-             if (auto const entry = that.if_contains(pl[i])) {
+             if (const bj::value* entry = that.if_contains(pl[i])) {
                emplace(res[of[i]], *entry);
              }
            }
@@ -976,7 +979,6 @@ std::size_t merge(metall_json_lines& resVec, const metall_json_lines& lhsVec,
       // \todo this seems to be too sloppy and slowing down performance
       //       -> produce a precise prototype object before retrying resreve
       // resVec.reserve(el.data().front(), el.data().size() * el.indices().size());
-
       for (int lhsIdx : el.indices()) {
         bj::value             lhsObj = projectRow(lhsVec.at(lhsIdx));
 
