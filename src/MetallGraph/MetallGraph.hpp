@@ -299,6 +299,8 @@ struct metall_graph {
     vec.emplace_back(metall_string(edge_tgt_key.data(), edge_tgt_key.size(),
                                    mgr.get_allocator()));
   }
+
+
   /*
       std::tuple<std::size_t, std::size_t>
       count0(std::vector<filter_type> nfilt, std::vector<filter_type> efilt)

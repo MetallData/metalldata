@@ -15,7 +15,8 @@ const std::string METHOD_NAME = "__init__";
 const std::string METHOD_DOCSTRING =
     "Initializes a MetallJsonLines object\n"
     "creates a new physical object on disk "
-    "only if it does not already exist.";
+    "only if it does not already exist or "
+    "overwrite is specified.";
 
 const std::string ARG_ALWAYS_CREATE_NAME = "overwrite";
 const std::string ARG_ALWAYS_CREATE_DESC =

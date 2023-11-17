@@ -12,18 +12,93 @@ config.cmd_prefix = 'srun -N NODES -n TASKS --mpibind=off'
 
 #   on mammoth
 config.cmd_prefix = 'srun -N 1 -n 4 -A hpcgeda -p pbatch --mpibind=off'
+config.cmd_prefix = 'srun -N 4 -n 16 -A hpcgeda -p pbatch --mpibind=off -t 4:0:0 --nodelist=mammoth9,mammoth10,mammoth11,mammoth12'
+
+
+config.cmd_prefix = 'srun'
 
 #   on pascal
 config.cmd_prefix = 'srun -N 1 -n 4 -p pvis --mpibind=off'
 
 # load executables
 clippy_import("/PATH/TO/METALLDATA/BUILD/src/MetallJsonLines")
+clippy_import("/g/g92/peterp/git/md/build2/src/MetallJsonLines")
 
 ## open jsonlines object and import data
 mjl = MetallJsonLines("/PATH/TO/DATASTORE/jframe-1_4")
+mjl = MetallJsonLines("/l/ssd/peterp/reddit-4_16")
 
 mjl.read_json("/p/lustre3/llamag/reddit/comments/RC_2007-01")
-# > '81341 rows imported'
+# > '81341 rows imported'  ???
+
+time mjl.read_json(["/p/lustre3/llamag/reddit/comments/RC_2010-10", "/p/lustre3/llamag/reddit/comments/RC_2010-11", "/p/lustre3/llamag/reddit/comments/RC_2010-12"])
+# > Wall time: 17.6 s
+# > Wall time: 24.7 s
+# > 16694012
+
+-----
+
+time mjl.read_json(["/home/pirkelbauer2/reddit/RC_2010-10", "/home/pirkelbauer2/reddit/RC_2010-11", "/home/pirkelbauer2/reddit/RC_2010-12"])
+# > 16694012
+
+time q = mjl[mjl.keys.score > 5]
+#> CPU times: user 1.06 ms, sys: 5.48 ms, total: 6.54 ms
+#> Wall time: 2.18 s
+#> Wall time: 10.4 s
+
+time q.count()
+#> Wall time: 9.59 s
+#> Wall time: 15.3 s
+#> 2015574
+
+
+time q = mjl[mjl.keys.author == "[deleted]"]
+#> CPU times: user 1.39 ms, sys: 5.8 ms, total: 7.19 ms
+#> Wall time: 2.16 s
+#> Wall time: 11.2 s
+
+time q.count()
+#> CPU times: user 1.51 ms, sys: 5.04 ms, total: 6.55 ms
+#> Wall time: 6.7 s
+#> Wall time: 15.4 s
+#> Out[23]: 3546616
+
+time q = mjl[mjl.keys.author.contains("[deleted]")]
+#> CPU times: user 3.27 ms, sys: 4.12 ms, total: 7.39 ms
+#> Wall time: 2.4 s
+#> Wall time: 8.1 s
+
+time q.count()
+#> CPU times: user 1.13 ms, sys: 5.88 ms, total: 7 ms
+#> Wall time: 7.1 s
+#> Wall time: 12.5 s
+#> Out[30]: 3546616
+
+time q.set("author", q.keys.id.cat("_[deleted]"))
+#> CPU times: user 3.12 ms, sys: 3.89 ms, total: 7 ms
+#> Wall time: 8.27 s
+#> Wall time: 12.1 s
+#> Out[25]: 3546616
+
+time q = mjl[mjl.keys.subreddit.contains('programming')]
+#> ...
+
+time q.count()
+#> Wall time: 12.3 s
+#> Out[15]: 177608
+
+time result = MetallJsonLines("/l/ssd/peterp/result-4_16")
+#> CPU times: user 408 µs, sys: 6.76 ms, total: 7.17 ms
+#> Wall time: 5.65 s
+#> Wall time: 9.44 s
+
+
+time merge(result, mjl, mjl, left_on=["parent_id"], right_on=["link_id"], left_columns=["id", "parent_id", "author"], right_columns=["id", "link_id", "author"])
+#> Wall time: 12min 21s
+#> 1867014548
+
+----
+
 
 ## select subset of data
 
@@ -31,8 +106,8 @@ q = mjl[mjl.keys.score > 5]
 q.count()
 # > 'Selected 15710 rows.'
 
-q = mjl[mjl.keys.score > 5, mjl.keys.controversiality == 1]
-q.count()
+time q = mjl[mjl.keys.score > 5, mjl.keys.controversiality == 1]
+time q.count()
 # > 'Selected 216 rows.'
 
 # alternative 1:
@@ -65,25 +140,35 @@ q.head(num = 10)
 #
 # update elements
 q = mjl[mjl.keys.author == "[deleted]"]
-q.count()
-# > 'Selected 22387 rows.'
+time q.count()
+# > Wall time: 8.69 s
+# >  3546616
 
 # print first entries
 q.head()
 
 # update element
-q.set("author", q.keys.author.cat("_").cat(q.keys.rowid))
-# > 'updated column author in 22387 entries\n'
+time q.set("author", q.keys.author.cat("_").cat(q.keys.rowid))
+# > Wall time: 15.6 s
+# > 3546616
+
+q = mjl[mjl.keys.author.contains("[deleted]", True)]
+
+time q.set("author", q.keys.id.cat("_[deleted]"))
 
 # next returns empty because author_id == "[deleted]" does no longer exist
 q.head()
 
 # so try
-q = m[m.keys.author.contains("[deleted]")]
-q.count()
+time q = m[m.keys.author.contains("[deleted]")]
+time q.count()
 # > 'Selected 22387 rows.'
 
 q.head()
+
+# > Wall time: 2h 1min 47s
+# > 1867014548
+
 
 
 
@@ -164,4 +249,66 @@ merge(result, places, names[names.keys.name > "Pat"], on="id")
 # compute new entry based on existing entries
 
 ###
+
+-------------------------------
+
+from clippy import clippy_import, config
+
+config.cmd_prefix = 'srun'
+
+clippy_import("/g/g92/peterp/git/md/build2/src/MetallJsonLines")
+
+time mjl = MetallJsonLines("/l/ssd/peterp/reddit-4_16")
+
+time mjl.read_json(["/p/lustre3/llamag/reddit/comments/RC_2010-10", "/p/lustre3/llamag/reddit/comments/RC_2010-11", "/p/lustre3/llamag/reddit/comments/RC_2010-12"])
+# > Wall time: 15.9 s
+
+time result = MetallJsonLines("/l/ssd/peterp/result-4_16")
+# > Wall time: 4.6 s
+
+time merge(result, mjl, mjl, left_on=["parent_id"], right_on=["link_id"], left_columns=["id", "parent_id", "author"], right_columns=["id", "link_id", "author"])
+#> Wall time: 12min 5s
+#> 1867014548
+
+
+-------------------------------
+
+from clippy import clippy_import, config
+
+config.cmd_prefix = 'srun'
+
+clippy_import("/g/g92/peterp/git/md/build2/src/MetallJsonLines")
+
+time mjl = MetallJsonLines("/dev/shm/peterp/reddit-X")
+# > Wall time: 4.05 s
+
+time mjl.read_json(["/p/lustre3/llamag/reddit/comments/RC_2010-10", "/p/lustre3/llamag/reddit/comments/RC_2010-11", "/p/lustre3/llamag/reddit/comments/RC_2010-12"])
+# > Wall time: 12.7 s
+
+time result = MetallJsonLines("/dev/shm/peterp/result-X")
+# > Wall time: 4.03 s
+
+time merge(result, mjl, mjl, left_on=["parent_id"], right_on=["link_id"], left_columns=["id", "parent_id", "author"], right_columns=["id", "link_id", "author"])
+#> Wall time: 10min 19s
+#> Wall time: 10min 40s
+#> 1867014548
+
+time merge(result, mjl, mjl, left_on=["id"], right_on=["link_id"], left_columns=["id", "parent_id", "author"], right_columns=["id", "link_id", "author"])
+#> Wall time: 10.5 s
+#> 0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

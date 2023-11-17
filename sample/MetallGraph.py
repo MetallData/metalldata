@@ -68,7 +68,7 @@ q.count()
 # To create a graph from the dataset, we require each vertex to have a from and a to vertex.
 # The vertex entries are not part of a dataset, but will be auto-generated. In this case we choose
 # the vertices in the edge set to be named (member, group) and the entry in the vertex set to be ID.
-mg = new MetallGraph("/PATH/TO/DATASTORE/soft-1_4", key = "ID", srckey = "member", dstkey = "group");
+mg = MetallGraph("/PATH/TO/DATASTORE/soft-1_4", key = "ID", srckey = "member", dstkey = "group");
 
 
 # The dataset originally consists only of a set of edges where none of the entries contains any of these keys. The keys will be auto-generated upon import.
@@ -78,15 +78,16 @@ mg.read_edges("/PATH/TO/METALLDATA/sample/data/softcom.json", autoVertices=["nam
 # This extends each record with two fields: member = "1@" + name, and group = "2@" + dept. Any entry without name or dept field will be discarded.
 # At the same time, a vertex file gets generated. An entry in the vertex file only contains IDs consisting of the union of member and group fields.
 
+# compute connected components
+mg.connected_components();
+# should return 3, but returns 19 -- all persons + "Finc" department
+
 
 ##
 ## auto generation of vertices from edge files (reddit data)
 
-mg = new MetallGraph("/PATH/TO/DATASTORE/reddit-1_4", key = "key", srckey = "authkey", dstkey = "linkkey");
+mg = MetallGraph("/PATH/TO/DATASTORE/reddit-1_4", key = "key", srckey = "authkey", dstkey = "linkkey");
 
 mg.read_edges(["/PATH/TO/REDDITDATA/RC_2010-10"], autoVertices=["author", "link_id"])
 
-# compute connected components
-mg.connected_components();
-# should return 3, but returns 19 -- all persons + "Finc" department
 

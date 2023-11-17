@@ -6,9 +6,6 @@
 /// \brief Demonstrates how to run Json expr::metall_json_linesession predicates
 /// on a MetallJsonLines
 
-#include <fstream>
-#include <iostream>
-
 #include <boost/json.hpp>
 #include "mjl-common.hpp"
 
