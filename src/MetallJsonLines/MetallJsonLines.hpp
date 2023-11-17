@@ -1,6 +1,11 @@
 
 #pragma once
 
+#ifndef METALL_DISABLE_CONCURRENCY
+#define METALL_DISABLE_CONCURRENCY 1
+#endif
+
+
 #include <string_view>
 #include <utility>
 
@@ -11,6 +16,11 @@
 
 #include <ygm/comm.hpp>
 #include <ygm/io/csv_parser.hpp>
+#include <ygm/detail/cereal_boost_json.hpp>
+#ifdef METALLDATA_USE_PARQUET
+#include <ygm/io/arrow_parquet_parser.hpp>
+#include <ygm/io/detail/arrow_parquet_json_converter.hpp>
+#endif
 
 #include <experimental/cxx-compat.hpp>
 
@@ -58,7 +68,9 @@ struct row_request {
     const int  fromOther = numrows - fromThis;
 
     if ((fromOther > 0) && (world.size() != (world.rank() + 1)))
+    {
       world.async(world.rank() + 1, row_request{}, fromOther);
+    }
 
     mjlState.selectedRows->resize(fromThis);
 
@@ -107,7 +119,7 @@ void _for_all_selected(
   if (filterfn.empty())
     return _simple_for_all_selected<Fn>(std::move(fn), vector, maxrows);
 
-  std::size_t const lim = std::min(vector.size(), maxrows);
+  std::size_t const lim = vector.size();
   std::size_t       i   = 0;
 
   while (maxrows && (lim != i)) {
@@ -220,7 +232,7 @@ struct metall_json_lines {
     // phase 1: make all local selections
     {
       for_all_selected(
-          [&selectedRows](int rownum, const accessor_type&) -> void {
+          [&selectedRows](std::size_t rownum, const accessor_type&) -> void {
             selectedRows.emplace_back(rownum);
           },
           numrows);
@@ -233,8 +245,12 @@ struct metall_json_lines {
     //          rank 0: start filling result vector
     {
       if (isMainRank() && (selectedRows.size() < numrows) && !isLastRank())
+      {
+        std::cerr << "send row request " << selectedRows.size() << ":" << numrows
+                  << std::endl;
         ygmcomm.async(ygmcomm.rank() + 1, msg::row_request{},
                       (numrows - selectedRows.size()));
+      }
 
       for (std::uint64_t i : selectedRows)
         res.emplace_back(projector(vector.at(i)));
@@ -395,6 +411,67 @@ struct metall_json_lines {
     return read_json_files(files);
   }
 
+#if METALLDATA_USE_PARQUET
+  /// imports Parquet files and returns the number of imported rows
+  /// Parquet data are read as JSON values
+  /// \param  files       a list of Parquet data files that will be imported
+  /// \param  filter      a function that accepts or rejects an JSON item
+  /// \param  transformer a function that transforms a JSON entry before it is
+  /// stored \return a summary of how many lines were imported and rejected.
+  import_summary read_parquet_files(
+      const std::vector<std::string>&                       files,
+      std::function<bool(const boost::json::value&)>        filter = accept_all,
+      std::function<boost::json::value(boost::json::value)> transformer =
+          identity_transformer) {
+
+    ygm::io::arrow_parquet_parser parquetParser{ygmcomm, files};
+    std::size_t                   imported    = 0;
+    std::size_t                   rejected    = 0;
+    std::size_t const             initialSize = vector.size();
+    metall_allocator_type         alloc       = get_allocator();
+    static metall_json_lines&     ref_self    = *this;
+    const auto&                   schema      = parquetParser.schema();
+    ygmcomm.cf_barrier();
+
+    parquetParser.for_all([&imported, &rejected, alloc, &schema, this,
+                           filterFn = std::move(filter),
+                           transFn  = std::move(transformer)](
+                              auto& stream_reader, const size_t&) -> void {
+      boost::json::value jsonLine =
+          ygm::io::detail::read_parquet_as_json(stream_reader, schema);
+      if (filterFn(jsonLine)) {
+        const auto owner = imported % ygmcomm.size();
+        ygmcomm.async(
+            owner,
+            [](auto, const auto& data) {
+              ref_self.vector.push_back(data);
+            },
+            transFn(jsonLine));
+        ++imported;
+      } else {
+        ++rejected;
+      }
+    });
+    ygmcomm.barrier();
+
+    assert(vector.size() == initialSize + imported);
+
+    // phase 2: compute total number of imported rows
+    int totalImported = ygmcomm.all_reduce_sum(imported);
+    int totalRejected = ygmcomm.all_reduce_sum(rejected);
+
+    return {totalImported, totalRejected};
+  }
+
+  /// imports Parquet files and returns the number of imported rows
+  import_summary read_parquet_file(std::string file) {
+    std::vector<std::string> files;
+
+    files.emplace_back(std::move(file));
+    return read_parquet_files(files);
+  }
+#endif
+
   //
   // filter setters
 
@@ -428,10 +505,18 @@ struct metall_json_lines {
 
   /// appends a single element to the local container
   /// \{
-  accessor_type append_local(boost::json::value val = {}) {
-    vector.push_back(std::move(val));
+  accessor_type append_local(const boost::json::value& val = {}) {
+    // No benefit of moving boost object to JSON Bento now.
+    vector.push_back(val);
     return vector.back();
   }
+
+  template <class JsonValue>
+  void reserve(const JsonValue& val, std::size_t n)
+  {
+    vector.reserve(val, n);
+  }
+
   //~ accessor_type append_local() { return append_local(boost::json::value{}); }
   /// \}
 

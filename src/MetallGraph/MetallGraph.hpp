@@ -17,6 +17,8 @@ namespace msg {
 using distributed_string_set = ygm::container::set<std::string>;
 using distributed_adj_list =
     ygm::container::map<std::string, std::vector<std::string>>;
+using distributed_adj_set =
+    ygm::container::map<std::string, std::set<std::string>>;
 
 template <class T>
 struct ptr_guard {
@@ -105,12 +107,14 @@ struct conn_comp_mg {
 conn_comp_mg* conn_comp_mg::ptr = nullptr;
 
 struct kcore_comp_mg {
+  explicit kcore_comp_mg(ygm::comm& comm) : adj_set(comm) {}
+
   // Use map here on purpose because
   // many hash conflicts will happen if graph partitioning also uses the
   // same hash function.
   std::map<std::string, size_t> kcore_table;
-
-  static kcore_comp_mg* ptr;
+  msg::distributed_adj_set      adj_set;
+  static kcore_comp_mg*         ptr;
 };
 
 kcore_comp_mg* kcore_comp_mg::ptr = nullptr;
@@ -236,6 +240,11 @@ struct metall_graph {
   using metall_manager_type = metall_json_lines::metall_manager_type;
   using filter_type         = metall_json_lines::filter_type;
 
+  enum file_type {
+    json,
+    parquet
+  };
+
   metall_graph(metall_manager_type& manager, ygm::comm& comm)
       : edgelst(manager, comm, edge_location_suffix),
         nodelst(manager, comm, node_location_suffix),
@@ -255,22 +264,51 @@ struct metall_graph {
   std::string_view edgeSrcKey() const { return keys->at(EDGE_SRCKEY_IDX); }
   std::string_view edgeTgtKey() const { return keys->at(EDGE_TGTKEY_IDX); }
 
-  import_summary read_vertex_files(const std::vector<std::string>& files) {
-    return nodelst.read_json_files(files, gen_keys_checker({nodeKey()}));
+  import_summary read_vertex_files(const std::vector<std::string>& files,
+                                   const file_type ftype = file_type::json) {
+    if (ftype == file_type::json) {
+      return nodelst.read_json_files(files, gen_keys_checker({nodeKey()}));
+    }
+#ifdef METALLDATA_USE_PARQUET
+    else if (ftype == file_type::parquet) {
+      return nodelst.read_parquet_files(files, gen_keys_checker({nodeKey()}));
+    }
+#endif
+    return import_summary{};
   }
 
   import_summary read_edge_files(const std::vector<std::string>& files,
+                                 const file_type ftype = file_type::json,
                                  std::vector<std::string_view> autoKeys = {}) {
-    if (autoKeys.empty())
-      return edgelst.read_json_files(
-          files, gen_keys_checker({edgeSrcKey(), edgeTgtKey()}));
+    if (autoKeys.empty()) {
+      if (ftype == file_type::json) {
+        return edgelst.read_json_files(
+            files, gen_keys_checker({edgeSrcKey(), edgeTgtKey()}));
+      }
+#ifdef METALLDATA_USE_PARQUET
+      else if (ftype == file_type::parquet) {
+        return edgelst.read_parquet_files(
+            files, gen_keys_checker({edgeSrcKey(), edgeTgtKey()}));
+      }
+#endif
+    return import_summary{};
+    }
 
     msg::ptr_guard cntStateGuard{count_data_mg::ptr,
                                  new count_data_mg{nodelst.comm()}};
-    import_summary res = edgelst.read_json_files(
-        files, gen_keys_checker(autoKeys),
-        gen_keys_generator({edgeSrcKey(), edgeTgtKey()}, autoKeys));
-
+    import_summary res;
+    if (ftype == file_type::json) {
+      res = edgelst.read_json_files(
+          files, gen_keys_checker(autoKeys),
+          gen_keys_generator({edgeSrcKey(), edgeTgtKey()}, autoKeys));
+    }
+#ifdef METALLDATA_USE_PARQUET
+    else if (ftype == file_type::parquet) {
+      res = edgelst.read_parquet_files(
+          files, gen_keys_checker(autoKeys),
+          gen_keys_generator({edgeSrcKey(), edgeTgtKey()}, autoKeys));
+    }
+#endif
     comm().barrier();
     persist_keys(nodelst, nodeKey(), count_data_mg::ptr->distributedKeys);
     return res;
@@ -521,24 +559,35 @@ struct metall_graph {
   std::vector<std::size_t> kcore(std::vector<filter_type> nfilt,
                                  std::vector<filter_type> efilt,
                                  int                      max_kcore) {
-    msg::ptr_guard cntStateGuard{kcore_comp_mg::ptr, new kcore_comp_mg{}};
+    msg::ptr_guard cntStateGuard{kcore_comp_mg::ptr, new kcore_comp_mg{comm()}};
+    auto&          adj_set     = kcore_comp_mg::ptr->adj_set;
+    auto&          kcore_table = kcore_comp_mg::ptr->kcore_table;
 
-    //
-    // Allocate adjacency list
-    ygm::container::map<std::string, std::set<std::string>> adj_set(comm());
-    auto edgeAction = [&adj_set, edgeSrcKeyTxt = edgeSrcKey(),
+    auto nodeAction = [nodeKeyTxt = nodeKey()](
+                          std::size_t,
+                          const metall_json_lines::accessor_type& val) -> void {
+      std::string vertex = to_string(get_key(val, nodeKeyTxt));
+
+      kcore_comp_mg::ptr->adj_set.async_insert_if_missing(
+          vertex, std::set<std::string>{});
+    };
+
+    nodelst.filter(std::move(nfilt)).for_all_selected(nodeAction);
+    comm().barrier();
+
+    auto edgeAction = [edgeSrcKeyTxt = edgeSrcKey(),
                        edgeTgtKeyTxt = edgeTgtKey()](
                           std::size_t                             pos,
                           const metall_json_lines::accessor_type& val) -> void {
       const auto src = to_string(get_key(val, edgeTgtKeyTxt));
       const auto dst = to_string(get_key(val, edgeSrcKeyTxt));
-      adj_set.async_visit(
+      kcore_comp_mg::ptr->adj_set.async_visit_if_exists(
           src,
           [](std::string key, std::set<std::string>& adj, std::string v) {
             adj.insert(v);
           },
           dst);
-      adj_set.async_visit(
+      kcore_comp_mg::ptr->adj_set.async_visit_if_exists(
           dst,
           [](std::string key, std::set<std::string>& adj, std::string v) {
             adj.insert(v);
@@ -548,24 +597,26 @@ struct metall_graph {
     edgelst.filter(std::move(efilt)).for_all_selected(edgeAction);
     comm().barrier();
 
+    const std::size_t num_nodes = comm().all_reduce_sum(nodelst.local_size());
+
     // i-th item is the number of nodes in 'i'-kore.
     std::vector<size_t> kcore_size_list;
+    std::size_t total_num_pruned = 0;
 
     // Compute k-core (from 0-core to 'max_kcore'-core)
-    auto& kcore_table = kcore_comp_mg::ptr->kcore_table;
-    for (int kcore = 1; kcore <= max_kcore; ++kcore) {
-      size_t global_total_pruned = 0;
+    for (int kcore = 1; kcore <= max_kcore + 1; ++kcore) {
+      size_t num_pruned = 0;
       while (true) {
-        size_t locally_pruned = 0;
+        size_t local_num_pruned = 0;
         adj_set.for_all(
-            [kcore, &adj_set, &locally_pruned, &kcore_table, this](
+            [kcore, &adj_set, &local_num_pruned, &kcore_table, this](
                 const std::string& vert, std::set<std::string>& adj) {
               if (adj.empty() || adj.size() >= kcore) return;
 
               // Found vertex to prune, go tell all neighbors of
               // my demise
               for (const auto& neighbor : adj) {
-                adj_set.async_visit(
+                adj_set.async_visit_if_exists(
                     neighbor,
                     [](const std::string&, std::set<std::string>& adj,
                        const std::string& v) { adj.erase(v); },
@@ -573,21 +624,19 @@ struct metall_graph {
               }
               adj.clear();
               kcore_table[vert] = kcore - 1;
-              ++locally_pruned;
+              ++local_num_pruned;
             });
         comm().barrier();
 
-        const auto global_pruned = comm().all_reduce_sum(locally_pruned);
-        global_total_pruned += global_pruned;
-        if (global_pruned == 0) break;
+        const auto n = comm().all_reduce_sum(local_num_pruned);
+        num_pruned += n;
+        if (n == 0) break;
       }
-      kcore_size_list.emplace_back(global_total_pruned);
-    }
 
-    // Add the number of nodes whose k-core value is 'max_kcore'
-    const auto total =
-        std::accumulate(kcore_size_list.begin(), kcore_size_list.end(), 0);
-    kcore_size_list.emplace_back(adj_set.size() - total);
+      total_num_pruned += num_pruned;
+      // comm().cerr0() << num_nodes << " - " << total_num_pruned << " " << num_pruned << std::endl;
+      kcore_size_list.emplace_back(num_nodes - total_num_pruned);
+    }
 
     // Insert k-core values to the corresponding nodes' JSON data
     auto kcore_setter = [&adj_set, nodeKeyTxt = nodeKey(), this](
@@ -624,13 +673,25 @@ struct metall_graph {
     //
     // Allocate adjacency list
     ygm::container::map<std::string, std::vector<std::string>> adj_list(comm());
+
+    auto nodeAction = [&adj_list, nodeKeyTxt = nodeKey()](
+                          std::size_t,
+                          const metall_json_lines::accessor_type& val) -> void {
+      std::string vertex = to_string(get_key(val, nodeKeyTxt));
+
+      adj_list.async_insert_if_missing(vertex, std::vector<std::string>{});
+    };
+
+    nodelst.filter(std::move(nfilt)).for_all_selected(nodeAction);
+    comm().barrier();
+
     auto edgeAction = [&adj_list, undirected, edgeSrcKeyTxt = edgeSrcKey(),
                        edgeTgtKeyTxt = edgeTgtKey()](
                           std::size_t                             pos,
                           const metall_json_lines::accessor_type& val) -> void {
       const auto src = to_string(get_key(val, edgeTgtKeyTxt));
       const auto dst = to_string(get_key(val, edgeSrcKeyTxt));
-      adj_list.async_visit(
+      adj_list.async_visit_if_exists(
           src,
           [](std::string key, std::vector<std::string>& adj, std::string v) {
             adj.push_back(v);
@@ -640,7 +701,7 @@ struct metall_graph {
 
       if (!undirected) return;
 
-      adj_list.async_visit(
+      adj_list.async_visit_if_exists(
           dst,
           [](std::string key, std::vector<std::string>& adj, std::string v) {
             adj.push_back(v);
@@ -667,7 +728,7 @@ struct metall_graph {
         ++count;
 
         for (const auto& n : adj) {
-          adj_list.async_visit(
+          adj_list.async_visit_if_exists(
               n,
               [](std::string v, std::vector<std::string>& adj, size_t level) {
                 auto& current_lv = bfs_comp_mg::ptr->level_table.at(v);
@@ -691,11 +752,12 @@ struct metall_graph {
           adj_list.owner(v),
           [](auto pcomm, const std::string& v, const int index,
              ygm::ygm_ptr<metall_graph> pthis, const int src_rank) {
+            if (bfs_comp_mg::ptr->level_table.count(v) == 0) return;
             pcomm->async(
                 src_rank,
                 [](auto, const size_t level, const int index,
                    ygm::ygm_ptr<metall_graph> pthis) {
-                  pthis->nodelst.at(index).as_object()["bfs-level"] = level;
+                  pthis->nodelst.at(index).as_object()["bfs_level"] = level;
                 },
                 bfs_comp_mg::ptr->level_table.at(v), index, pthis);
           },
@@ -705,6 +767,26 @@ struct metall_graph {
     comm().barrier();
 
     return comm().all_reduce_sum(local_total_visited);
+  }
+
+  void dump(const std::string_view& prefix_path) {
+    const std::string node_path =
+        std::string(prefix_path) + "-node-" + std::to_string(comm().rank());
+    {
+      std::ofstream ofs(node_path);
+      for (std::size_t i = 0; i < nodelst.local_size(); ++i) {
+        ofs << nodelst.at(i) << "\n";
+      }
+    }
+    const std::string edge_path =
+        std::string(prefix_path) + "-edge-" + std::to_string(comm().rank());
+    {
+      std::ofstream ofs(edge_path);
+      for (std::size_t i = 0; i < edgelst.local_size(); ++i) {
+        ofs << edgelst.at(i) << "\n";
+      }
+    }
+    comm().cf_barrier();
   }
 
   static void check_state(metall_manager_type& manager, ygm::comm& comm) {

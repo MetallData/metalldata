@@ -4,11 +4,11 @@
 # SPDX-License-Identifier: MIT
 
 if (NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Debug)
+  set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(CMAKE_CXX_FLAGS_DEBUG "-Wall -Wextra -pedantic -Wno-unused-parameter -O0 -g")
-set(CMAKE_CXX_FLAGS_RELEASE "-Wall -Wextra -O3 -march=native")
+#set(CMAKE_CXX_FLAGS_DEBUG "-Wall -Wextra -pedantic -Wno-unused-parameter -O0 -g")
+#set(CMAKE_CXX_FLAGS_RELEASE "-Wall -Wextra -O3 -march=native")
 
 # include_directories(${Boost_INCLUDE_DIRS})
 
@@ -59,6 +59,12 @@ add_metalldata_executable(mg-bfs mg-bfs.cpp)
 setup_metall_target(mg-bfs)
 setup_ygm_target(mg-bfs)
 setup_clippy_target(mg-bfs)
+
+
+add_metalldata_executable(parquet_bench parquet_bench.cpp)
+setup_metall_target(parquet_bench)
+setup_ygm_target(parquet_bench)
+setup_clippy_target(parquet_bench)
 
 #~ add_metalldata_executable(mg-head mg-head.cpp)
 #~ setup_metall_target(mg-head)

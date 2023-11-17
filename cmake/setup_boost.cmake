@@ -43,7 +43,6 @@ function(prepare_fetchcontent_boost)
             "libs/foreach;"
             "libs/iterator;"
             "libs/headers;"
-            "libs/unordered;"
             "libs/format;"
             "libs/range;"
             "libs/concept_check;"
