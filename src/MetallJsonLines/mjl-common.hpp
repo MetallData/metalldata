@@ -32,9 +32,44 @@ using JsonExpression = std::vector<boost::json::object>;
 // \todo should we use JsonExpression also to describe the columns?
 using ColumnSelector = std::vector<std::string>;
 
+template <class ParamT>
+struct parameter_description
+{
+    constexpr
+    parameter_description(const char* argname, const char* argdesc, ParamT argdefval)
+    : name(argname), desc(argdesc), defval(std::move(argdefval))
+    {}
+
+    constexpr
+    parameter_description(const char* argname, const char* argdesc)
+    : name(argname), desc(argdesc), defval()
+    {}
+
+    void register_with_clippy(clippy::clippy& clip) const
+    {
+      if (defval)
+      {
+        clip.add_optional<ParamT>(name, desc, *defval);
+        return;
+      }
+
+      clip.add_required<ParamT>(name, desc);
+    }
+
+    ParamT get(clippy::clippy& clip) const
+    {
+      return clip.get<ParamT>(name);
+    }
+
+  private:
+    const char*           name;
+    const char*           desc;
+    std::optional<ParamT> defval;
+};
+
 namespace {
 const std::string MJL_CLASS_NAME     = "MetallJsonLines";
-const std::string ST_METALL_LOCATION = "metall_location";
+const char* ST_METALL_LOCATION       = "metall_location";
 const std::string ST_SELECTED        = "selected";
 const std::string KEYS_SELECTOR      = "keys";
 
@@ -110,7 +145,7 @@ std::vector<experimental::metall_json_lines::filter_type> filter(
   using BJVectorIterator = std::vector<boost::json::string>::iterator;
 
   ResultType               res;
-  boost::json::string_view boostSelectPrefix(&*selectPrefix.begin(),
+  boost::json::string_view boostSelectPrefix(selectPrefix.data(),
                                              selectPrefix.size());
 
   // prepare AST
@@ -122,6 +157,8 @@ std::vector<experimental::metall_json_lines::filter_type> filter(
       throw std::runtime_error("unable to work with computed variable names");
 
     // check that all free variables are prefixed with SELECTED
+    // \todo CHECK CODE for correctness (entries in vars should not be prefixed
+    //       at all.)
     auto varcheck =
         [boostSelectPrefix](const boost::json::string& varname) -> bool {
       return (varname.rfind(boostSelectPrefix, 0) == 0 &&
@@ -202,12 +239,10 @@ inline experimental::metall_json_lines::metall_projector_type projector(
 
 template <class AllocT>
 CXX_MAYBE_UNUSED experimental::metall_json_lines::updater_type updater(
-    std::size_t rank, clippy::clippy& clip, const std::string& colkey,
-    const std::string& exprkey, std::string_view selectPrefix, AllocT alloc) {
+    std::size_t rank, std::string columnName, boost::json::object columnExpr,
+    std::string_view selectPrefix, AllocT alloc) {
   namespace xpr = experimental;
 
-  std::string         columnName = clip.get<std::string>(colkey);
-  boost::json::object columnExpr = clip.get<boost::json::object>(exprkey);
   auto [ast, vars, hasComputedVarNames] =
       json_logic::translateNode(columnExpr["rule"]);
 

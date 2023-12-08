@@ -14,24 +14,25 @@
 #include "mjl-common.hpp"
 #include "clippy/clippy-eval.hpp"
 
+namespace bj  = boost::json;
 namespace xpr = experimental;
 
 namespace {
-const std::string methodName     = "set";
-const std::string ARG_COLUMN     = "column";
-const std::string ARG_EXPRESSION = "expression";
+const std::string METHOD_DESC    = "set";
+const std::string METHOD_NAME    = "For all selected rows, set a field to a (computed) value.";
+
+const parameter_description<std::string> arg_column{"column", "output column"};
+const parameter_description<bj::object>  arg_expression{"expression", "output value expression"};
 }  // namespace
 
 int ygm_main(ygm::comm& world, int argc, char** argv) {
   int            error_code = 0;
-  clippy::clippy clip{
-      methodName, "For all selected rows, set a field to a (computed) value."};
+  clippy::clippy clip{METHOD_NAME, METHOD_DESC};
 
   clip.member_of(MJL_CLASS_NAME, "A " + MJL_CLASS_NAME + " class");
 
-  clip.add_required<std::string>(ARG_COLUMN, "output column");
-  clip.add_required<boost::json::object>(ARG_EXPRESSION,
-                                         "output value expression");
+  arg_column.register_with_clippy(clip);
+  arg_expression.register_with_clippy(clip);
 
   clip.add_required_state<std::string>(ST_METALL_LOCATION,
                                        "Metall storage location");
@@ -50,7 +51,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
     auto                   alloc = lines.get_allocator();
     const std::size_t      updated =
         lines.filter(filter(world.rank(), clip, KEYS_SELECTOR))
-            .set(updater(world.rank(), clip, ARG_COLUMN, ARG_EXPRESSION,
+            .set(updater(world.rank(), arg_column.get(clip), arg_expression.get(clip),
                          KEYS_SELECTOR, alloc));
 
     if (world.rank() == 0) {

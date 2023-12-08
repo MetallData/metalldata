@@ -8,18 +8,20 @@
 #include "mjl-common.hpp"
 
 namespace {
-const std::string methodName = "__getitem__";
-const std::string expr       = "expressions";
+const std::string METHOD_NAME = "__getitem__";
+const std::string METHOD_DESC = "Sets the selector predicate(s).";
+
+const parameter_description<JsonExpression> arg_expressions{"expressions", "Expression selection"};
 }  // namespace
 
 int ygm_main(ygm::comm& world, int argc, char** argv) {
   int            error_code = 0;
-  clippy::clippy clip{methodName, "Sets the selector predicate(s)."};
+  clippy::clippy clip{METHOD_NAME, METHOD_DESC};
 
   clip.member_of(MJL_CLASS_NAME, "A " + MJL_CLASS_NAME + " class");
 
-  clip.add_required<std::vector<boost::json::object>>(expr,
-                                                      "Expression selection");
+  arg_expressions.register_with_clippy(clip);
+
   clip.add_selector<std::string>(KEYS_SELECTOR, "Row selection key");
   clip.add_required_state<std::string>(ST_METALL_LOCATION,
                                        "Metall storage location");
@@ -33,7 +35,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
   try {
     if (world.rank() == 0) {
       std::string    location = clip.get_state<std::string>(ST_METALL_LOCATION);
-      JsonExpression jsonExpression = clip.get<JsonExpression>(expr);
+      JsonExpression jsonExpression = arg_expressions.get(clip);
       JsonExpression selectedExpression;
 
       if (clip.has_state(ST_SELECTED))

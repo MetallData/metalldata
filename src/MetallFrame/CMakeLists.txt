@@ -29,17 +29,15 @@ setup_metall_target(mf-getitem)
 setup_ygm_target(mf-getitem)
 setup_clippy_target(mf-getitem)
 
+add_metalldata_executable(mf-count mf-count.cpp)
+setup_metall_target(mf-count)
+setup_ygm_target(mf-count)
+setup_clippy_target(mf-count)
 
-#~ add_metalldata_executable(mjl-count mjl-count.cpp)
-#~ setup_metall_target(mjl-count)
-#~ setup_ygm_target(mjl-count)
-#~ setup_clippy_target(mjl-count)
-
-
-#~ add_metalldata_executable(mjl-head mjl-head.cpp)
-#~ setup_metall_target(mjl-head)
-#~ setup_ygm_target(mjl-head)
-#~ setup_clippy_target(mjl-head)
+add_metalldata_executable(mf-head mf-head.cpp)
+setup_metall_target(mf-head)
+setup_ygm_target(mf-head)
+setup_clippy_target(mf-head)
 
 
 #~ add_metalldata_executable(mjl-set mjl-set.cpp)

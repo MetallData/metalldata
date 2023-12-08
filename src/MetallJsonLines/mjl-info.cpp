@@ -21,13 +21,13 @@
 namespace xpr = experimental;
 
 namespace {
-const std::string methodName = "info";
+const std::string METHOD_NAME = "info";
+const std::string METHOD_DESC = "Returns information about the vector storage.";
 }
 
 int ygm_main(ygm::comm& world, int argc, char** argv) {
   int            error_code = 0;
-  clippy::clippy clip{methodName,
-                      "Returns information about the vector storage."};
+  clippy::clippy clip{METHOD_NAME, METHOD_DESC};
 
   clip.member_of(MJL_CLASS_NAME, "A " + MJL_CLASS_NAME + " class");
 

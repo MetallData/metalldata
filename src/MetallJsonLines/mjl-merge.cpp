@@ -28,22 +28,34 @@ using StringVector = std::vector<std::string>;
 
 const bool LOG_TIMING = false;
 
-const std::string methodName = "merge";
-const std::string ARG_OUTPUT = "output";
-const std::string ARG_LEFT   = "left";
-const std::string ARG_RIGHT  = "right";
+const std::string METHOD_NAME = "merge";
+const std::string METHOD_DESC = "For all selected rows, set a field to a (computed) value.";
 
-const std::string ARG_HOW     = "how";
-const std::string DEFAULT_HOW = "inner";
+const parameter_description<bj::object> arg_output{"output", "result MetallJsonLines object; any existing data will be overwritten"};
+const parameter_description<bj::object> arg_left{"left", "left hand side MetallJsonLines object"};
+const parameter_description<bj::object> arg_right{"right", "right hand side MetallJsonLines object"};
+const parameter_description<ColumnSelector> arg_on{ "on",
+                                                    "list of column names on which to join on "
+                                                    "(overruled by left_on/right_on)",
+                                                    {}
+                                                  };
+const parameter_description<ColumnSelector> arg_left_on{ "left_on",
+                                                         "list of columns on which to join left MetallJsonLines",
+                                                         {}
+                                                       };
+const parameter_description<ColumnSelector> arg_right_on{ "right_on",
+                                                          "list of columns on which to join right MetallJsonLines",
+                                                          {}
+                                                        };
+const parameter_description<ColumnSelector> arg_left_columns{ "left_columns",
+                                                              "projection list of the left input frame",
+                                                              {}
+                                                            };
+const parameter_description<ColumnSelector> arg_right_columns{ "right_columns",
+                                                               "projection list of the left input frame",
+                                                               {}
+                                                             };
 
-const std::string ARG_ON       = "on";
-const std::string ARG_LEFT_ON  = "left_on";
-const std::string ARG_RIGHT_ON = "right_on";
-
-const std::string COLUMNS_LEFT  = "left_columns";
-const std::string COLUMNS_RIGHT = "right_columns";
-
-const ColumnSelector DEFAULT_COLUMNS = {};
 
 //~ const std::string    ARG_SUFFIXES     = "suffixes";
 //~ const StringVector   DEFAULT_SUFFIXES{"_x", "_y"};
@@ -97,40 +109,21 @@ std::ostream& operator<<(std::ostream& os, Timer& timer)
 int ygm_main(ygm::comm& world, int argc, char** argv) {
   Timer          timer;
   int            error_code = 0;
-  clippy::clippy clip{
-      methodName, "For all selected rows, set a field to a (computed) value."};
+  clippy::clippy clip{METHOD_NAME, METHOD_DESC};
 
   // model this as free-standing function
   //~ clip.member_of(CLASS_NAME, "A " + CLASS_NAME + " class");
 
-  // required arguments
-  clip.add_required<bj::object>(
-      ARG_OUTPUT,
-      "result MetallJsonLines object; any existing data will be overwritten");
-  clip.add_required<bj::object>(ARG_LEFT,
-                                "right hand side MetallJsonLines object");
-  clip.add_required<bj::object>(ARG_RIGHT,
-                                "left hand side MetallJsonLines object");
+  // arguments
+  arg_output.register_with_clippy(clip);
+  arg_left.register_with_clippy(clip);
+  arg_right.register_with_clippy(clip);
+  arg_on.register_with_clippy(clip);
+  arg_left_on.register_with_clippy(clip);
+  arg_right_on.register_with_clippy(clip);
+  arg_left_columns.register_with_clippy(clip);
+  arg_right_columns.register_with_clippy(clip);
 
-  // future optional arguments
-  // \todo should these be json expressions
-  clip.add_optional<ColumnSelector>(ARG_ON,
-                                    "list of column names on which to join on "
-                                    "(overruled by left_on/right_on)",
-                                    DEFAULT_COLUMNS);
-  clip.add_optional<ColumnSelector>(
-      ARG_LEFT_ON, "list of columns on which to join left MetallJsonLines",
-      DEFAULT_COLUMNS);
-  clip.add_optional<ColumnSelector>(
-      ARG_RIGHT_ON, "list of columns on which to join right MetallJsonLines",
-      DEFAULT_COLUMNS);
-
-  // columns to join on
-  clip.add_optional<ColumnSelector>(
-      COLUMNS_LEFT, "projection list of the left input frame", DEFAULT_COLUMNS);
-  clip.add_optional<ColumnSelector>(COLUMNS_RIGHT,
-                                    "projection list of the right input frame",
-                                    DEFAULT_COLUMNS);
 
   // currently unsupported optional arguments
   // clip.add_optional(ARG_HOW, "join method:
@@ -146,15 +139,15 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
     using metall_manager = xpr::metall_json_lines::metall_manager_type;
 
     // argument processing
-    bj::object lhsObj = clip.get<bj::object>(ARG_LEFT);
-    bj::object rhsObj = clip.get<bj::object>(ARG_RIGHT);
+    bj::object lhsObj       = arg_left.get(clip);
+    bj::object rhsObj       = arg_right.get(clip);
 
-    ColumnSelector argsOn   = clip.get<ColumnSelector>(ARG_ON);
-    ColumnSelector argLhsOn = clip.get<ColumnSelector>(ARG_LEFT_ON);
-    ColumnSelector argRhsOn = clip.get<ColumnSelector>(ARG_RIGHT_ON);
+    ColumnSelector argsOn   = arg_on.get(clip);
+    ColumnSelector argLhsOn = arg_left_on.get(clip);
+    ColumnSelector argRhsOn = arg_right_on.get(clip);
 
-    ColumnSelector projLhs = clip.get<ColumnSelector>(COLUMNS_LEFT);
-    ColumnSelector projRhs = clip.get<ColumnSelector>(COLUMNS_RIGHT);
+    ColumnSelector projLhs  = arg_left_columns.get(clip);
+    ColumnSelector projRhs  = arg_right_columns.get(clip);
 
     // argument error checking
     //   \todo move to validation
@@ -194,7 +187,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
         filter(world.rank(), selectionCriteria(rhsObj), KEYS_SELECTOR));
     timer.segment("rhs-filter");
 
-    bj::object        outObj = clip.get<bj::object>(ARG_OUTPUT);
+    bj::object        outObj = arg_output.get(clip);
     const bj::string& outLoc = valueAt<bj::string>(outObj, "__clippy_type__",
                                                    "state", ST_METALL_LOCATION);
     std::string_view  outLocVw(outLoc.data(), outLoc.size());

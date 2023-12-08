@@ -14,13 +14,68 @@
 #include <ygm/comm.hpp>
 #include <ygm/io/csv_parser.hpp>
 
-#include "dataframe.hpp"
+#include <experimental/dataframe.hpp>
 #include "csv-line-io.hpp"
 
-
-namespace {
-
 namespace xpr = ::experimental;
+
+namespace msg
+{
+struct process_data_mf {
+  // repeated from metall_json_lines class
+  using lines_type     = experimental::DataFrame;
+  using row_type       = std::vector<experimental::dataframe_variant_t>;
+  using projector_type = std::function<row_type(const row_type&)>;
+
+  lines_type*               vector;
+  std::vector<row_type>*    remoteRows;
+  std::vector<std::size_t>* selectedRows;
+  projector_type*           projector;
+};
+
+process_data_mf mfState;
+
+struct row_response {
+  using row_type = process_data_mf::row_type;
+
+  void operator()(std::vector<row_type> rows) {
+    assert(mfState.remoteRows != nullptr);
+
+    std::move(rows.begin(), rows.end(),
+              std::back_inserter(*mfState.remoteRows));
+  }
+};
+
+struct row_request {
+  void operator()(ygm::comm* w, std::size_t numrows) const {
+    assert(w != nullptr);
+    assert(mfState.vector != nullptr);
+    assert(mfState.selectedRows != nullptr);
+
+    ygm::comm& world     = *w;
+    const int  fromThis  = std::min(mfState.selectedRows->size(), numrows);
+    const int  fromOther = numrows - fromThis;
+
+    if ((fromOther > 0) && (world.size() != (world.rank() + 1)))
+    {
+      world.async(world.rank() + 1, row_request{}, fromOther);
+    }
+
+    mfState.selectedRows->resize(fromThis);
+
+    std::vector<std::vector<experimental::dataframe_variant_t> > response;
+
+    for (std::uint64_t i : *mfState.selectedRows) {
+      // response.emplace_back((*mfState.projector)(mfState.frame->at(i)));
+    }
+
+    world.async(0, row_response{}, response);
+  }
+};
+
+namespace
+{
+
 
 bool check_condition(bool v, const char* errmsg = "Failed check") {
   if (!v) {
@@ -33,7 +88,7 @@ bool check_condition(bool v, const char* errmsg = "Failed check") {
 
 
 std::vector<int>
-all_column_indices(const xpr::dataframe& df)
+all_column_indices(const experimental::DataFrame& df)
 {
   const int        numcol = df.columns();
   std::vector<int> res(numcol);
@@ -48,7 +103,7 @@ using DataConverter = std::function<xpr::dataframe_variant_t(const std::string& 
 template <class DfCellType>
 struct ConverterFn
 {
-  ConverterFn(xpr::dataframe* /* not needed */)
+  ConverterFn(xpr::DataFrame* /* not needed */)
   {}
 
   xpr::dataframe_variant_t operator()(const std::string& s)
@@ -70,7 +125,7 @@ struct ConverterFn<xpr::string_t>
     return df->persistent_string(s);
   }
 
-  xpr::dataframe* df;
+  xpr::DataFrame* df;
 };
 
 
@@ -181,9 +236,8 @@ namespace experimental {
 
       using filter_type    = std::function<bool(std::size_t, const row_variant&)>;
       using visitor_type   = std::function<void(std::size_t, const row_variant&)>;
+      using projector_type = std::function<row_variant(row_variant)>;
 
-      // error type
-      // using notavail_t = xpr::notavail_t;
 
       metall_frame(metall_manager_type& mgr, ygm::comm& world, std::string_view key)
       : ygmcomm(world), metallmgr(mgr), df(metall::open_only_t{}, metallmgr.get_local_manager(), key)
@@ -206,6 +260,17 @@ namespace experimental {
         df.add_column_with_default(std::move(defval));
         df.name_last_column(colname);
       }
+
+
+      /// returns the available columns
+      ///
+
+      std::vector<std::string>
+      get_column_names() const
+      {
+        return df.get_column_names();
+      }
+
 
 
       import_summary
@@ -298,6 +363,52 @@ namespace experimental {
 
         return totalSelected;
       }
+
+      /// returns \ref numrows elements from the container
+      boost::json::array head(std::size_t numrows, projector_type projector) const {
+        using ResultType = decltype(head(numrows, projector));
+
+        ResultType               res;
+        std::vector<std::string> remoteRows;
+        std::vector<std::size_t> selectedRows;
+
+        msg::mfState =
+            msg::process_data_mf{&vector, &remoteRows, &selectedRows, &projector};
+
+        // phase 1: make all local selections
+        {
+          for_all_selected(
+              [&selectedRows](std::size_t rownum, const row_variant&) -> void {
+                selectedRows.emplace_back(rownum);
+              },
+              numrows);
+
+          ygmcomm.barrier();
+        }
+
+        // phase 2: send data request to neighbor
+        //          (cascades until numrows are available, or last rank)
+        //          rank 0: start filling result vector
+        {
+          if (isMainRank() && (selectedRows.size() < numrows) && !isLastRank())
+          {
+            ygmcomm.async(ygmcomm.rank() + 1, msg::row_request{},
+                          (numrows - selectedRows.size()));
+          }
+
+          for (std::uint64_t i : selectedRows)
+            res.emplace_back(projector(vector.at(i)));
+
+          ygmcomm.barrier();
+        }
+
+        // phase 3: append received data to res (only rank 0 receives data)
+        for (const std::string& row : remoteRows)
+          res.emplace_back(boost::json::parse(row));
+
+        return res;
+      }
+
 
 
       /// returns the communicator

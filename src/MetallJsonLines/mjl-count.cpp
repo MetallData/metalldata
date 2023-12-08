@@ -13,22 +13,21 @@ namespace xpr = experimental;
 
 namespace {
 const std::string METHOD_NAME = "count";
-const std::string METHOD_DOCSTRING =
+const std::string METHOD_DESC =
     "Counts the number of rows where the current selection criteria is true.";
 
-const std::string COUNT_ALL_NAME = "count_all";
-const std::string COUNT_ALL_DESC = "if true, the selection criteria is ignored";
+const parameter_description<bool> arg_count_all{"count_all", "if true, the selection criteria is ignored", false};
 }  // namespace
 
 int ygm_main(ygm::comm& world, int argc, char** argv) {
   int            error_code = 0;
-  clippy::clippy clip{METHOD_NAME, METHOD_DOCSTRING};
+  clippy::clippy clip{METHOD_NAME, METHOD_DESC};
 
   clip.member_of(MJL_CLASS_NAME, "A " + MJL_CLASS_NAME + " class");
   clip.add_required_state<std::string>(ST_METALL_LOCATION,
                                        "Metall storage location");
 
-  clip.add_optional<bool>(COUNT_ALL_NAME, COUNT_ALL_DESC, false);
+  arg_count_all.register_with_clippy(clip);
 
   if (clip.parse(argc, argv, world)) {
     return 0;
@@ -39,7 +38,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
 
     const std::string dataLocation =
         clip.get_state<std::string>(ST_METALL_LOCATION);
-    const bool             countAll = clip.get<bool>(COUNT_ALL_NAME);
+    const bool             countAll = arg_count_all.get(clip);
     metall_manager         mm{metall::open_read_only, dataLocation.data(),
                       MPI_COMM_WORLD};
     xpr::metall_json_lines lines{mm, world};

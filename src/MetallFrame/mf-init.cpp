@@ -20,19 +20,24 @@ const std::string& type(const ColumnDescription& col) { return col.second; }
 const std::string& name(const ColumnDescription& col) { return col.first; }
 
 namespace {
-const std::string METHOD_NAME     = "__init__";
+const std::string METHOD_NAME = "__init__";
+
 const std::string METHOD_DESC =
     "Initializes a MetallFrame object\n"
     "creates a new physical object on disk "
     "only if it does not already exist.";
 
-const std::string ARG_COLUMN_NAME = "columns";
-const std::string ARG_COLUMN_DESC =
-  "Column description (pair of string/string describing name and type of "
-  "columns)."
-  "\n  Valid types in (string | int | uint | real)"
-  "\n  When the column description is supplied, any existing dataframe"
-  "\n  at the specified location will be overwritten";
+const parameter_description<std::string> arg_location{ST_METALL_LOCATION_NAME, ST_METALL_LOCATION_DESC};
+const parameter_description<std::string> arg_key{ST_METALL_KEY_NAME, ST_METALL_KEY_DESC, ST_METALL_KEY_DFLT};
+const parameter_description<std::vector<ColumnDescription> > arg_columns{"columns",
+                 "Column description (pair of string/string describing name and type of "
+                 "columns)."
+                 "\n  Valid types in (string | int | uint | real)"
+                 "\n  When the column description is supplied, any existing dataframe"
+                 "\n  at the specified location will be overwritten",
+                 {}
+      };
+
 }  // namespace
 
 void append_column(xpr::metall_frame& mf, const ColumnDescription& desc) {
@@ -64,16 +69,9 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
   clippy::clippy clip{METHOD_NAME, METHOD_DESC};
 
   clip.member_of(MF_CLASS_NAME, "A " + MF_CLASS_NAME + " class");
-  clip.add_required<std::string>(ST_METALL_LOCATION_NAME,
-                                 ST_METALL_LOCATION_DESC);
-  clip.add_optional<std::string>(ST_METALLFRAME_NAME,
-                                 ST_METALLFRAME_DESC,
-                                 ST_METALLFRAME_DFLT);
-
-  // ARG_COLUMN_DESC is optional. If not present, the __init__ method assumes
-  // that we want to reopen an existing dataframe.
-  clip.add_optional<std::vector<ColumnDescription>>(
-     ARG_COLUMN_NAME, ARG_COLUMN_DESC,std::vector<ColumnDescription>{});
+  arg_location.register_with_clippy(clip);
+  arg_key.register_with_clippy(clip);
+  arg_columns.register_with_clippy(clip);
 
   // no object-state requirements in constructor
   if (clip.parse(argc, argv)) {
@@ -85,17 +83,15 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
     using metall_manager = xpr::metall_frame::metall_manager_type;
 
     // try to create the object
-    std::string dataLocation = clip.get<std::string>(ST_METALL_LOCATION_NAME);
+    std::string dataLocation = arg_location.get(clip);
 
     if (!metall::utility::metall_mpi_adaptor::consistent(dataLocation.data(),
                                                          MPI_COMM_WORLD))
       throw std::runtime_error{"Metallstore is inconsistent"};
 
-    std::string key          = clip.get<std::string>(ST_METALLFRAME_NAME);
-    std::vector<ColumnDescription> column_desc =
-          clip.get<std::vector<ColumnDescription>>(ARG_COLUMN_DESC);
-
-    const bool  createNew    = column_desc.size() != 0;
+    std::string key         = arg_key.get(clip);
+    auto        column_desc = arg_columns.get(clip);
+    const bool  createNew   = column_desc.size() != 0;
 
     if (createNew) {
       metall_manager mm{metall::create_only, dataLocation.data(),
@@ -115,7 +111,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
 
     // set the return values
     clip.set_state(ST_METALL_LOCATION_NAME, std::move(dataLocation));
-    clip.set_state(ST_METALLFRAME_NAME, std::move(key));
+    clip.set_state(ST_METALL_KEY_NAME, std::move(key));
   } catch (const std::runtime_error& ex) {
     error_code = 1;
     clip.to_return(ex.what());

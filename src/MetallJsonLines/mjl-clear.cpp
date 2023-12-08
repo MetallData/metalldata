@@ -12,13 +12,12 @@ namespace xpr = experimental;
 
 namespace {
 const std::string METHOD_NAME = "clear";
+const std::string METHOD_DESC = "Erases ALL elements in MetallJsonLines (selection is ignored).";
 }  // namespace
 
 int ygm_main(ygm::comm& world, int argc, char** argv) {
   int            error_code = 0;
-  clippy::clippy clip{
-      METHOD_NAME,
-      "Erases ALL elements in MetallJsonLines (selection is ignored)."};
+  clippy::clippy clip{METHOD_NAME, METHOD_DESC};
 
   clip.member_of(MJL_CLASS_NAME, "A " + MJL_CLASS_NAME + " class");
 

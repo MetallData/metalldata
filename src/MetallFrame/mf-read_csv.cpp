@@ -12,13 +12,16 @@
 namespace xpr = experimental;
 
 namespace {
+using StringVector = std::vector<std::string>;
+
 const std::string METHOD_NAME = "read_csv";
 const std::string METHOD_DESC =
     "Imports CSV Data from files into the MetallFrame object.";
 
-const std::string ARG_CSV_FILES_NAME = "csv_files";
-const std::string ARG_CSV_FILES_DESC =
-    "A list of CSV files that will be imported.";
+const parameter_description<StringVector> arg_csv_files{ "csv_files",
+                                                         "A list of CSV files that will be imported."
+                                                       };
+
 }  // namespace
 
 int ygm_main(ygm::comm& world, int argc, char** argv) {
@@ -26,12 +29,11 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
   clippy::clippy clip{METHOD_NAME, METHOD_DESC};
 
   clip.member_of(MF_CLASS_NAME, "A " + MF_CLASS_NAME + " class");
-  clip.add_required<std::vector<std::string> >(ARG_CSV_FILES_NAME,
-                                               ARG_CSV_FILES_DESC);
+  arg_csv_files.register_with_clippy(clip);
   clip.add_required_state<std::string>(ST_METALL_LOCATION_NAME,
                                        ST_METALL_LOCATION_DESC);
-  clip.add_required_state<std::string>(ST_METALLFRAME_NAME,
-                                       ST_METALLFRAME_DESC);
+  clip.add_required_state<std::string>(ST_METALL_KEY_NAME,
+                                       ST_METALL_KEY_DESC);
 
   if (clip.parse(argc, argv, world)) {
     return 0;
@@ -40,9 +42,9 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
   try {
     using metall_manager = xpr::metall_frame::metall_manager_type;
 
-    const std::vector<std::string> files = clip.get<std::vector<std::string> >(ARG_CSV_FILES_NAME);
+    auto const                files = arg_csv_files.get(clip);
     std::string               dataLocation = clip.get_state<std::string>(ST_METALL_LOCATION_NAME);
-    std::string               key = clip.get_state<std::string>(ST_METALLFRAME_NAME);
+    std::string               key = clip.get_state<std::string>(ST_METALL_KEY_NAME);
     metall_manager            mm{metall::open_only, dataLocation.data(), MPI_COMM_WORLD};
     xpr::metall_frame         frame{mm, world, key};
     const xpr::import_summary imp = frame.read_csv_files(files);

@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-/// \brief Implements head function to return N entries from a MetallFrame
+/// \brief Implements head function to return N entries from a MetallJsoneLines
 
 #include <fstream>
 #include <iostream>
@@ -13,13 +13,10 @@
 
 #include <boost/json.hpp>
 
+#include "mjl-common.hpp"
 #include "clippy/clippy-eval.hpp"
-#include "df-common.hpp"
-#include "experimental/json-io.hpp"
 
-namespace bjsn = boost::json;
-namespace jl   = json_logic;
-namespace xpr  = experimental;
+namespace xpr = experimental;
 
 namespace {
 
@@ -28,50 +25,7 @@ const std::string    ARG_MAX_ROWS    = "num";
 const std::string    COLUMNS         = "columns";
 const ColumnSelector DEFAULT_COLUMNS = {};
 
-struct ProcessData {
-  vector_json_type*        vec = nullptr;
-  std::vector<int>         selectedRows;
-  std::vector<std::string> remoteRows;
-  ColumnSelector           projlist;
-};
-
-ProcessData local;
-
 }  // namespace
-
-struct RowResponse {
-  void operator()(std::vector<std::string> rows) {
-    for (std::string& el : rows) local.remoteRows.emplace_back(std::move(el));
-  }
-};
-
-struct RowRequest {
-  //~ template <class CommT>
-  //~ void operator()(CommT* world, int numrows) const
-  void operator()(ygm::comm* w, int numrows) const {
-    assert(w);
-
-    ygm::comm& world     = *w;
-    const int  fromThis  = std::min(int(local.selectedRows.size()), numrows);
-    const int  fromOther = numrows - fromThis;
-
-    if ((fromOther > 0) && (world.size() != (world.rank() + 1)))
-      world.async(world.rank() + 1, RowRequest{}, fromOther);
-
-    /*
-        for (int i = 0; i < fromThis; ++i)
-        {
-          std::stringstream serial;
-
-          serial << projectJsonEntry(local.vec->at(local.selectedRows.at(i)),
-       local.projlist) << std::flush;
-
-          local.remoteRows.emplace_back(serial.str());
-        }
-    */
-    world.async(0, RowResponse{}, local.remoteRows);
-  }
-};
 
 int ygm_main(ygm::comm& world, int argc, char** argv) {
   int            error_code = 0;
@@ -79,56 +33,32 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
       methodName,
       "Returns n arbitrary rows for which the predicate evaluates to true."};
 
-  clip.member_of(CLASS_NAME, "A " + CLASS_NAME + " class");
-  clip.add_required_state<std::string>(ST_METALL_LOCATION,
-                                       "Metall storage location");
-  clip.add_required_state<std::string>(ST_METALLFRAME_NAME, "Metallframe2 key");
+  clip.member_of(MJL_CLASS_NAME, "A " + MJL_CLASS_NAME + " class");
 
   clip.add_optional<int>(ARG_MAX_ROWS, "Max number of rows returned", 5);
   clip.add_optional<ColumnSelector>(
       COLUMNS, "projection list (list of columns to put out)", DEFAULT_COLUMNS);
+  clip.add_required_state<std::string>(ST_METALL_LOCATION,
+                                       "Metall storage location");
 
   if (clip.parse(argc, argv, world)) {
     return 0;
   }
 
   try {
-    std::string    location = clip.get_state<std::string>(ST_METALL_LOCATION);
-    std::string    key      = clip.get_state<std::string>(ST_METALLFRAME_NAME);
-    const int      numrows  = clip.get<int>(ARG_MAX_ROWS);
-    ColumnSelector projlist = clip.get<ColumnSelector>(COLUMNS);
-    std::unique_ptr<xpr::DataFrame> dfp =
-        makeDataFrame(false /* existing */, location, key);
+    using metall_manager = xpr::metall_json_lines::metall_manager_type;
 
-    local.vec = dfp.get();
-    local.selectedRows =
-        getSelectedRows(world.rank(), clip, *local.vec, numrows);
-    local.projlist = std::move(projlist);
+    const std::string dataLocation =
+        clip.get_state<std::string>(ST_METALL_LOCATION);
+    const std::size_t      numrows = clip.get<int>(ARG_MAX_ROWS);
+    metall_manager         mm{metall::open_read_only, dataLocation.data(),
+                      MPI_COMM_WORLD};
+    xpr::metall_json_lines lines{mm, world};
+    boost::json::value     res =
+        lines.filter(filter(world.rank(), clip, KEYS_SELECTOR))
+            .head(numrows, projector(COLUMNS, clip));
 
-    world.barrier();
-
-    const int numSelectedRows = local.selectedRows.size();
-
-    if ((numSelectedRows < numrows) && (world.rank() == 0) &&
-        (world.size() != (world.rank() + 1)))
-      world.async(world.rank() + 1, RowRequest{}, (numrows - numSelectedRows));
-
-    // maybe a variant of getSelectedRows can fill in the rows
-    std::vector<bjsn::value> res;
-
-    if (world.rank() == 0) {
-      for (int i : local.selectedRows)
-        res.emplace_back(experimental::exportJson(*dfp, local.projlist, i));
-    }
-
-    world.barrier();
-
-    if (world.rank() == 0) {
-      for (const std::string& row : local.remoteRows)
-        res.emplace_back(boost::json::parse(row));
-
-      clip.to_return(std::move(res));
-    }
+    if (world.rank() == 0) clip.to_return(std::move(res));
   } catch (const std::exception& err) {
     error_code = 1;
     if (world.rank() == 0) clip.to_return(err.what());

@@ -12,27 +12,25 @@ namespace xpr = experimental;
 namespace {
 const std::string METHOD_NAME = "__init__";
 
-const std::string METHOD_DOCSTRING =
+const std::string METHOD_DESC =
     "Initializes a MetallJsonLines object\n"
     "creates a new physical object on disk "
     "only if it does not already exist or "
     "overwrite is specified.";
 
-const std::string ARG_ALWAYS_CREATE_NAME = "overwrite";
-const std::string ARG_ALWAYS_CREATE_DESC =
-    "create new data store (deleting any existing data)";
+const parameter_description<std::string> arg_location{ST_METALL_LOCATION, "Location of the Metall store"};
+const parameter_description<bool> arg_overwrite{"overwrite", "create new data store (deleting any existing data)", false};
+
 }  // namespace
 
 int ygm_main(ygm::comm& world, int argc, char** argv) {
   int            error_code = 0;
-  clippy::clippy clip{METHOD_NAME, METHOD_DOCSTRING};
+  clippy::clippy clip{METHOD_NAME, METHOD_DESC};
 
   clip.member_of(MJL_CLASS_NAME, "A " + MJL_CLASS_NAME + " class");
 
-  clip.add_required<std::string>(ST_METALL_LOCATION,
-                                 "Location of the Metall store");
-  clip.add_optional<bool>(ARG_ALWAYS_CREATE_NAME, ARG_ALWAYS_CREATE_DESC,
-                          false);
+  arg_location.register_with_clippy(clip);
+  arg_overwrite.register_with_clippy(clip);
 
   // no object-state requirements in constructor
   if (clip.parse(argc, argv, world)) {
@@ -44,8 +42,8 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
 
     // the real thing
     // try to create the object
-    std::string dataLocation = clip.get<std::string>(ST_METALL_LOCATION);
-    const bool  overwrite    = clip.get<bool>(ARG_ALWAYS_CREATE_NAME);
+    std::string dataLocation = arg_location.get(clip);
+    const bool  overwrite    = arg_overwrite.get(clip);
 
     if (overwrite) remove_directory_and_content(world, dataLocation);
 

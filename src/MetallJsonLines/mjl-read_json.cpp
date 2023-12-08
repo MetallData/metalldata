@@ -11,13 +11,15 @@
 namespace xpr = experimental;
 
 namespace {
+using StringVector = std::vector<std::string>;
+
 const std::string METHOD_NAME = "read_json";
 const std::string METHOD_DESC =
     "Imports Json Data from files into the MetallJsonLines object.";
 
-const std::string ARG_JSON_FILES_NAME = "json_files";
-const std::string ARG_JSON_FILES_DESC =
-    "A list of Json files that will be imported.";
+const parameter_description<StringVector> arg_json_files{ "json_files",
+                                                          "A list of Json files that will be imported."
+                                                        };
 }  // namespace
 
 int ygm_main(ygm::comm& world, int argc, char** argv) {
@@ -26,8 +28,8 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
 
   clip.member_of(MJL_CLASS_NAME, "A " + MJL_CLASS_NAME + " class");
 
-  clip.add_required<std::vector<std::string> >(ARG_JSON_FILES_NAME,
-                                               ARG_JSON_FILES_DESC);
+  arg_json_files.register_with_clippy(clip);
+
   clip.add_required_state<std::string>(ST_METALL_LOCATION,
                                        "Metall storage location");
 
@@ -38,8 +40,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
   try {
     using metall_manager = xpr::metall_json_lines::metall_manager_type;
 
-    const std::vector<std::string> files =
-        clip.get<std::vector<std::string> >(ARG_JSON_FILES_NAME);
+    const std::vector<std::string> files = arg_json_files.get(clip);
     const std::string dataLocation =
         clip.get_state<std::string>(ST_METALL_LOCATION);
     metall_manager mm{metall::open_only, dataLocation.data(), MPI_COMM_WORLD};
