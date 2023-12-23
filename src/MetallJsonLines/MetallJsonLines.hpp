@@ -454,11 +454,11 @@ struct metall_json_lines {
     });
     ygmcomm.barrier();
 
-    assert(vector.size() == initialSize + imported);
-
     // phase 2: compute total number of imported rows
-    int totalImported = ygmcomm.all_reduce_sum(imported);
-    int totalRejected = ygmcomm.all_reduce_sum(rejected);
+    std::size_t totalImported = ygmcomm.all_reduce_sum(imported);
+    std::size_t totalRejected = ygmcomm.all_reduce_sum(rejected);
+    assert(ygmcomm.all_reduce_sum(vector.size()) ==
+           totalImported + ygmcomm.all_reduce_sum(initialSize));
 
     return {totalImported, totalRejected};
   }
