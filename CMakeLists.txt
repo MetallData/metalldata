@@ -66,8 +66,8 @@ find_package(MPI)
 # Parquet
 #
 if (METALLDATA_USE_PARQUET)
-    find_package(Arrow 13.0 REQUIRED)
-    find_package(Parquet 13.0 REQUIRED)
+    find_package(Arrow 14 REQUIRED)
+    find_package(Parquet 14 REQUIRED)
 endif ()
 
 #

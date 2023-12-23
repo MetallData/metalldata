@@ -60,12 +60,6 @@ setup_metall_target(mg-bfs)
 setup_ygm_target(mg-bfs)
 setup_clippy_target(mg-bfs)
 
-
-add_metalldata_executable(parquet_bench parquet_bench.cpp)
-setup_metall_target(parquet_bench)
-setup_ygm_target(parquet_bench)
-setup_clippy_target(parquet_bench)
-
 #~ add_metalldata_executable(mg-head mg-head.cpp)
 #~ setup_metall_target(mg-head)
 #~ setup_ygm_target(mg-head)
