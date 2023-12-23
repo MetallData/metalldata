@@ -66,8 +66,8 @@ find_package(MPI)
 # Parquet
 #
 if (METALLDATA_USE_PARQUET)
-    find_package(Arrow 13.0 REQUIRED)
-    find_package(Parquet 13.0 REQUIRED)
+    find_package(Arrow 14 REQUIRED)
+    find_package(Parquet 14 REQUIRED)
 endif ()
 
 #
@@ -77,8 +77,8 @@ if (MPI_CXX_FOUND)
     if (NOT YGM_FOUND)
         set(JUST_INSTALL_YGM TRUE)
         FetchContent_Declare(YGM
-                GIT_REPOSITORY https://github.com/LLNL/ygm.git
-                GIT_TAG develop
+            GIT_REPOSITORY https://github.com/LLNL/ygm.git
+            GIT_TAG develop
                 )
         FetchContent_MakeAvailable(YGM)
     endif ()
@@ -259,7 +259,7 @@ function(setup_metall_target exe_name)
         target_compile_definitions(${exe_name} PRIVATE "METALL_DISABLE_CXX17_FILESYSTEM_LIB")
     endif ()
 
-    if (Arrow_FOUND AND Parquet_FOUND)
+    if (METALLDATA_USE_PARQUET AND Arrow_FOUND AND Parquet_FOUND)
         target_link_libraries(${exe_name} PRIVATE Arrow::arrow_shared)
         target_link_libraries(${exe_name} PRIVATE Parquet::parquet_shared)
         target_compile_definitions(${exe_name} PRIVATE METALLDATA_USE_PARQUET)

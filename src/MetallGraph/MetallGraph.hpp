@@ -268,12 +268,13 @@ struct metall_graph {
                                    const file_type ftype = file_type::json) {
     if (ftype == file_type::json) {
       return nodelst.read_json_files(files, gen_keys_checker({nodeKey()}));
-    }
+    } else if (ftype == file_type::parquet) {
 #ifdef METALLDATA_USE_PARQUET
-    else if (ftype == file_type::parquet) {
       return nodelst.read_parquet_files(files, gen_keys_checker({nodeKey()}));
-    }
+#else
+      assert(false);
 #endif
+    }
     return import_summary{};
   }
 
@@ -284,14 +285,15 @@ struct metall_graph {
       if (ftype == file_type::json) {
         return edgelst.read_json_files(
             files, gen_keys_checker({edgeSrcKey(), edgeTgtKey()}));
-      }
+      } else if (ftype == file_type::parquet) {
 #ifdef METALLDATA_USE_PARQUET
-      else if (ftype == file_type::parquet) {
         return edgelst.read_parquet_files(
             files, gen_keys_checker({edgeSrcKey(), edgeTgtKey()}));
-      }
+#else
+        assert(false);
 #endif
-    return import_summary{};
+      }
+      return import_summary{};
     }
 
     msg::ptr_guard cntStateGuard{count_data_mg::ptr,
@@ -599,7 +601,7 @@ struct metall_graph {
 
     // i-th item is the number of nodes in 'i'-kore.
     std::vector<size_t> kcore_size_list;
-    std::size_t total_num_pruned = 0;
+    std::size_t         total_num_pruned = 0;
 
     // Compute k-core (from 0-core to 'max_kcore'-core)
     for (int kcore = 1; kcore <= max_kcore + 1; ++kcore) {
@@ -632,7 +634,6 @@ struct metall_graph {
       }
 
       total_num_pruned += num_pruned;
-      // comm().cerr0() << num_nodes << " - " << total_num_pruned << " " << num_pruned << std::endl;
       kcore_size_list.emplace_back(num_nodes - total_num_pruned);
     }
 
