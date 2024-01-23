@@ -240,10 +240,7 @@ struct metall_graph {
   using metall_manager_type = metall_json_lines::metall_manager_type;
   using filter_type         = metall_json_lines::filter_type;
 
-  enum file_type {
-    json,
-    parquet
-  };
+  enum file_type { json, parquet };
 
   metall_graph(metall_manager_type& manager, ygm::comm& comm)
       : edgelst(manager, comm, edge_location_suffix),
@@ -501,7 +498,6 @@ struct metall_graph {
             map_cc.async_insert(vertex, vertex);
             active.async_insert(vertex, vertex);
           });
-
       comm().barrier();
 
       while (active.size() > 0) {
@@ -540,7 +536,6 @@ struct metall_graph {
       }
 
       localRoots = 0;
-
       // \todo should be local_for_all??
       s_map_cc.for_all(
           [](const std::string& lhs, const std::string& rhs) -> void {
@@ -549,6 +544,35 @@ struct metall_graph {
             //~ if (lhs == rhs)
             //~ std::cerr << lhs << std::flush;
           });
+      comm().barrier();
+
+      // Insert CC IDs to the corresponding nodes' JSON data
+      {
+        auto cc_setter = [nodeKeyTxt = nodeKey(), this](
+                             const std::size_t                       node_idx,
+                             const metall_json_lines::accessor_type& val) {
+          const std::string v = to_string(get_key(val, nodeKeyTxt));
+          // Visit the rank that holds v's CC ID.
+          s_map_cc.async_visit_if_exists(
+              v,
+              [](const std::string&, std::string& cc_id,
+                 const std::size_t node_idx, auto pthis, const int src_rank) {
+                // Send CC ID to src_rank who owns the node in the node-list.
+                pthis->comm().async(
+                    src_rank,
+                    [](auto, const std::string& cc_id,
+                       const std::size_t node_idx, auto pthis) {
+                      // Finally, we have come back to the original rank.
+                      // Update the CC ID.
+                      pthis->nodelst.at(node_idx).as_object()["cc"] = cc_id;
+                    },
+                    cc_id, node_idx, pthis);
+              },
+              node_idx, ptr_this, comm().rank());
+        };
+        nodelst.for_all_selected(cc_setter);
+        comm().barrier();
+      }
     }
 
     const std::size_t totalRoots = nodelst.comm().all_reduce_sum(localRoots);
