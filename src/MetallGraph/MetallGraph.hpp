@@ -792,7 +792,7 @@ struct metall_graph {
     return comm().all_reduce_sum(local_total_visited);
   }
 
-  void dump(const std::string_view& prefix_path) {
+  bool dump(const std::string_view& prefix_path) {
     const std::string node_path =
         std::string(prefix_path) + "-node-" + std::to_string(comm().rank());
     {
@@ -810,6 +810,8 @@ struct metall_graph {
       }
     }
     comm().cf_barrier();
+
+    return true;
   }
 
   static void check_state(metall_manager_type& manager, ygm::comm& comm) {
