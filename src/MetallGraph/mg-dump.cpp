@@ -37,7 +37,9 @@ int ygm_main(ygm::comm &world, int argc, char **argv) {
     metall_manager    mm{metall::open_read_only, dataLocation.data(),
                       MPI_COMM_WORLD};
     xpr::metall_graph g{mm, world};
-    const auto        res = g.dump(dumpLocation);
+    const auto        res =
+        g.dump(filter(world.rank(), clip, NODES_SELECTOR),
+               filter(world.rank(), clip, EDGES_SELECTOR), dumpLocation);
 
     if (world.rank() == 0) {
       clip.to_return(res);
