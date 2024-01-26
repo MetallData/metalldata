@@ -126,6 +126,7 @@ struct bfs_comp_mg {
 };
 
 bfs_comp_mg* bfs_comp_mg::ptr = nullptr;
+
 }  // namespace
 
 namespace experimental {
@@ -792,22 +793,26 @@ struct metall_graph {
     return comm().all_reduce_sum(local_total_visited);
   }
 
-  bool dump(const std::string_view& prefix_path) {
-    const std::string node_path =
-        std::string(prefix_path) + "-node-" + std::to_string(comm().rank());
+  bool dump(std::vector<filter_type> nfilt, std::vector<filter_type> efilt,
+            const std::string_view& prefix_path) {
     {
+      const std::string node_path =
+          std::string(prefix_path) + "-node-" + std::to_string(comm().rank());
       std::ofstream ofs(node_path);
-      for (std::size_t i = 0; i < nodelst.local_size(); ++i) {
-        ofs << nodelst.at(i) << "\n";
-      }
+      auto          nodeAction = [&ofs](const auto, const auto& val) -> void {
+        ofs << val << "\n";
+      };
+      nodelst.filter(std::move(nfilt)).for_all_selected(nodeAction);
     }
-    const std::string edge_path =
-        std::string(prefix_path) + "-edge-" + std::to_string(comm().rank());
+
     {
+      const std::string edge_path =
+          std::string(prefix_path) + "-edge-" + std::to_string(comm().rank());
       std::ofstream ofs(edge_path);
-      for (std::size_t i = 0; i < edgelst.local_size(); ++i) {
-        ofs << edgelst.at(i) << "\n";
-      }
+      auto          edgeAction = [&ofs](const auto, const auto& val) -> void {
+        ofs << val << "\n";
+      };
+      edgelst.filter(std::move(efilt)).for_all_selected(edgeAction);
     }
     comm().cf_barrier();
 
