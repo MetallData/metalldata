@@ -126,6 +126,7 @@ struct bfs_comp_mg {
 };
 
 bfs_comp_mg* bfs_comp_mg::ptr = nullptr;
+
 }  // namespace
 
 namespace experimental {
@@ -427,6 +428,66 @@ struct metall_graph {
   }
 
   ygm::comm& comm() { return nodelst.comm(); }
+
+  bool count_degree(std::vector<filter_type> nfilt,
+                    std::vector<filter_type> efilt, bool undirected = true) {
+    msg::ptr_guard cntStateGuard{bfs_comp_mg::ptr, new bfs_comp_mg{}};
+
+    //
+    // Allocate adjacency list
+    ygm::container::map<std::string, std::size_t> count_table(comm());
+    auto nodeAction = [&count_table, nodeKeyTxt = nodeKey()](
+                          std::size_t,
+                          const metall_json_lines::accessor_type& val) -> void {
+      const auto vertex = to_string(get_key(val, nodeKeyTxt));
+      count_table.async_insert_if_missing(vertex, 0);
+    };
+    nodelst.filter(std::move(nfilt)).for_all_selected(nodeAction);
+    comm().barrier();
+
+    auto edgeAction = [&count_table, undirected, edgeSrcKeyTxt = edgeSrcKey(),
+                       edgeTgtKeyTxt = edgeTgtKey()](
+                          std::size_t                             pos,
+                          const metall_json_lines::accessor_type& val) -> void {
+      const auto src = to_string(get_key(val, edgeTgtKeyTxt));
+      const auto dst = to_string(get_key(val, edgeSrcKeyTxt));
+      count_table.async_visit_if_exists(
+          src, [](const auto&, std::size_t& degree) { ++degree; });
+
+      if (!undirected) return;
+      count_table.async_visit_if_exists(
+          dst, [](const auto&, std::size_t& degree) { ++degree; });
+    };
+    edgelst.filter(std::move(efilt)).for_all_selected(edgeAction);
+    comm().barrier();
+
+    auto level_setter = [&count_table, nodeKeyTxt = nodeKey(), this](
+                            const std::size_t                       node_index,
+                            const metall_json_lines::accessor_type& val) {
+      const auto v = to_string(get_key(val, nodeKeyTxt));
+      // Visit the rank that know the degree of v
+      count_table.async_visit(
+          v,
+          [](const std::string& v, const std::size_t degree,
+             ygm::ygm_ptr<metall_graph> pthis, const int src_rank,
+             const int node_index) {
+            // Send the degree to the node owner
+            pthis->comm().async(
+                src_rank,
+                [](auto, ygm::ygm_ptr<metall_graph> pthis, const int node_index,
+                   const std::size_t degree) {
+                  // Finally, update the degree value
+                  pthis->nodelst.at(node_index).as_object()["degree"] = degree;
+                },
+                pthis, node_index, degree);
+          },
+          ptr_this, comm().rank(), node_index);
+    };
+    nodelst.for_all_selected(level_setter);
+    comm().barrier();
+
+    return true;
+  }
 
   std::size_t connected_components(std::vector<filter_type> nfilt,
                                    std::vector<filter_type> efilt) {
@@ -792,24 +853,30 @@ struct metall_graph {
     return comm().all_reduce_sum(local_total_visited);
   }
 
-  void dump(const std::string_view& prefix_path) {
-    const std::string node_path =
-        std::string(prefix_path) + "-node-" + std::to_string(comm().rank());
+  bool dump(std::vector<filter_type> nfilt, std::vector<filter_type> efilt,
+            const std::string_view& prefix_path) {
     {
+      const std::string node_path =
+          std::string(prefix_path) + "-node-" + std::to_string(comm().rank());
       std::ofstream ofs(node_path);
-      for (std::size_t i = 0; i < nodelst.local_size(); ++i) {
-        ofs << nodelst.at(i) << "\n";
-      }
+      auto          nodeAction = [&ofs](const auto, const auto& val) -> void {
+        ofs << val << "\n";
+      };
+      nodelst.filter(std::move(nfilt)).for_all_selected(nodeAction);
     }
-    const std::string edge_path =
-        std::string(prefix_path) + "-edge-" + std::to_string(comm().rank());
+
     {
+      const std::string edge_path =
+          std::string(prefix_path) + "-edge-" + std::to_string(comm().rank());
       std::ofstream ofs(edge_path);
-      for (std::size_t i = 0; i < edgelst.local_size(); ++i) {
-        ofs << edgelst.at(i) << "\n";
-      }
+      auto          edgeAction = [&ofs](const auto, const auto& val) -> void {
+        ofs << val << "\n";
+      };
+      edgelst.filter(std::move(efilt)).for_all_selected(edgeAction);
     }
     comm().cf_barrier();
+
+    return true;
   }
 
   static void check_state(metall_manager_type& manager, ygm::comm& comm) {
