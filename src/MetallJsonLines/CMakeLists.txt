@@ -34,6 +34,11 @@ setup_metall_target(mjl-count)
 setup_ygm_target(mjl-count)
 setup_clippy_target(mjl-count)
 
+add_metalldata_executable(mjl-hist mjl-hist.cpp)
+setup_metall_target(mjl-hist)
+setup_ygm_target(mjl-hist)
+setup_clippy_target(mjl-hist)
+
 add_metalldata_executable(mjl-head mjl-head.cpp)
 setup_metall_target(mjl-head)
 setup_ygm_target(mjl-head)

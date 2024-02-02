@@ -70,6 +70,11 @@ setup_metall_target(mg-dump)
 setup_ygm_target(mg-dump)
 setup_clippy_target(mg-dump)
 
+add_metalldata_executable(mg-hist mg-hist.cpp)
+setup_metall_target(mg-hist)
+setup_ygm_target(mg-hist)
+setup_clippy_target(mg-hist)
+
 #~ add_metalldata_executable(mg-head mg-head.cpp)
 #~ setup_metall_target(mg-head)
 #~ setup_ygm_target(mg-head)
