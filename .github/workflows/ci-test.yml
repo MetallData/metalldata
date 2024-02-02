@@ -1,3 +1,6 @@
+# This version contains a workaround for the Boost.Unordered file missing issue.
+# Specifically, we download boost manually and include the path to $CMAKE_PREFIX_PATH
+# so that cmake can find Boost.Unordered header files.
 name: CI Test
 
 on: [push, pull_request]
@@ -14,6 +17,12 @@ jobs:
         run: sudo apt-get install openmpi-bin libopenmpi-dev
       - name: Build and test
         run: |
+          pushd /dev/shm
+          wget -q https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.tar.gz
+          mkdir boost
+          tar xf boost_1_78_0.tar.gz -C boost --strip-components 1
+          export CMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}:${PWD}/boost"
+          popd
           cd $GITHUB_WORKSPACE
           mkdir build
           cd build
