@@ -21,7 +21,7 @@ jobs:
           wget -q https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.tar.gz
           mkdir boost
           tar xf boost_1_78_0.tar.gz -C boost --strip-components 1
-          export CMAKE_PREFIX_PATH="${PWD}/boost"
+          export CPLUS_INCLUDE_PATH="${PWD}/boost"
           popd
           cd $GITHUB_WORKSPACE
           mkdir build
