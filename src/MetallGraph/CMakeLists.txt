@@ -50,6 +50,11 @@ setup_metall_target(mg-count_lines)
 setup_ygm_target(mg-count_lines)
 setup_clippy_target(mg-count_lines)
 
+add_metalldata_executable(mg-count_degree mg-count_degree.cpp)
+setup_metall_target(mg-count_degree)
+setup_ygm_target(mg-count_degree)
+setup_clippy_target(mg-count_degree)
+
 add_metalldata_executable(mg-kcore mg-kcore.cpp)
 setup_metall_target(mg-kcore)
 setup_ygm_target(mg-kcore)
@@ -59,6 +64,16 @@ add_metalldata_executable(mg-bfs mg-bfs.cpp)
 setup_metall_target(mg-bfs)
 setup_ygm_target(mg-bfs)
 setup_clippy_target(mg-bfs)
+
+add_metalldata_executable(mg-dump mg-dump.cpp)
+setup_metall_target(mg-dump)
+setup_ygm_target(mg-dump)
+setup_clippy_target(mg-dump)
+
+add_metalldata_executable(mg-hist mg-hist.cpp)
+setup_metall_target(mg-hist)
+setup_ygm_target(mg-hist)
+setup_clippy_target(mg-hist)
 
 #~ add_metalldata_executable(mg-head mg-head.cpp)
 #~ setup_metall_target(mg-head)
