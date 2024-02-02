@@ -5,7 +5,6 @@
 #define METALL_DISABLE_CONCURRENCY 1
 #endif
 
-
 #include <string_view>
 #include <utility>
 
@@ -31,7 +30,7 @@ namespace msg {
 struct process_data_mjl {
   // repeated from metall_json_lines class
   using lines_type =
-      json_bento::box<metall::manager::allocator_type<std::byte> >;
+      json_bento::box<metall::manager::allocator_type<std::byte>>;
   using accessor_type = lines_type::value_accessor;
 
   using projector_type =
@@ -67,8 +66,7 @@ struct row_request {
     const int  fromThis  = std::min(mjlState.selectedRows->size(), numrows);
     const int  fromOther = numrows - fromThis;
 
-    if ((fromOther > 0) && (world.size() != (world.rank() + 1)))
-    {
+    if ((fromOther > 0) && (world.size() != (world.rank() + 1))) {
       world.async(world.rank() + 1, row_request{}, fromOther);
     }
 
@@ -178,7 +176,7 @@ struct import_summary : std::tuple<std::size_t, std::size_t> {
 
 struct metall_json_lines {
   using lines_type =
-      json_bento::box<metall::manager::allocator_type<std::byte> >;
+      json_bento::box<metall::manager::allocator_type<std::byte>>;
   using accessor_type = lines_type::value_accessor;
 
   using metall_allocator_type =
@@ -244,10 +242,9 @@ struct metall_json_lines {
     //          (cascades until numrows are available, or last rank)
     //          rank 0: start filling result vector
     {
-      if (isMainRank() && (selectedRows.size() < numrows) && !isLastRank())
-      {
-        std::cerr << "send row request " << selectedRows.size() << ":" << numrows
-                  << std::endl;
+      if (isMainRank() && (selectedRows.size() < numrows) && !isLastRank()) {
+        std::cerr << "send row request " << selectedRows.size() << ":"
+                  << numrows << std::endl;
         ygmcomm.async(ygmcomm.rank() + 1, msg::row_request{},
                       (numrows - selectedRows.size()));
       }
@@ -332,6 +329,55 @@ struct metall_json_lines {
     return totalSelected;
   }
 
+  std::vector<std::pair<boost::json::value, std::size_t>> hist(
+      const std::string& column_name) const {
+    std::vector<std::pair<boost::json::value, std::size_t>> table;
+    for_all_selected([&column_name, &table, this](
+                         std::size_t, const accessor_type acs) -> void {
+      assert(acs.is_object());
+      const auto obj = acs.as_object();
+      if (!obj.contains(column_name)) {
+        return;
+      }
+      boost::json::value value;
+      json_bento::value_to(obj.at(column_name), value);
+      // TODO: use hash function to increase performance
+      auto pos = std::find_if(
+          table.begin(), table.end(),
+          [&value](const auto& item) { return (item.first == value); });
+      if (pos == table.end()) {
+        table.push_back(std::make_pair(value, 1));
+      } else {
+        ++(pos->second);
+      }
+    });
+    ygmcomm.cf_barrier();
+
+    std::vector<std::pair<boost::json::value, std::size_t>> gloval_table;
+    static auto& s_gloval_table = gloval_table;
+    ygmcomm.cf_barrier();
+
+    // Gather results to rank 0
+    for (const auto& item : table) {
+      ygmcomm.async(
+          0,
+          [](const boost::json::value& value, const std::size_t count) {
+            auto pos = std::find_if(
+                s_gloval_table.begin(), s_gloval_table.end(),
+                [&value](const auto& item) { return (item.first == value); });
+            if (pos == s_gloval_table.end()) {
+              s_gloval_table.push_back(std::make_pair(value, count));
+            } else {
+              (pos->second) += count;
+            }
+          },
+          item.first, item.second);
+    }
+    ygmcomm.barrier();
+
+    return gloval_table;
+  }
+
   //
   // mutators
 
@@ -375,11 +421,11 @@ struct metall_json_lines {
     // namespace mtljsn = metall::json::json;
 
     // phase 1: distributed import of data in files
-    ygm::io::line_parser  lineParser{ygmcomm, files};
-    std::size_t           imported    = 0;
-    std::size_t           rejected    = 0;
-    std::size_t const     initialSize = vector.size();
-    lines_type*           vec         = &vector;
+    ygm::io::line_parser lineParser{ygmcomm, files};
+    std::size_t          imported    = 0;
+    std::size_t          rejected    = 0;
+    std::size_t const    initialSize = vector.size();
+    lines_type*          vec         = &vector;
 
     lineParser.for_all(
         [&imported, &rejected, vec, filterFn = std::move(filter),
@@ -423,7 +469,6 @@ struct metall_json_lines {
       std::function<bool(const boost::json::value&)>        filter = accept_all,
       std::function<boost::json::value(boost::json::value)> transformer =
           identity_transformer) {
-
     ygm::io::arrow_parquet_parser parquetParser{ygmcomm, files};
     std::size_t                   imported    = 0;
     std::size_t                   rejected    = 0;
@@ -443,9 +488,7 @@ struct metall_json_lines {
         const auto owner = imported % ygmcomm.size();
         ygmcomm.async(
             owner,
-            [](auto, const auto& data) {
-              ref_self.vector.push_back(data);
-            },
+            [](auto, const auto& data) { ref_self.vector.push_back(data); },
             transFn(jsonLine));
         ++imported;
       } else {
@@ -512,12 +555,12 @@ struct metall_json_lines {
   }
 
   template <class JsonValue>
-  void reserve(const JsonValue& val, std::size_t n)
-  {
+  void reserve(const JsonValue& val, std::size_t n) {
     vector.reserve(val, n);
   }
 
-  //~ accessor_type append_local() { return append_local(boost::json::value{}); }
+  //~ accessor_type append_local() { return append_local(boost::json::value{});
+  //}
   /// \}
 
   //
