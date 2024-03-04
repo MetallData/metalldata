@@ -31,7 +31,7 @@ function(prepare_fetchcontent_boost)
             "libs/mp11;"
             "libs/json;"
             "libs/property_tree;"
-
+            "libs/unordered;"
             "libs/interprocess;"
             "libs/optional;"
             "libs/any;"

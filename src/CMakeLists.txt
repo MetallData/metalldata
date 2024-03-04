@@ -3,8 +3,9 @@
 #
 # SPDX-License-Identifier: MIT
 
-add_subdirectory(MetallJsonLines)
-add_subdirectory(MetallGraph)
+#add_subdirectory(MetallJsonLines)
+#add_subdirectory(MetallGraph)
+add_subdirectory(Graph)
 #~ add_subdirectory(MetallFrame)
 #~ add_subdirectory(util)
 

@@ -124,6 +124,7 @@ if (NOT Metall_FOUND)
     else()
         set(METALL_GIT_TAG "develop")
     endif()
+    set(METALL_GIT_TAG "feature/string_containers")
     FetchContent_Declare(Metall
             GIT_REPOSITORY https://github.com/LLNL/metall.git
             GIT_TAG ${METALL_GIT_TAG}
@@ -192,7 +193,7 @@ find_package(CLIPPy QUIET)
 if (NOT CLIPPy_FOUND)
     FetchContent_Declare(CLIPPy
             GIT_REPOSITORY https://github.com/LLNL/clippy-cpp.git
-            GIT_TAG master
+            GIT_TAG v0.2-dev
             )
     FetchContent_GetProperties(CLIPPy)
     if (NOT clippy_POPULATED)
@@ -268,7 +269,7 @@ function(setup_metall_target exe_name)
 endfunction()
 
 add_subdirectory(src)
-add_subdirectory(examples)
+# add_subdirectory(examples)
 
 if (METALLDATA_BUILD_TESTS)
     enable_testing()

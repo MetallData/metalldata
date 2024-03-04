@@ -1,0 +1,7 @@
+{
+  "__doc__" : "Metall Graph",
+  "initial_selectors" : {
+    "node" : "Selector for Node expressions.",
+    "edge" : "Selector for Edge expressions."
+  }
+}
