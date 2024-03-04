@@ -9,10 +9,10 @@ namespace metall_string_container =
 class Graph {
  public:
   template <typename Allocator, typename StringTable>
-  Graph(Allocator allocator, StringTable st) : m_node_meta_name(st), m_node_meta_desc(st) {}
+  Graph(Allocator allocator, StringTable st)
+      : m_node_meta_name(st), m_node_meta_desc(st) {}
 
   bool add_meta(const std::string& name, const std::string& desc) {
-    std::cerr << "add_meta( " << name << " )" << std::endl;
     if (is_meta_node(name)) {
       int index = find_meta(name);
       if (index == -1) {  // name is new
@@ -30,7 +30,6 @@ class Graph {
   }
 
   int find_meta(const std::string& name) {
-    std::cerr << "find_meta( " << name << " )" << std::endl;
     if (is_meta_node(name)) {
       assert(m_node_meta_name.size() == m_node_meta_desc.size());
       for (size_t i = 0; i < m_node_meta_name.size(); ++i) {
@@ -49,7 +48,7 @@ class Graph {
   std::map<std::string, std::string> get_meta_map() {
     std::map<std::string, std::string> to_return;
 
-    for(size_t i = 0; i< m_node_meta_name.size(); ++i) {
+    for (size_t i = 0; i < m_node_meta_name.size(); ++i) {
       to_return[m_node_meta_name[i].c_str()] = m_node_meta_desc[i].c_str();
     }
 
@@ -58,25 +57,23 @@ class Graph {
 
  private:
   bool is_meta_node(const std::string& name) {
-    return name.compare(0, 4, "node.", 4);
+    return name.compare(0, 4, "node") == 0;
   }
 
   bool is_meta_edge(const std::string& name) {
-    return name.compare(0, 4, "edge.", 4);
+    return name.compare(0, 4, "edge") == 0;
   }
 
   metall_string_container::deque<> m_node_meta_name;
   metall_string_container::deque<> m_node_meta_desc;
 };
 
-
-
 /////  Random Helpers //
 
 std::string get_selector_name(boost::json::object&& jo) {
   std::string to_return;
   try {
-    if(jo["expression_type"].as_string() != std::string("jsonlogic")) {
+    if (jo["expression_type"].as_string() != std::string("jsonlogic")) {
       std::cerr << " NOT A THINGY " << std::endl;
       exit(-1);
     }

@@ -36,8 +36,6 @@ int main(int argc, char** argv) {
   clip.set_state("path", path);
   clip.set_state("key", key);
 
-  world.cerr("howdy");
-
   static bool metall_exists = false;
   if (world.rank0()) {
     bool exists = ::std::filesystem::exists(path);
