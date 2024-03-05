@@ -7,7 +7,7 @@ from clippy import clippy_import, config
 # Change the following lines to your environment
 metall_dir = './metalldata-parquet-graph'
 this_dir = os.path.dirname(os.path.abspath(__file__))
-src_dir = os.path.abspath(this_dir + '../')
+src_dir = os.path.abspath(this_dir + '/../')
 build_dir = src_dir + '/build/'
 data_dir = src_dir + '/sample/data/'
 
