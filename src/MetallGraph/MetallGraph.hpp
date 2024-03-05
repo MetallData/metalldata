@@ -12,6 +12,8 @@
 
 #include "MetallJsonLines.hpp"
 
+// Do not exetnd vertex names with column names for 'auto vertices'.
+#define METALLDATA_AUTO_VERTEX_NO_COLMUN_NAME
 namespace msg {
 
 using distributed_string_set = ygm::container::set<std::string>;
@@ -188,9 +190,10 @@ std::function<boost::json::value(boost::json::value)> gen_keys_generator(
         boost::json::string_view keyVw(&*key.begin(), key.size());
         std::string              keyval = to_string(obj[keyVw]);
 
+#ifndef METALLDATA_AUTO_VERTEX_NO_COLMUN_NAME
         keyval.push_back('@');
         keyval.append(key);
-
+#endif
         boost::json::string_view edgeKeyVw(&*edgeKeys[i].begin(),
                                            edgeKeys[i].size());
 
