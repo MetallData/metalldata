@@ -15,18 +15,23 @@ clippy_import(build_dir + '/src/MetallGraph')
 
 config.cmd_prefix = f'mpirun -np 2'
 # Or
-# config.cmd_prefix = f'srun -N 1 --ntasks-per-node 2 --mpibind=off'
+#config.cmd_prefix = f'srun -N 1 --ntasks-per-node 2 --mpibind=off'
 
-graph = MetallGraph(metall_dir, key="id", srckey="src", dstkey="dst", overwrite=True)
+graph = MetallGraph(metall_dir, key="id", srckey="Src", dstkey="Dst", overwrite=True)
+graph.read_edges(data_dir + "/edges.parquet", fileType='parquet', autoVertices=["src", "dst"])
+# If there is a vertex file:
+# graph = MetallGraph(metall_dir, key="id", srckey="src", dstkey="dst", overwrite=True)
+# graph.read_vertices(data_dir + "/vertices.parquet", fileType='parquet')
+# graph.read_edges(data_dir + "/edges.parquet", fileType='parquet')
 
-graph.read_vertices(data_dir + "/vertices.parquet", fileType='parquet')
+print("Graph: {}".format(graph.count()))
+# Graph: {'nodes': 2603, 'edges': 16358}
 
-graph.read_edges(data_dir + "/edges.parquet", fileType='parquet')
+print("#of CCs: {}".format(graph.connected_components()))
+# #of CCs: 6
 
-graph.count()
+print("kcore sizess (k=[0, 3]): {}".format(graph.kcore(3)))
+# kcore sizess (k=[0, 3]): [2603, 1959, 1590, 1307]
 
-graph.connected_components()
-
-graph.kcore(3)
-
-graph[graph.nodes.kcore >= 3].connected_components()
+print("#of CCs on kcore graph (k=3): {}".format(graph[graph.nodes.kcore >= 3].connected_components()))
+# CCs on kcore graph (k=3): 259
