@@ -31,19 +31,24 @@ find_package(Threads REQUIRED)
 
 #
 # Boost
-include(setup_boost)
-prepare_fetchcontent_boost()
-set(FETCHCONTENT_QUIET FALSE)
-FetchContent_Declare(
-        Boost
-        GIT_REPOSITORY https://github.com/boostorg/boost.git
-        GIT_TAG boost-1.78.0
-        GIT_SUBMODULES ${BOOST_REQD_SUBMODULES}
-        GIT_PROGRESS TRUE
-        CONFIGURE_COMMAND ""  # tell CMake it's not a cmake project
-)
-FetchContent_MakeAvailable(Boost)
-get_boost_include_dirs()
+if (METALLDATA_USE_SYSTEM_BOOST)
+    find_package(Boost 1.80 REQUIRED COMPONENTS json)
+    message(STATUS "Boost include dirs: ${Boost_INCLUDE_DIRS}")
+else()
+    include(setup_boost)
+    prepare_fetchcontent_boost()
+    set(FETCHCONTENT_QUIET FALSE)
+    FetchContent_Declare(
+            Boost
+            GIT_REPOSITORY https://github.com/boostorg/boost.git
+            GIT_TAG boost-1.80.0
+            GIT_SUBMODULES ${BOOST_REQD_SUBMODULES}
+            GIT_PROGRESS TRUE
+            CONFIGURE_COMMAND ""  # tell CMake it's not a cmake project
+    )
+    FetchContent_MakeAvailable(Boost)
+    get_boost_include_dirs()
+endif()
 
 #
 #  cereal
@@ -123,7 +128,6 @@ if (NOT Metall_FOUND)
     else ()
         set(METALL_GIT_TAG "develop")
     endif ()
-    set(METALL_GIT_TAG "feature/string_containers")
     FetchContent_Declare(Metall
             GIT_REPOSITORY https://github.com/LLNL/metall.git
             GIT_TAG ${METALL_GIT_TAG}
@@ -200,6 +204,22 @@ if (NOT CLIPPy_FOUND)
     endif ()
     set(CLIPPy_INCLUDE_DIR "${clippy_SOURCE_DIR}/include")
 endif ()
+
+#
+# spdlog
+#
+FetchContent_Declare(
+  spdlog
+  GIT_REPOSITORY https://github.com/gabime/spdlog.git
+  GIT_TAG v1.14.1)
+FetchContent_MakeAvailable(spdlog)
+
+#
+# Function for setting up a target that uses spdlog
+#
+function(setup_spdlog_target target)
+  target_link_libraries(${target} PRIVATE spdlog::spdlog)
+endfunction()
 
 #
 # Function for setting up a target that uses YGM

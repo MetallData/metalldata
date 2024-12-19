@@ -1,0 +1,2 @@
+add_gtest_executable(test_compact_string_accessor test_string_accessor.cpp)
+add_gtest_executable(test_string_store test_string_store.cpp)

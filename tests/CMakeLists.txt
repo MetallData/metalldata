@@ -8,3 +8,5 @@ function(add_gtest_executable name source)
 endfunction()
 
 add_subdirectory(json_bento)
+add_subdirectory(string_table)
+add_subdirectory(multiseries)
