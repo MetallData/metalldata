@@ -53,7 +53,7 @@ if (NOT cereal_FOUND)
     FetchContent_Declare(cereal
             GIT_REPOSITORY https://github.com/USCiLab/cereal.git
             GIT_TAG master
-            )
+    )
     FetchContent_MakeAvailable(cereal)
 endif ()
 
@@ -63,28 +63,27 @@ endif ()
 find_package(MPI)
 
 #
-# Parquet
-#
-if (METALLDATA_USE_PARQUET)
-    find_package(Arrow 14 REQUIRED)
-    find_package(Parquet 14 REQUIRED)
-endif ()
-
-#
 #  YGM
 if (MPI_CXX_FOUND)
     find_package(YGM QUIET)
     if (NOT YGM_FOUND)
         set(JUST_INSTALL_YGM TRUE)
         FetchContent_Declare(YGM
-            GIT_REPOSITORY https://github.com/LLNL/ygm.git
-            GIT_TAG develop
-                )
+                GIT_REPOSITORY https://github.com/LLNL/ygm.git
+                GIT_TAG v0.7-dev
+        )
         FetchContent_MakeAvailable(YGM)
     endif ()
 endif ()
 
 
+#
+# Parquet
+#
+if (METALLDATA_USE_PARQUET)
+    find_package(Arrow 14 REQUIRED)
+    find_package(Parquet 14 REQUIRED)
+endif ()
 
 
 #
@@ -96,19 +95,19 @@ if (METALLDATA_USE_PRIVATEER)
     #
     find_package(zstd QUIET)
     if (NOT zstd_FOUND)
-    FetchContent_Declare(zstd
-            GIT_REPOSITORY https://github.com/facebook/zstd.git
-            GIT_TAG v1.5.4
-            )
-    FetchContent_MakeAvailable(zstd)
-    list(APPEND CMAKE_MODULE_PATH "${zstd_SOURCE_DIR}/build/cmake")
+        FetchContent_Declare(zstd
+                GIT_REPOSITORY https://github.com/facebook/zstd.git
+                GIT_TAG v1.5.4
+        )
+        FetchContent_MakeAvailable(zstd)
+        list(APPEND CMAKE_MODULE_PATH "${zstd_SOURCE_DIR}/build/cmake")
     endif ()
     find_package(Privateer QUIET)
     if (NOT Privateer_FOUND)
         FetchContent_Declare(Privateer
                 GIT_REPOSITORY https://github.com/LLNL/Privateer.git
                 GIT_TAG feature/uffd
-                )
+        )
         FetchContent_MakeAvailable(Privateer)
     endif ()
 endif ()
@@ -121,14 +120,14 @@ if (NOT Metall_FOUND)
     set(JUST_INSTALL_METALL_HEADER TRUE)
     if (Privateer_FOUND)
         set(METALL_GIT_TAG "privateer2.0")
-    else()
+    else ()
         set(METALL_GIT_TAG "develop")
-    endif()
+    endif ()
     set(METALL_GIT_TAG "feature/string_containers")
     FetchContent_Declare(Metall
             GIT_REPOSITORY https://github.com/LLNL/metall.git
             GIT_TAG ${METALL_GIT_TAG}
-            )
+    )
     FetchContent_MakeAvailable(Metall)
 endif ()
 
@@ -143,7 +142,7 @@ if (METALLDATA_BUILD_TESTS)
             GIT_TAG main
     )
     FetchContent_MakeAvailable(googletest)
-endif()
+endif ()
 
 #
 #  CXX Filesystem library
@@ -162,9 +161,9 @@ function(add_common_compile_options name)
     # Debug
     target_compile_options(${name} PRIVATE $<$<CONFIG:Debug>:-O0>)
     target_compile_options(${name} PRIVATE $<$<CONFIG:Debug>:-g3>)
-#    if (Linux)
-#        target_compile_options(${name} PRIVATE $<$<CONFIG:Debug>:-pg>)
-#    endif ()
+    #    if (Linux)
+    #        target_compile_options(${name} PRIVATE $<$<CONFIG:Debug>:-pg>)
+    #    endif ()
 
     # Release
     target_compile_options(${name} PRIVATE $<$<CONFIG:Release>:-Ofast>)
@@ -173,9 +172,9 @@ function(add_common_compile_options name)
     # Release with debug info
     target_compile_options(${name} PRIVATE $<$<CONFIG:RelWithDebInfo>:-Ofast>)
     target_compile_options(${name} PRIVATE $<$<CONFIG:RelWithDebInfo>:-g3>)
-#    if (Linux)
-#        target_compile_options(${name} PRIVATE $<$<CONFIG:RelWithDebInfo>:-pg>)
-#    endif ()
+    #    if (Linux)
+    #        target_compile_options(${name} PRIVATE $<$<CONFIG:RelWithDebInfo>:-pg>)
+    #    endif ()
 endfunction()
 
 function(add_metalldata_executable name source)
@@ -193,8 +192,8 @@ find_package(CLIPPy QUIET)
 if (NOT CLIPPy_FOUND)
     FetchContent_Declare(CLIPPy
             GIT_REPOSITORY https://github.com/LLNL/clippy-cpp.git
-            GIT_TAG v0.2-dev
-            )
+            GIT_TAG master
+    )
     FetchContent_GetProperties(CLIPPy)
     if (NOT clippy_POPULATED)
         FetchContent_Populate(CLIPPy)
@@ -274,6 +273,6 @@ add_subdirectory(src)
 if (METALLDATA_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
-endif()
+endif ()
 
 #add_subdirectory(example)
