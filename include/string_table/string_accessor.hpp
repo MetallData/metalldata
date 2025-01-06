@@ -149,12 +149,12 @@ private:
     // Manually set the offset to the block array
     // This should be endian-safe
     for (uint i = 0; i < k_num_blocks - 1; ++i) {
-      m_blocks[i] = char(off & 0xFFULL);
+      m_blocks[i] = uint8_t(off & 0xFFULL);
       off >>= 8ULL;
     }
 
     // Finally set the metadata
-    char metadata = 0;
+    uint8_t metadata = 0;
     if (is_negative) {
       metadata |= 0x2; // set the negative bit
     }
@@ -167,7 +167,7 @@ private:
     assert(is_long());
     std::ptrdiff_t off = 0;
     for (int i = int(k_num_blocks) - 2; i >= 0; --i) {
-      off <<= 8;
+      off <<= 8ULL;
       off |= m_blocks[i];
     }
     if (m_blocks[k_num_blocks - 1] & 0x2) {
@@ -184,11 +184,11 @@ private:
     m_entier_block = 0;
 
     for (int i = 0; i < int(length); ++i) {
-      m_blocks[i] = str[i];
+      m_str[i] = str[i];
     }
-    m_blocks[length] = '\0';
-    // Set the length and the short string flag
-    m_blocks[k_num_blocks - 1] = char((length << 1) & 0xFE);
+    m_str[length] = '\0';
+    // Set the length
+    m_blocks[k_num_blocks - 1] = uint8_t(length << 1);
   }
 
   size_type priv_get_short_length() const {
@@ -198,7 +198,7 @@ private:
 
   const char_type *priv_get_short_str() const {
     assert(is_short());
-    return m_blocks;
+    return m_str;
   }
 
   // 1 bit for short/long flag
@@ -208,7 +208,10 @@ private:
   // for long string,
   //    the last 56 bits for pointer (48 bits should be enough though)
   union {
-    char m_blocks[sizeof(offset_t)] = {0};
+    static_assert(sizeof(uint8_t) == sizeof(char),
+                  "sizeof uint8_t must be equal to sizeof char");
+    uint8_t  m_blocks[sizeof(offset_t)] = {0};
+    char     m_str[sizeof(offset_t)];
     uint64_t m_entier_block;
     static_assert(sizeof(offset_t) == sizeof(uint64_t),
                   "sizeof(offset_ptr_t) != sizeof(uint64_t)");
