@@ -68,6 +68,13 @@ endif ()
 find_package(MPI)
 
 #
+# Parquet
+#
+include(FindArrowParquet)
+set(YGM_REQUIRE_ARROW_PARQUET OFF)
+find_or_install_arrow_parquet()
+
+#
 #  YGM
 if (MPI_CXX_FOUND)
     find_package(YGM QUIET)
@@ -79,15 +86,6 @@ if (MPI_CXX_FOUND)
         )
         FetchContent_MakeAvailable(YGM)
     endif ()
-endif ()
-
-
-#
-# Parquet
-#
-if (METALLDATA_USE_PARQUET)
-    find_package(Arrow 14 REQUIRED)
-    find_package(Parquet 14 REQUIRED)
 endif ()
 
 
