@@ -285,12 +285,10 @@ function(setup_metall_target exe_name)
     target_compile_definitions(${exe_name} PRIVATE "METALL_DISABLE_CONCURRENCY")
 endfunction()
 
-add_subdirectory(src)
-# add_subdirectory(examples)
+#add_subdirectory(src)
+add_subdirectory(examples)
 
 if (METALLDATA_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif ()
-
-#add_subdirectory(example)

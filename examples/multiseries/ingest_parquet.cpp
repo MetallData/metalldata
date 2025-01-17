@@ -1,3 +1,12 @@
+// Copyright 2025 Lawrence Livermore National Security, LLC and other Metall
+// Project Developers. See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: (Apache-2.0 OR MIT)
+
+#ifndef METALL_DISABLE_CONCURRENCY
+#define METALL_DISABLE_CONCURRENCY
+#endif
+
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -8,7 +17,6 @@
 
 #include <ygm/comm.hpp>
 #include <ygm/io/detail/parquet2variant.hpp>
-#include <spdlog/spdlog.h>
 #include <metall/metall.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
 #include <multiseries/multiseries_record.hpp>
@@ -65,7 +73,7 @@ int main(int argc, char** argv) {
   const auto&             schema = parquetp.schema();
 
   // Add series
-  for (const auto [type, name] : schema) {
+  for (const auto& [type, name] : schema) {
     if (type.equal(parquet::Type::INT32) || type.equal(parquet::Type::INT64)) {
       record_store->add_series<int64_t>(name);
     } else if (type.equal(parquet::Type::FLOAT) or

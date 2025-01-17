@@ -3,7 +3,9 @@
 //
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
+#ifndef METALL_DISABLE_CONCURRENCY
 #define METALL_DISABLE_CONCURRENCY
+#endif
 
 #include <algorithm>
 #include <iostream>
@@ -20,26 +22,25 @@ using string_store_type = record_store_type::string_store_type;
 
 struct option {
   std::filesystem::path metall_path{"./metall_data"};
-  std::string series_name;
+  std::string           series_name;
 };
 
 bool parse_options(int argc, char *argv[], option *opt) {
   int opt_char;
   while ((opt_char = getopt(argc, argv, "d:s:")) != -1) {
     switch (opt_char) {
-    case 'd':
-      opt->metall_path = std::filesystem::path(optarg);
-      break;
-    case 's':
-      opt->series_name = optarg;
-      break;
+      case 'd':
+        opt->metall_path = std::filesystem::path(optarg);
+        break;
+      case 's':
+        opt->series_name = optarg;
+        break;
     }
   }
   return true;
 }
 
 int main(int argc, char *argv[]) {
-
   option opt;
   if (!parse_options(argc, argv, &opt)) {
     std::abort();
@@ -54,7 +55,7 @@ int main(int argc, char *argv[]) {
   }
 
   metall::manager manager(metall::open_read_only, opt.metall_path);
-  auto *record_store =
+  auto           *record_store =
       manager.find<record_store_type>(metall::unique_instance).first;
   if (!record_store) {
     spdlog::error("Failed to find record store");

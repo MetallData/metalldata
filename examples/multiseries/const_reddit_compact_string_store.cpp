@@ -11,8 +11,6 @@
 
 #include <metall/container/vector.hpp>
 #include <metall/metall.hpp>
-#include <spdlog/spdlog.h>
-#include <spdlog/stopwatch.h>
 
 #include <string_table/string_store.hpp>
 #include <string_table/string_vector.hpp>
