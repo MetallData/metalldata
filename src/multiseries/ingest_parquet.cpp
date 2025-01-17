@@ -8,57 +8,110 @@
 
 #include <ygm/comm.hpp>
 #include <ygm/io/detail/parquet2variant.hpp>
+#include <spdlog/spdlog.h>
+#include <metall/metall.hpp>
+#include <metall/utility/metall_mpi_adaptor.hpp>
+#include <multiseries/multiseries_record.hpp>
 
-int main(int argc, char** argv) {
-  ygm::comm world(&argc, &argv);
+#include "utils.hpp"
 
-  world.cout0()
-      << "Arrow Parquet file parser example (reads data as JSON objects)"
-      << std::endl;
+using record_store_type =
+    multiseries::basic_record_store<metall::manager::allocator_type<std::byte>>;
+using string_store_type = record_store_type::string_store_type;
 
-  // assuming the build directory is inside the YGM root directory
-  std::string dir_name;
-  if (argc == 2) {
-    dir_name = argv[1];
-  }
+struct option {
+  std::filesystem::path metall_path{"./metall_data"};
+  std::filesystem::path input_path;
+};
 
-  ygm::io::parquet_parser parquetp(world, {dir_name});
-
-  const auto& schema = parquetp.schema();
-
-  // Print column name
-  world.cout0() << "Column names:" << std::endl;
-  for (size_t i = 0; i < schema.size(); ++i) {
-    world.cout0() << std::get<1>(schema[i]);
-    if (i < schema.size() - 1) {
-      world.cout0() << "\t";
+bool parse_options(int argc, char* argv[], option* opt) {
+  int opt_char;
+  while ((opt_char = getopt(argc, argv, "d:i:")) != -1) {
+    switch (opt_char) {
+      case 'd':
+        opt->metall_path = std::filesystem::path(optarg);
+        break;
+      case 'i':
+        opt->input_path = std::filesystem::path(optarg);
+        ;
+        break;
     }
   }
-  world.cout0() << std::endl;
+  return true;
+}
 
-  world.cout0() << "Read data as variants:" << std::endl;
-  std::size_t num_rows     = 0;
-  std::size_t num_valids   = 0;
-  std::size_t num_invalids = 0;
-  parquetp.for_all([&schema, &num_valids, &num_invalids, &num_rows](
-                       auto& stream_reader, const auto&) {
-    const std::vector<ygm::io::detail::parquet_type_variant> row =
-        ygm::io::detail::read_parquet_as_variant(stream_reader, schema);
-    ++num_rows;
-    for (const auto& field : row) {
+int main(int argc, char** argv) {
+  ygm::comm comm(&argc, &argv);
+
+  option opt;
+  if (!parse_options(argc, argv, &opt)) {
+    std::abort();
+  }
+  if (opt.metall_path.empty()) {
+    comm.cerr0() << "Metall path is required" << std::endl;
+    return 1;
+  }
+
+  metall::utility::metall_mpi_adaptor mpi_adaptor(
+      metall::create_only, opt.metall_path, comm.get_mpi_comm());
+  auto& manager = mpi_adaptor.get_local_manager();
+
+  auto* string_store = manager.construct<string_store_type>(
+      metall::unique_instance)(manager.get_allocator());
+  auto* record_store = manager.construct<record_store_type>(
+      metall::unique_instance)(string_store, manager.get_allocator());
+
+  ygm::io::parquet_parser parquetp(comm, {opt.input_path});
+  const auto&             schema = parquetp.schema();
+
+  // Add series
+  for (const auto [type, name] : schema) {
+    if (type.equal(parquet::Type::INT32) || type.equal(parquet::Type::INT64)) {
+      record_store->add_series<int64_t>(name);
+    } else if (type.equal(parquet::Type::FLOAT) or
+               type.equal(parquet::Type::DOUBLE)) {
+      record_store->add_series<double>(name);
+    } else if (type.equal(parquet::Type::BYTE_ARRAY)) {
+      record_store->add_series<std::string_view>(name);
+    } else {
+      comm.cerr0() << "Unsupported column type: " << type << std::endl;
+      MPI_Abort(comm.get_mpi_comm(), EXIT_FAILURE);
+    }
+  }
+
+  parquetp.for_all([&schema, &record_store](auto& stream_reader, const auto&) {
+    const auto record_id = record_store->add_record();
+    auto row = ygm::io::detail::read_parquet_as_variant(stream_reader, schema);
+    for (int i = 0; i < row.size(); ++i) {
+      auto& field = row[i];
       if (std::holds_alternative<std::monostate>(field)) {
-        ++num_invalids;
-      } else {
-        ++num_valids;
+        continue;  // Skip invalid data
       }
+
+      const auto& name = std::get<1>(schema[i]);
+      std::visit(
+          [&record_store, &record_id, &name](auto&& field) {
+            using T = std::decay_t<decltype(field)>;
+            if constexpr (std::is_same_v<T, int32_t> ||
+                          std::is_same_v<T, int64_t>) {
+              record_store->set<int64_t>(name, record_id, field);
+            } else if constexpr (std::is_same_v<T, float> ||
+                                 std::is_same_v<T, double>) {
+              record_store->set<double>(name, record_id, field);
+            } else if constexpr (std::is_same_v<T, std::string>) {
+              record_store->set<std::string_view>(name, record_id, field);
+            } else {
+              throw std::runtime_error("Unsupported type");
+            }
+          },
+          std::move(field));
     }
   });
 
-  world.cout0() << "#of rows = " << world.all_reduce_sum(num_rows) << std::endl;
-  world.cout0() << "#of valid items = " << world.all_reduce_sum(num_valids)
-                << std::endl;
-  world.cout0() << "#of invalid items = " << world.all_reduce_sum(num_invalids)
-                << std::endl;
+  comm.cout0() << "#of series: " << record_store->num_series() << std::endl;
+  comm.cout0() << "#of records: " << record_store->num_records() << std::endl;
+  comm.cout0() << "Metall datastore size (rank 0):" << std::endl;
+  comm.cout0() << get_dir_usage(opt.metall_path) << std::endl;
 
   return 0;
 }

@@ -38,7 +38,7 @@ bool parse_options(int argc, char *argv[], option *opt) {
       opt->metall_path = std::filesystem::path(optarg);
       break;
     case 'i':
-      opt->input_path = optarg;
+      opt->input_path = std::filesystem::path(optarg);;
       break;
     }
   }
