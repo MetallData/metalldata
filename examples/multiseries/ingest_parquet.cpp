@@ -117,7 +117,7 @@ int main(int argc, char** argv) {
   });
 
   comm.cout0() << "#of series: " << record_store->num_series() << std::endl;
-  comm.cout0() << "#of records: " << record_store->num_records() << std::endl;
+  comm.cout0() << "#of records: " << comm.all_reduce_sum(record_store->num_records()) << std::endl;
   comm.cout0() << "Metall datastore size (rank 0):" << std::endl;
   comm.cout0() << get_dir_usage(opt.metall_path) << std::endl;
 
