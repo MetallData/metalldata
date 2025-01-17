@@ -26,7 +26,8 @@ def generate_batch_data(num_rows, out_file):
         'name': [fake.name() for _ in range(num_rows)],
         'age': [random.randint(18, 70) for _ in range(num_rows)],
         'zipcode': [fake.zipcode() for _ in range(num_rows)],
-        'state': [fake.state() for _ in range(num_rows)]
+        'state': [fake.state() for _ in range(num_rows)],
+        'job': [fake.job() for _ in range(num_rows)],
     }
 
     df = pd.DataFrame(data)
