@@ -93,7 +93,7 @@ int main(int argc, char** argv) {
     for (int i = 0; i < row.size(); ++i) {
       auto& field = row[i];
       if (std::holds_alternative<std::monostate>(field)) {
-        continue;  // Skip invalid data
+        continue;  // Leave the field empty for None/NaN values
       }
 
       const auto& name = std::get<1>(schema[i]);

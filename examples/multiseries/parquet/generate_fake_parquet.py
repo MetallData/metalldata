@@ -30,6 +30,13 @@ def generate_batch_data(num_rows, out_file):
         'job': [fake.job() for _ in range(num_rows)],
     }
 
+    # Add NaN and None values
+    for key in data.keys():
+        for i in range(0, num_rows, 10):
+            data[key][i] = None
+        for i in range(1, num_rows, 10):
+            data[key][i] = float('nan')
+
     df = pd.DataFrame(data)
     save_to_parquet(df, out_file)
 
