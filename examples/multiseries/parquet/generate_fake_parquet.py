@@ -34,13 +34,15 @@ def generate_batch_data(num_rows, out_file):
 
 
 def generate_data(num_rows, batch_size, output_file_prefix):
+    batch_size = min(num_rows, batch_size)
     num_batches = (num_rows + batch_size - 1) // batch_size
 
     with ThreadPoolExecutor() as executor:
-        batches = list(
-            executor.map(generate_batch_data, [batch_size] * num_batches,
-                         [f'{output_file_prefix}-{i}.parquet' for i in
-                          range(num_batches)]))
+        batch_sizes = [batch_size] * num_batches
+        file_names = [f'{output_file_prefix}-{i}.parquet' for i in
+                      range(num_batches)]
+        for i in range(num_batches):
+            executor.submit(generate_batch_data, batch_sizes[i], file_names[i])
 
 
 def save_to_parquet(df, filename):
