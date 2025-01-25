@@ -27,6 +27,10 @@ def parse_args():
     parser.add_argument('-M', type=int, dest='max_string_length', default=20,
                         help='Maximum string length')
 
+    # b for batch size
+    parser.add_argument('-b', type=int, dest='batch_size', default=1_000_000,
+                        help='Batch size for parallel generation')
+
     return parser.parse_args()
 
 
@@ -63,7 +67,7 @@ def generate_data(num_rows, dup_ratio, min_string_length, max_string_length,
 
 def generate_data_parallel(num_rows, dup_ratio, min_string_length,
                            max_string_length, output_file_prefix,
-                           batch_size=10_000):
+                           batch_size):
     batch_size = min(num_rows, batch_size)
     num_batches = (num_rows + batch_size - 1) // batch_size
 
@@ -79,5 +83,6 @@ def generate_data_parallel(num_rows, dup_ratio, min_string_length,
 if __name__ == "__main__":
     args = parse_args()
     generate_data_parallel(args.num_rows, args.ratio, args.min_string_length,
-                           args.max_string_length, args.output_file_prefix)
+                           args.max_string_length, args.output_file_prefix,
+                           args.batch_size)
     print(f"Data saved to {args.output_file_prefix}-*.parquet")

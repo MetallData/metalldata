@@ -15,6 +15,10 @@ def parse_args():
                         default='./data',
                         help='Output file prefix')
 
+    # b for batch size
+    parser.add_argument('-b', type=int, dest='batch_size', default=1_000_000,
+                        help='Batch size for parallel generation')
+
     return parser.parse_args()
 
 
@@ -60,5 +64,5 @@ def save_to_parquet(df, filename):
 
 if __name__ == "__main__":
     args = parse_args()
-    generate_data(args.num_rows, 10_000, args.output_file_prefix)
+    generate_data(args.num_rows, args.batch_size, args.output_file_prefix)
     print(f"Data saved to {args.output_file_prefix}-*.parquet")
