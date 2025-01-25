@@ -6,7 +6,7 @@ import concurrent.futures
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Generate a Parquet file.')
+    parser = argparse.ArgumentParser(description='Generate a Parquet file using Faker lib.')
     # n for the number of rows to generate
     parser.add_argument('-n', type=int, dest='num_rows', default=10000,
                         help='Number of rows to generate')
@@ -24,6 +24,7 @@ def generate_batch_data(num_rows, out_file):
     # Generate random data for each column
     data = {
         'name': [fake.name() for _ in range(num_rows)],
+        'name (dup)': [fake.name() for _ in range(num_rows)],
         'age': [random.randint(18, 70) for _ in range(num_rows)],
         'zipcode': [fake.zipcode() for _ in range(num_rows)],
         'state': [fake.state() for _ in range(num_rows)],

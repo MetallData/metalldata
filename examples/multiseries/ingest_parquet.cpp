@@ -87,6 +87,9 @@ int main(int argc, char** argv) {
     }
   }
 
+  static size_t total_str_size = 0;
+  static size_t total_bytes    = 0;
+  static size_t total_num_strs = 0;
   parquetp.for_all([&schema, &record_store](auto& stream_reader, const auto&) {
     const auto record_id = record_store->add_record();
     auto row = ygm::io::detail::read_parquet_as_variant(stream_reader, schema);
@@ -103,11 +106,16 @@ int main(int argc, char** argv) {
             if constexpr (std::is_same_v<T, int32_t> ||
                           std::is_same_v<T, int64_t>) {
               record_store->set<int64_t>(name, record_id, field);
+              total_bytes += sizeof(T);
             } else if constexpr (std::is_same_v<T, float> ||
                                  std::is_same_v<T, double>) {
               record_store->set<double>(name, record_id, field);
+              total_bytes += sizeof(T);
             } else if constexpr (std::is_same_v<T, std::string>) {
               record_store->set<std::string_view>(name, record_id, field);
+              total_str_size += field.size();
+              total_bytes += field.size();  // Assume ASCII
+              ++total_num_strs;
             } else {
               throw std::runtime_error("Unsupported type");
             }
@@ -116,9 +124,24 @@ int main(int argc, char** argv) {
     }
   });
 
+  size_t total_unique_str_size = 0;
+  for (const auto& str : *string_store) {
+    total_unique_str_size += str.length();
+  }
+
   comm.cout0() << "#of series: " << record_store->num_series() << std::endl;
-  comm.cout0() << "#of records: " << comm.all_reduce_sum(record_store->num_records()) << std::endl;
-  comm.cout0() << "Metall datastore size (rank 0):" << std::endl;
+  comm.cout0() << "#of records: "
+               << comm.all_reduce_sum(record_store->num_records()) << std::endl;
+  comm.cout0() << "Total bytes: " << comm.all_reduce_sum(total_bytes)
+               << std::endl;
+  comm.cout0() << "Total #of chars: " << comm.all_reduce_sum(total_str_size)
+               << std::endl;
+  comm.cout0() << "#of unique strings: "
+               << comm.all_reduce_sum(string_store->size()) << std::endl;
+  comm.cout0() << "Total #of chars (unique strings): "
+               << comm.all_reduce_sum(total_unique_str_size) << std::endl;
+  comm.cout0() << "Metall datastore size (only the path rank 0 can access):"
+               << std::endl;
   comm.cout0() << get_dir_usage(opt.metall_path) << std::endl;
 
   return 0;
