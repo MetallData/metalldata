@@ -67,7 +67,7 @@ def generate_data_parallel(num_rows, dup_ratio, min_string_length,
     batch_size = min(num_rows, batch_size)
     num_batches = (num_rows + batch_size - 1) // batch_size
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=128) as executor:
         batch_sizes = [batch_size] * num_batches
         file_names = [f'{output_file_prefix}-{i}.parquet' for i in
                       range(num_batches)]
