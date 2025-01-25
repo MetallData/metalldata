@@ -3,7 +3,7 @@ import numpy as np
 import argparse
 import random
 import concurrent.futures
-
+import os
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -44,7 +44,7 @@ def generate_data(num_rows, dup_ratio, min_string_length, max_string_length,
     unique_data = set()
     data = []
     for _ in range(num_rows):
-        rnd = np.random.rand()
+        rnd = np.random.rand() # Random number between 0 and 1
         if rnd < dup_ratio and len(unique_data) > 0:
             str = np.random.choice(data)
             data.append(str)
@@ -82,6 +82,9 @@ def generate_data_parallel(num_rows, dup_ratio, min_string_length,
 
 if __name__ == "__main__":
     args = parse_args()
+    # Show the arguments
+    print(args)
+
     generate_data_parallel(args.num_rows, args.ratio, args.min_string_length,
                            args.max_string_length, args.output_file_prefix,
                            args.batch_size)

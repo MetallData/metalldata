@@ -3,6 +3,7 @@ import pandas as pd
 from faker import Faker
 import random
 import concurrent.futures
+import os
 
 
 def parse_args():
@@ -64,5 +65,7 @@ def save_to_parquet(df, filename):
 
 if __name__ == "__main__":
     args = parse_args()
+    print(args)
+
     generate_data(args.num_rows, args.batch_size, args.output_file_prefix)
     print(f"Data saved to {args.output_file_prefix}-*.parquet")
