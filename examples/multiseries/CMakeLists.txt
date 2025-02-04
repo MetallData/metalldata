@@ -1,0 +1,21 @@
+add_metalldata_executable(ingest_reddit_string_store ingest_reddit_string_store.cpp)
+setup_metall_target(ingest_reddit_string_store)
+setup_spdlog_target(ingest_reddit_string_store)
+
+add_metalldata_executable(eval_reddit_concat_string eval_reddit_concat_string.cpp)
+setup_metall_target(eval_reddit_concat_string)
+setup_spdlog_target(eval_reddit_concat_string)
+
+add_metalldata_executable(ingest_reddit_multiseries_record ingest_reddit_multiseries_record.cpp)
+setup_metall_target(ingest_reddit_multiseries_record)
+setup_spdlog_target(ingest_reddit_multiseries_record)
+
+add_metalldata_executable(find_max find_max.cpp)
+setup_metall_target(find_max)
+setup_spdlog_target(find_max)
+
+add_metalldata_executable(ingest_parquet ingest_parquet.cpp)
+setup_metall_target(ingest_parquet)
+setup_spdlog_target(ingest_parquet)
+setup_ygm_target(ingest_parquet)
+link_arrow_parquet(ingest_parquet)
