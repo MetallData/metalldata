@@ -1,6 +1,6 @@
 # Multi-series Example
 
-## Bun Demo
+## Run Demo
 
 All executable take `-h` option to show help messages.
 
