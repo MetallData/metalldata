@@ -16,7 +16,7 @@
 #include <vector>
 
 #include <ygm/comm.hpp>
-#include <ygm/io/detail/parquet2variant.hpp>
+#include <ygm/io/parquet2variant.hpp>
 #include <metall/metall.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
 #include <multiseries/multiseries_record.hpp>
@@ -92,7 +92,7 @@ int main(int argc, char** argv) {
   static size_t total_num_strs = 0;
   parquetp.for_all([&schema, &record_store](auto& stream_reader, const auto&) {
     const auto record_id = record_store->add_record();
-    auto row = ygm::io::detail::read_parquet_as_variant(stream_reader, schema);
+    auto row = ygm::io::read_parquet_as_variant(stream_reader, schema);
     for (int i = 0; i < row.size(); ++i) {
       auto& field = row[i];
       if (std::holds_alternative<std::monostate>(field)) {
