@@ -13,6 +13,8 @@ setup_spdlog_target(ingest_reddit_multiseries_record)
 add_metalldata_executable(find_max find_max.cpp)
 setup_metall_target(find_max)
 setup_spdlog_target(find_max)
+setup_ygm_target(find_max)
+link_arrow_parquet(find_max)
 
 add_metalldata_executable(ingest_parquet ingest_parquet.cpp)
 setup_metall_target(ingest_parquet)
