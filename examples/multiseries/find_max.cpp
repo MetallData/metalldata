@@ -10,9 +10,14 @@
 #include <algorithm>
 #include <iostream>
 #include <string>
+#include <limits>
 
+#include <mpi.h>
+#include <ygm/comm.hpp>
+#include <ygm/io/parquet2variant.hpp>
+#include <ygm/utility.hpp>
 #include <metall/metall.hpp>
-#include <spdlog/spdlog.h>
+#include <metall/utility/metall_mpi_adaptor.hpp>
 
 #include <multiseries/multiseries_record.hpp>
 
@@ -23,11 +28,12 @@ using string_store_type = record_store_type::string_store_type;
 struct option {
   std::filesystem::path metall_path{"./metall_data"};
   std::string           series_name;
+  std::string data_type;  // i: int64_t, u: uint64_t, d: double, s: string
 };
 
 bool parse_options(int argc, char *argv[], option *opt) {
   int opt_char;
-  while ((opt_char = getopt(argc, argv, "d:s:")) != -1) {
+  while ((opt_char = getopt(argc, argv, "d:s:t:h")) != -1) {
     switch (opt_char) {
       case 'd':
         opt->metall_path = std::filesystem::path(optarg);
@@ -35,55 +41,106 @@ bool parse_options(int argc, char *argv[], option *opt) {
       case 's':
         opt->series_name = optarg;
         break;
+      case 't':
+        opt->data_type = optarg;
+        break;
+      case 'h':
+        return false;
     }
   }
   return true;
 }
 
+void show_usage(std::ostream &os) {
+  os << "Usage: find_max -d metall_path -s series_name -t data_type"
+     << std::endl;
+  os << "  -d: Path to Metall directory" << std::endl;
+  os << "  -s: Series name" << std::endl;
+  os << "  -t: Data type (i: int64_t, u: uint64_t, d: double, s: string)"
+     << std::endl;
+}
+
+template <typename T>
+void find_max(const record_store_type *const record_store,
+              const std::string &series_name, ygm::comm &comm) {
+  T max_value = std::numeric_limits<T>::min();
+  record_store->for_all<T>(
+      series_name,
+      [&max_value](const record_store_type::record_id_type, const auto value) {
+        max_value = std::max(max_value, value);
+      });
+  comm.cout0() << "Max value: " << comm.all_reduce_max(max_value) << std::endl;
+}
+
+// find_max for string
+template <>
+void find_max<std::string>(const record_store_type *const record_store,
+                           const std::string &series_name, ygm::comm &comm) {
+  std::string max_value;
+  record_store->for_all<std::string_view>(
+      series_name,
+      [&max_value](const record_store_type::record_id_type, const auto value) {
+        if (max_value.empty() ||
+            std::lexicographical_compare(max_value.begin(), max_value.end(),
+                                         value.begin(), value.end())) {
+          max_value = std::string(value);
+        }
+      });
+  comm.cout0() << "Lexicographically max value: "
+               << comm.all_reduce(max_value,
+                                  [](const auto &lhd, const auto &rhd) {
+                                    return std::lexicographical_compare(
+                                               lhd.begin(), lhd.end(),
+                                               rhd.begin(), rhd.end())
+                                               ? rhd
+                                               : lhd;
+                                  })
+               << std::endl;
+}
+
 int main(int argc, char *argv[]) {
+  ygm::comm comm(&argc, &argv);
+
   option opt;
   if (!parse_options(argc, argv, &opt)) {
-    std::abort();
+    show_usage(comm.cerr0());
+    return EXIT_SUCCESS;
   }
   if (opt.metall_path.empty()) {
-    std::cerr << "Metall path is required" << std::endl;
-    return EXIT_SUCCESS;
+    comm.cerr0("Metall path is required");
+    return EXIT_FAILURE;
   }
   if (opt.series_name.empty()) {
-    std::cerr << "Series name is required" << std::endl;
-    return EXIT_SUCCESS;
+    comm.cerr0("Series name is required");
+    return EXIT_FAILURE;
   }
 
-  metall::manager manager(metall::open_read_only, opt.metall_path);
-  auto           *record_store =
+  metall::utility::metall_mpi_adaptor mpi_adaptor(
+      metall::open_read_only, opt.metall_path, comm.get_mpi_comm());
+  auto &manager = mpi_adaptor.get_local_manager();
+  auto *record_store =
       manager.find<record_store_type>(metall::unique_instance).first;
   if (!record_store) {
-    spdlog::error("Failed to find record store");
-    return EXIT_SUCCESS;
+    comm.cerr0("Failed to find record store");
+    return EXIT_FAILURE;
   }
 
-  spdlog::info("Finding max value in series: {}", opt.series_name);
-  if (opt.series_name == "created_utc") {
-    uint64_t max_value = 0;
-    record_store->for_all<uint64_t>(
-        opt.series_name, [&max_value](const record_store_type ::record_id_type,
-                                      const auto value) {
-          max_value = std::max(max_value, value);
-        });
-    spdlog::info("Max value: {}", max_value);
+  comm.cout0() << "Finding max value in series: " << opt.series_name
+               << std::endl;
+  ygm::timer timer;
+  if (opt.data_type == "i") {
+    find_max<int64_t>(record_store, opt.series_name, comm);
+  } else if (opt.data_type == "u") {
+    find_max<uint64_t>(record_store, opt.series_name, comm);
+  } else if (opt.data_type == "d") {
+    find_max<double>(record_store, opt.series_name, comm);
+  } else if (opt.data_type == "s") {
+    find_max<std::string>(record_store, opt.series_name, comm);
   } else {
-    std::string max_value;
-    record_store->for_all<std::string_view>(
-        opt.series_name, [&max_value](const record_store_type ::record_id_type,
-                                      const auto value) {
-          if (max_value.empty() ||
-              std::lexicographical_compare(max_value.begin(), max_value.end(),
-                                           value.begin(), value.end())) {
-            max_value = std::string(value);
-          }
-        });
-    spdlog::info("Lexicographically max value: {}", max_value);
+    comm.cerr0() << "Unsupported data type " << opt.data_type << std::endl;
+    return EXIT_FAILURE;
   }
+  comm.cout0() << "Find max took (s)\t" << timer.elapsed() << std::endl;
 
   return 0;
 }
