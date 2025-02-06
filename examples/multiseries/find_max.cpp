@@ -12,11 +12,12 @@
 #include <string>
 #include <limits>
 
+#include <mpi.h>
 #include <ygm/comm.hpp>
 #include <ygm/io/parquet2variant.hpp>
+#include <ygm/utility.hpp>
 #include <metall/metall.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
-#include <spdlog/spdlog.h>
 
 #include <multiseries/multiseries_record.hpp>
 
@@ -32,7 +33,7 @@ struct option {
 
 bool parse_options(int argc, char *argv[], option *opt) {
   int opt_char;
-  while ((opt_char = getopt(argc, argv, "d:s:t:")) != -1) {
+  while ((opt_char = getopt(argc, argv, "d:s:t:h")) != -1) {
     switch (opt_char) {
       case 'd':
         opt->metall_path = std::filesystem::path(optarg);
@@ -43,9 +44,20 @@ bool parse_options(int argc, char *argv[], option *opt) {
       case 't':
         opt->data_type = optarg;
         break;
+      case 'h':
+        return false;
     }
   }
   return true;
+}
+
+void show_usage(std::ostream &os) {
+  os << "Usage: find_max -d metall_path -s series_name -t data_type"
+     << std::endl;
+  os << "  -d: Path to Metall directory" << std::endl;
+  os << "  -s: Series name" << std::endl;
+  os << "  -t: Data type (i: int64_t, u: uint64_t, d: double, s: string)"
+     << std::endl;
 }
 
 template <typename T>
@@ -91,7 +103,8 @@ int main(int argc, char *argv[]) {
 
   option opt;
   if (!parse_options(argc, argv, &opt)) {
-    std::abort();
+    show_usage(comm.cerr0());
+    return EXIT_SUCCESS;
   }
   if (opt.metall_path.empty()) {
     comm.cerr0("Metall path is required");
@@ -114,6 +127,7 @@ int main(int argc, char *argv[]) {
 
   comm.cout0() << "Finding max value in series: " << opt.series_name
                << std::endl;
+  ygm::timer timer;
   if (opt.data_type == "i") {
     find_max<int64_t>(record_store, opt.series_name, comm);
   } else if (opt.data_type == "u") {
@@ -126,6 +140,7 @@ int main(int argc, char *argv[]) {
     comm.cerr0() << "Unsupported data type " << opt.data_type << std::endl;
     return EXIT_FAILURE;
   }
+  comm.cout0() << "Find max took (s)\t" << timer.elapsed() << std::endl;
 
   return 0;
 }

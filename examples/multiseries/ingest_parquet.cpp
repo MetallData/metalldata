@@ -34,18 +34,25 @@ struct option {
 
 bool parse_options(int argc, char* argv[], option* opt) {
   int opt_char;
-  while ((opt_char = getopt(argc, argv, "d:i:")) != -1) {
+  while ((opt_char = getopt(argc, argv, "d:i:h")) != -1) {
     switch (opt_char) {
       case 'd':
         opt->metall_path = std::filesystem::path(optarg);
         break;
       case 'i':
         opt->input_path = std::filesystem::path(optarg);
-        ;
         break;
+      case 'h':
+        return false;
     }
   }
   return true;
+}
+
+void show_usage(std::ostream& os) {
+  os << "Usage: find_max -d metall_path -i input_path" << std::endl;
+  os << "  -d: Path to Metall directory" << std::endl;
+  os << "  -i: Path to the input Parquet file" << std::endl;
 }
 
 int main(int argc, char** argv) {
@@ -53,7 +60,8 @@ int main(int argc, char** argv) {
 
   option opt;
   if (!parse_options(argc, argv, &opt)) {
-    std::abort();
+    show_usage(comm.cerr0());
+    return EXIT_SUCCESS;
   }
   if (opt.metall_path.empty()) {
     comm.cerr0() << "Metall path is required" << std::endl;
@@ -92,7 +100,7 @@ int main(int argc, char** argv) {
   static size_t total_num_strs = 0;
   parquetp.for_all([&schema, &record_store](auto& stream_reader, const auto&) {
     const auto record_id = record_store->add_record();
-    auto row = ygm::io::read_parquet_as_variant(stream_reader, schema);
+    auto       row = ygm::io::read_parquet_as_variant(stream_reader, schema);
     for (int i = 0; i < row.size(); ++i) {
       auto& field = row[i];
       if (std::holds_alternative<std::monostate>(field)) {
