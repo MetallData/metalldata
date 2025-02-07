@@ -25,16 +25,43 @@
 
 #include "string_table/string_store.hpp"
 
+// Experimental feature
+#ifndef METALLDATA_MSR_DEQUE_BLOCK_SIZE
+#define METALLDATA_MSR_DEQUE_BLOCK_SIZE (1024UL * 1024 * 2)
+#endif
+
 namespace multiseries {
 
 namespace {
-namespace bc = boost::container;
+namespace bc   = boost::container;
 namespace cstr = compact_string;
-} // namespace
+}  // namespace
+
+// enum class kind { int64, uint64, double_, string };
+//
+// template <typename T>
+// constexpr kind get_kind() {
+//   if constexpr (std::is_same_v<T, int64_t>) {
+//     return kind::int64;
+//   } else if constexpr (std::is_same_v<T, uint64_t>) {
+//     return kind::uint64;
+//   } else if constexpr (std::is_same_v<T, double>) {
+//     return kind::double_;
+//   } else if constexpr (std::is_same_v<T, std::string_view>) {
+//     return kind::string;
+//   } else {
+//     static_assert(std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t>
+//     ||
+//                       std::is_same_v<T, double> || std::is_same_v<T,
+//                       std::string_view>,
+//                   "Unsupported type");
+//   }
+// }
 
 /// \brief Column-based record store
-template <typename Alloc = std::allocator<std::byte>> class basic_record_store {
-private:
+template <typename Alloc = std::allocator<std::byte>>
+class basic_record_store {
+ private:
   template <typename T>
   using other_allocator =
       typename std::allocator_traits<Alloc>::template rebind_alloc<T>;
@@ -48,17 +75,19 @@ private:
   using other_pointer_type =
       typename std::pointer_traits<pointer_type>::template rebind<T>;
 
-  template <typename T> using vector_type = bc::vector<T, scp_allocator<T>>;
+  template <typename T>
+  using vector_type = bc::vector<T, scp_allocator<T>>;
 
   using deque_block_option_t =
-      bc::deque_options<bc::block_bytes<1024 * 1024 * 2>>::type;
+      bc::deque_options<bc::block_bytes<METALLDATA_MS_BLOCK_SIZE>>::type;
   template <typename T>
   using deque_type = bc::deque<T, scp_allocator<T>, deque_block_option_t>;
 
   using series_store_type =
       std::variant<deque_type<int64_t>, deque_type<uint64_t>,
                    deque_type<double>, deque_type<cstr::string_accessor>>;
-  template <typename T> struct get_series_store_type {
+  template <typename T>
+  struct get_series_store_type {
     // If T is std::string_view, type is cstr::string_accessor
     // Otherwise, type is T
     using type =
@@ -70,23 +99,24 @@ private:
       bc::basic_string<char, std::char_traits<char>, other_allocator<char>>;
 
   struct series_item {
-    string_type name;
-    deque_type<bool> exist;
+    string_type       name;
+    deque_type<bool>  exist;
     series_store_type data;
   };
   using multiseries_store_type = vector_type<series_item>;
 
-public:
-  using record_id_type = size_t;
-  using allocator_type = Alloc;
-  using string_store_type = cstr::string_store<allocator_type>;
+ public:
+  using record_id_type            = size_t;
+  using allocator_type            = Alloc;
+  using string_store_type         = cstr::string_store<allocator_type>;
   using string_store_pointer_type = other_pointer_type<string_store_type>;
-  template <typename T> struct series_info_type {
+  template <typename T>
+  struct series_info_type {
     using type = T;
     size_t series_index;
   };
 
-  explicit basic_record_store(string_store_type *string_store,
+  explicit basic_record_store(string_store_type    *string_store,
                               const allocator_type &alloc = allocator_type())
       : m_record_status(alloc), m_series(alloc), m_string_store(string_store) {}
 
@@ -113,17 +143,17 @@ public:
     }
 
     m_series.push_back(
-        {.name = string_type(series_name.data(), series_name.size(),
-                             m_record_status.get_allocator()),
+        {.name  = string_type(series_name.data(), series_name.size(),
+                              m_record_status.get_allocator()),
          .exist = deque_type<bool>(m_record_status.get_allocator()),
-         .data = typename get_series_store_type<series_type>::type(
+         .data  = typename get_series_store_type<series_type>::type(
              m_record_status.get_allocator())});
 
     return series_info_type<series_type>{.series_index = m_series.size() - 1};
   }
 
   template <typename series_type>
-  const auto get(std::string_view series_name,
+  const auto get(std::string_view     series_name,
                  const record_id_type record_id) const {
     priv_series_type_check<series_type>();
     auto itr = priv_find_series(series_name);
@@ -136,7 +166,7 @@ public:
 
   template <typename series_type>
   const auto get(const series_info_type<series_type> &series_info,
-                 const record_id_type record_id) const {
+                 const record_id_type                 record_id) const {
     priv_series_type_check<series_type>();
     if (series_info.series_index >= m_series.size()) {
       throw std::runtime_error("Series not found");
@@ -146,7 +176,7 @@ public:
   }
 
   /// \brief Returns if the series data of record is None
-  bool is_none(std::string_view series_name,
+  bool is_none(std::string_view     series_name,
                const record_id_type record_id) const {
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
@@ -157,7 +187,7 @@ public:
 
   template <typename series_type>
   bool is_none(const series_info_type<series_type> &series_info,
-               const record_id_type record_id) const {
+               const record_id_type                 record_id) const {
     if (series_info.series_index >= m_series.size()) {
       return true;
     }
@@ -190,8 +220,8 @@ public:
 
   /// Returns series_info_type<series_type>
   template <typename series_type>
-  series_info_type<series_type>
-  find_series(std::string_view series_name) const {
+  series_info_type<series_type> find_series(
+      std::string_view series_name) const {
     priv_series_type_check<series_type>();
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
@@ -225,7 +255,7 @@ public:
 
   template <typename series_type, typename series_func_t>
   void for_all(series_info_type<series_type> series_info,
-               series_func_t series_func) const {
+               series_func_t                 series_func) const {
     if (series_info.series_index >= m_series.size()) {
       throw std::runtime_error("Series not found");
     }
@@ -239,8 +269,21 @@ public:
     }
   }
 
-private:
-  template <class series_type> static constexpr void priv_series_type_check() {
+  bool contains(std::string_view series_name) const {
+    return priv_find_series(series_name) != m_series.end();
+  }
+
+  std::vector<std::string> get_series_names() const {
+    std::vector<std::string> series_names;
+    for (const auto &item : m_series) {
+      series_names.push_back(item.name);
+    }
+    return series_names;
+  }
+
+ private:
+  template <class series_type>
+  static constexpr void priv_series_type_check() {
     static_assert(std::is_same_v<series_type, int64_t> ||
                       std::is_same_v<series_type, uint64_t> ||
                       std::is_same_v<series_type, double> ||
@@ -248,8 +291,8 @@ private:
                   "Unsupported series type");
   }
 
-  multiseries_store_type::iterator
-  priv_find_series(std::string_view series_name) {
+  multiseries_store_type::iterator priv_find_series(
+      std::string_view series_name) {
     for (auto itr = m_series.begin(); itr != m_series.end(); ++itr) {
       if (itr->name == series_name) {
         return itr;
@@ -258,8 +301,8 @@ private:
     return m_series.end();
   }
 
-  multiseries_store_type::const_iterator
-  priv_find_series(std::string_view series_name) const {
+  multiseries_store_type::const_iterator priv_find_series(
+      std::string_view series_name) const {
     for (auto itr = m_series.cbegin(); itr != m_series.cend(); ++itr) {
       if (itr->name == series_name) {
         return itr;
@@ -270,7 +313,7 @@ private:
 
   template <typename series_type>
   const auto priv_access_series_data(const series_store_type &series_store,
-                                     const record_id_type record_id) const {
+                                     const record_id_type     record_id) const {
     if constexpr (std::is_same_v<series_type, std::string_view>) {
       // Returns a string_view (not reference)
       return std::get<typename get_series_store_type<series_type>::type>(
@@ -297,11 +340,11 @@ private:
     }
   }
 
-  deque_type<bool> m_record_status;
-  multiseries_store_type m_series;
+  deque_type<bool>          m_record_status;
+  multiseries_store_type    m_series;
   string_store_pointer_type m_string_store;
 };
 
 using record_store = basic_record_store<>;
 
-} // namespace multiseries
+}  // namespace multiseries
