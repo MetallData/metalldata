@@ -79,7 +79,7 @@ class basic_record_store {
   using vector_type = bc::vector<T, scp_allocator<T>>;
 
   using deque_block_option_t =
-      bc::deque_options<bc::block_bytes<METALLDATA_MS_BLOCK_SIZE>>::type;
+      bc::deque_options<bc::block_bytes<METALLDATA_MSR_DEQUE_BLOCK_SIZE>>::type;
   template <typename T>
   using deque_type = bc::deque<T, scp_allocator<T>, deque_block_option_t>;
 
