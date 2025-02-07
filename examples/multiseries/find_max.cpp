@@ -14,7 +14,6 @@
 
 #include <mpi.h>
 #include <ygm/comm.hpp>
-#include <ygm/io/parquet2variant.hpp>
 #include <ygm/utility.hpp>
 #include <metall/metall.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
@@ -26,10 +25,21 @@ using record_store_type =
 using string_store_type = record_store_type::string_store_type;
 
 struct option {
-  std::filesystem::path metall_path{"./metall_data"};
-  std::string           series_name;
-  std::string data_type;  // i: int64_t, u: uint64_t, d: double, s: string
+  std::filesystem::path    metall_path{"./metall_data"};
+  std::vector<std::string> series_names;
+  std::vector<std::string>
+      data_types;  // i: int64_t, u: uint64_t, d: double, s: string
 };
+
+std::vector<std::string> parse_csv(const std::string &csv) {
+  std::vector<std::string> result;
+  std::string              token;
+  std::istringstream       token_stream(csv);
+  while (std::getline(token_stream, token, ',')) {
+    result.push_back(token);
+  }
+  return result;
+}
 
 bool parse_options(int argc, char *argv[], option *opt) {
   int opt_char;
@@ -39,10 +49,10 @@ bool parse_options(int argc, char *argv[], option *opt) {
         opt->metall_path = std::filesystem::path(optarg);
         break;
       case 's':
-        opt->series_name = optarg;
+        opt->series_names = parse_csv(optarg);
         break;
       case 't':
-        opt->data_type = optarg;
+        opt->data_types = parse_csv(optarg);
         break;
       case 'h':
         return false;
@@ -52,11 +62,12 @@ bool parse_options(int argc, char *argv[], option *opt) {
 }
 
 void show_usage(std::ostream &os) {
-  os << "Usage: find_max -d metall_path -s series_name -t data_type"
+  os << "Usage: find_max -d metall path -s series names -t data types"
      << std::endl;
   os << "  -d: Path to Metall directory" << std::endl;
-  os << "  -s: Series name" << std::endl;
-  os << "  -t: Data type (i: int64_t, u: uint64_t, d: double, s: string)"
+  os << "  -s: Series name(s), separated by comma, e.g., name,age" << std::endl;
+  os << "  -t: Data type(s) (i: int64_t, u: uint64_t, d: double, s: string) "
+        "for the series, separated by comma, e.g., i,u"
      << std::endl;
 }
 
@@ -110,8 +121,16 @@ int main(int argc, char *argv[]) {
     comm.cerr0("Metall path is required");
     return EXIT_FAILURE;
   }
-  if (opt.series_name.empty()) {
+  if (opt.series_names.empty()) {
     comm.cerr0("Series name is required");
+    return EXIT_FAILURE;
+  }
+  if (opt.data_types.empty()) {
+    comm.cerr0("Data type is required");
+    return EXIT_FAILURE;
+  }
+  if (opt.series_names.size() != opt.data_types.size()) {
+    comm.cerr0("Series names and data types must have the same size");
     return EXIT_FAILURE;
   }
 
@@ -121,26 +140,35 @@ int main(int argc, char *argv[]) {
   auto *record_store =
       manager.find<record_store_type>(metall::unique_instance).first;
   if (!record_store) {
-    comm.cerr0("Failed to find record store");
+    comm.cerr0("Failed to find record store in " + opt.metall_path.string());
     return EXIT_FAILURE;
   }
 
-  comm.cout0() << "Finding max value in series: " << opt.series_name
-               << std::endl;
-  ygm::timer timer;
-  if (opt.data_type == "i") {
-    find_max<int64_t>(record_store, opt.series_name, comm);
-  } else if (opt.data_type == "u") {
-    find_max<uint64_t>(record_store, opt.series_name, comm);
-  } else if (opt.data_type == "d") {
-    find_max<double>(record_store, opt.series_name, comm);
-  } else if (opt.data_type == "s") {
-    find_max<std::string>(record_store, opt.series_name, comm);
-  } else {
-    comm.cerr0() << "Unsupported data type " << opt.data_type << std::endl;
-    return EXIT_FAILURE;
+  for (size_t i = 0; i < opt.series_names.size(); ++i) {
+    const auto &series_name = opt.series_names[i];
+    const auto &data_type   = opt.data_types[i];
+    if (!record_store->contains(series_name)) {
+      comm.cerr0() << "Series not found: " << series_name << std::endl;
+      continue;
+    }
+
+    comm.cout0() << "Finding max value in series: " << series_name << std::endl;
+    ygm::timer timer;
+    if (data_type == "i") {
+      find_max<int64_t>(record_store, series_name, comm);
+    } else if (data_type == "u") {
+      find_max<uint64_t>(record_store, series_name, comm);
+    } else if (data_type == "d") {
+      find_max<double>(record_store, series_name, comm);
+    } else if (data_type == "s") {
+      find_max<std::string>(record_store, series_name, comm);
+    } else {
+      comm.cerr0() << "Unsupported data type " << data_type << std::endl;
+      return EXIT_FAILURE;
+    }
+    comm.cout0() << "Find max took (s)\t" << timer.elapsed() << "\n"
+                 << std::endl;
   }
-  comm.cout0() << "Find max took (s)\t" << timer.elapsed() << std::endl;
 
   return 0;
 }
