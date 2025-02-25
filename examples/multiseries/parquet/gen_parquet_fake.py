@@ -29,9 +29,9 @@ def generate_batch_data(num_rows, out_file):
     # Generate random data for each column
     data = {
         'name': [fake.name() for _ in range(num_rows)],
-        'name (dup)': [fake.name() for _ in range(num_rows)],
+        'name-dup': [fake.name() for _ in range(num_rows)],
         'age': [random.randint(18, 70) for _ in range(num_rows)],
-        'zipcode': [fake.zipcode() for _ in range(num_rows)],
+        '': [fake.zipcode() for _ in range(num_rows)],
         'state': [fake.state() for _ in range(num_rows)],
         'job': [fake.job() for _ in range(num_rows)],
     }
@@ -40,8 +40,6 @@ def generate_batch_data(num_rows, out_file):
     for key in data.keys():
         for i in range(0, num_rows, 10):
             data[key][i] = None
-        for i in range(1, num_rows, 10):
-            data[key][i] = float('nan')
 
     df = pd.DataFrame(data)
     save_to_parquet(df, out_file)
