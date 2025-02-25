@@ -30,17 +30,21 @@ using string_store_type = record_store_type::string_store_type;
 struct option {
   std::filesystem::path metall_path{"./metall_data"};
   std::filesystem::path input_path;
+  bool                  profile{false};
 };
 
 bool parse_options(int argc, char* argv[], option* opt) {
   int opt_char;
-  while ((opt_char = getopt(argc, argv, "d:i:h")) != -1) {
+  while ((opt_char = getopt(argc, argv, "d:i:Ph")) != -1) {
     switch (opt_char) {
       case 'd':
         opt->metall_path = std::filesystem::path(optarg);
         break;
       case 'i':
         opt->input_path = std::filesystem::path(optarg);
+        break;
+      case 'P':
+        opt->profile = true;
         break;
       case 'h':
         return false;
@@ -53,6 +57,7 @@ void show_usage(std::ostream& os) {
   os << "Usage: find_max -d metall_path -i input_path" << std::endl;
   os << "  -d: Path to Metall directory" << std::endl;
   os << "  -i: Path to the input Parquet file" << std::endl;
+  os << "  -P: Enable profiling (may harm speed)" << std::endl;
 }
 
 int main(int argc, char** argv) {
@@ -95,62 +100,79 @@ int main(int argc, char** argv) {
     }
   }
 
-  static size_t total_str_size = 0;
-  static size_t total_bytes    = 0;
-  static size_t total_num_strs = 0;
-  parquetp.for_all([&schema, &record_store](auto& stream_reader, const auto&) {
-    const auto record_id = record_store->add_record();
-    auto       row = ygm::io::read_parquet_as_variant(stream_reader, schema);
-    for (int i = 0; i < row.size(); ++i) {
-      auto& field = row[i];
-      if (std::holds_alternative<std::monostate>(field)) {
-        continue;  // Leave the field empty for None/NaN values
-      }
+  static size_t total_ingested_str_size = 0;
+  static size_t total_ingested_bytes    = 0;
+  static size_t total_num_strs          = 0;
+  parquetp.for_all(
+      [&schema, &record_store, &opt](auto& stream_reader, const auto&) {
+        const auto record_id = record_store->add_record();
+        auto row = ygm::io::read_parquet_as_variant(stream_reader, schema);
+        for (int i = 0; i < row.size(); ++i) {
+          auto& field = row[i];
+          if (std::holds_alternative<std::monostate>(field)) {
+            continue;  // Leave the field empty for None/NaN values
+          }
 
-      const auto& name = std::get<1>(schema[i]);
-      std::visit(
-          [&record_store, &record_id, &name](auto&& field) {
-            using T = std::decay_t<decltype(field)>;
-            if constexpr (std::is_same_v<T, int32_t> ||
-                          std::is_same_v<T, int64_t>) {
-              record_store->set<int64_t>(name, record_id, field);
-              total_bytes += sizeof(T);
-            } else if constexpr (std::is_same_v<T, float> ||
-                                 std::is_same_v<T, double>) {
-              record_store->set<double>(name, record_id, field);
-              total_bytes += sizeof(T);
-            } else if constexpr (std::is_same_v<T, std::string>) {
-              record_store->set<std::string_view>(name, record_id, field);
-              total_str_size += field.size();
-              total_bytes += field.size();  // Assume ASCII
-              ++total_num_strs;
-            } else {
-              throw std::runtime_error("Unsupported type");
-            }
-          },
-          std::move(field));
-    }
-  });
+          const auto& name = std::get<1>(schema[i]);
+          std::visit(
+              [&record_store, &record_id, &name, &opt](auto&& field) {
+                using T = std::decay_t<decltype(field)>;
+                if constexpr (std::is_same_v<T, int32_t> ||
+                              std::is_same_v<T, int64_t>) {
+                  record_store->set<int64_t>(name, record_id, field);
+                  if (opt.profile) {
+                    total_ingested_bytes += sizeof(T);
+                  }
+                } else if constexpr (std::is_same_v<T, float> ||
+                                     std::is_same_v<T, double>) {
+                  record_store->set<double>(name, record_id, field);
+                  if (opt.profile) {
+                    total_ingested_bytes += sizeof(T);
+                  }
+                } else if constexpr (std::is_same_v<T, std::string>) {
+                  record_store->set<std::string_view>(name, record_id, field);
+
+                  if (opt.profile) {
+                    total_ingested_str_size += field.size();
+                    total_ingested_bytes += field.size();  // Assume ASCII
+                    ++total_num_strs;
+                  }
+
+                } else {
+                  throw std::runtime_error("Unsupported type");
+                }
+              },
+              std::move(field));
+        }
+      });
 
   size_t total_unique_str_size = 0;
-  for (const auto& str : *string_store) {
-    total_unique_str_size += str.length();
+  if (opt.profile) {
+    for (const auto& str : *string_store) {
+      total_unique_str_size += str.length();
+    }
   }
 
   comm.cout0() << "#of series: " << record_store->num_series() << std::endl;
   comm.cout0() << "#of records: "
                << comm.all_reduce_sum(record_store->num_records()) << std::endl;
-  comm.cout0() << "Total bytes: " << comm.all_reduce_sum(total_bytes)
-               << std::endl;
-  comm.cout0() << "Total #of chars: " << comm.all_reduce_sum(total_str_size)
-               << std::endl;
-  comm.cout0() << "#of unique strings: "
-               << comm.all_reduce_sum(string_store->size()) << std::endl;
-  comm.cout0() << "Total #of chars (unique strings): "
-               << comm.all_reduce_sum(total_unique_str_size) << std::endl;
-  comm.cout0() << "Metall datastore size (only the path rank 0 can access):"
-               << std::endl;
-  comm.cout0() << get_dir_usage(opt.metall_path) << std::endl;
+  if (opt.profile) {
+    comm.cout0() << "Total ingested bytes: "
+                 << comm.all_reduce_sum(total_ingested_bytes) << std::endl;
+    comm.cout0() << "Total #of ingested chars: "
+                 << comm.all_reduce_sum(total_ingested_str_size) << std::endl;
+    comm.cout0() << "Total bytes of ingested numbers: "
+                 << comm.all_reduce_sum(total_ingested_bytes -
+                                        total_ingested_str_size)
+                 << std::endl;
+    comm.cout0() << "#of unique strings: "
+                 << comm.all_reduce_sum(string_store->size()) << std::endl;
+    comm.cout0() << "Total #of chars of unique strings: "
+                 << comm.all_reduce_sum(total_unique_str_size) << std::endl;
+    comm.cout0() << "Metall datastore size (only the path rank 0 can access):"
+                 << std::endl;
+    comm.cout0() << get_dir_usage(opt.metall_path) << std::endl;
+  }
 
   return 0;
 }

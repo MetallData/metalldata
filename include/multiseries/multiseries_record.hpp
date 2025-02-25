@@ -236,6 +236,33 @@ class basic_record_store {
 
   size_t num_series() const { return m_series.size(); }
 
+  // Change name
+  template <typename series_func_t>
+  void for_all_dynamic(std::string_view series_name,
+                       series_func_t    series_func) const {
+    auto itr = priv_find_series(series_name);
+    if (itr == m_series.end()) {
+      throw std::runtime_error("Series not found");
+    }
+
+    const auto &series_item = *itr;
+    for (size_t i = 0; i < m_record_status.size(); ++i) {
+      if (series_item.exist[i]) {
+        std::visit(
+            [&series_func, i](const auto &series) {
+              using T = std::decay_t<decltype(series)>;
+              if constexpr (std::is_same_v<T,
+                                           deque_type<cstr::string_accessor>>) {
+                series_func(i, series[i].to_view());
+              } else {
+                series_func(i, series[i]);
+              }
+            },
+            series_item.data);
+      }
+    }
+  }
+
   // series_func_t: [](int record_id, auto value) {}
   template <typename series_type, typename series_func_t>
   void for_all(std::string_view series_name, series_func_t series_func) const {
