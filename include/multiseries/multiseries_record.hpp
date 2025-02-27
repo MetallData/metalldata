@@ -22,6 +22,7 @@
 #include <boost/container/string.hpp>
 #include <boost/container/vector.hpp>
 #include <boost/unordered/unordered_map.hpp>
+#include <boost/unordered/unordered_flat_map.hpp>
 
 #include "string_table/string_store.hpp"
 
@@ -29,6 +30,8 @@
 #ifndef METALLDATA_MSR_DEQUE_BLOCK_SIZE
 #define METALLDATA_MSR_DEQUE_BLOCK_SIZE (1024UL * 1024 * 2)
 #endif
+
+// #define METALLDATA_USE_SPARCE_MAP_IN_MS
 
 namespace multiseries {
 
@@ -83,17 +86,33 @@ class basic_record_store {
   template <typename T>
   using deque_type = bc::deque<T, scp_allocator<T>, deque_block_option_t>;
 
-  using series_store_type =
-      std::variant<deque_type<int64_t>, deque_type<uint64_t>,
-                   deque_type<double>, deque_type<cstr::string_accessor>>;
+  template <typename T>
+  using sparce_map_type =
+      boost::unordered_flat_map<size_t, T, std::hash<size_t>,
+                                std::equal_to<size_t>,
+                                scp_allocator<std::pair<const size_t, T>>>;
+
   template <typename T>
   struct get_series_store_type {
     // If T is std::string_view, type is cstr::string_accessor
     // Otherwise, type is T
+#ifdef METALLDATA_USE_SPARCE_MAP_IN_MS
+    template <typename C>
+    using container_type = sparce_map_type<C>;
+#else
+    template <typename C>
+    using container_type = deque_type<C>;
+#endif
     using type =
-        deque_type<std::conditional_t<std::is_same_v<T, std::string_view>,
-                                      cstr::string_accessor, T>>;
+        container_type<std::conditional_t<std::is_same_v<T, std::string_view>,
+                                          cstr::string_accessor, T>>;
   };
+
+  using series_store_type =
+      std::variant<typename get_series_store_type<int64_t>::type,
+                   typename get_series_store_type<uint64_t>::type,
+                   typename get_series_store_type<double>::type,
+                   typename get_series_store_type<std::string_view>::type>;
 
   using string_type =
       bc::basic_string<char, std::char_traits<char>, other_allocator<char>>;
@@ -122,7 +141,11 @@ class basic_record_store {
 
   record_id_type add_record() {
     for (auto &item : m_series) {
-      std::visit([](auto &series) { series.resize(series.size() + 1); },
+      std::visit([](auto &series) {
+#ifndef METALLDATA_USE_SPARCE_MAP_IN_MS
+        series.resize(series.size() + 1);
+#endif
+      },
                  item.data);
       item.exist.push_back(false);
     }
@@ -251,11 +274,11 @@ class basic_record_store {
         std::visit(
             [&series_func, i](const auto &series) {
               using T = std::decay_t<decltype(series)>;
-              if constexpr (std::is_same_v<T,
-                                           deque_type<cstr::string_accessor>>) {
-                series_func(i, series[i].to_view());
+              if constexpr (std::is_same_v<T, typename get_series_store_type<
+                                                  std::string_view>::type>) {
+                series_func(i, series.at(i).to_view());
               } else {
-                series_func(i, series[i]);
+                series_func(i, series.at(i));
               }
             },
             series_item.data);
@@ -344,11 +367,13 @@ class basic_record_store {
     if constexpr (std::is_same_v<series_type, std::string_view>) {
       // Returns a string_view (not reference)
       return std::get<typename get_series_store_type<series_type>::type>(
-                 series_store)[record_id]
+                 series_store)
+          .at(record_id)
           .to_view();
     } else {
       return std::get<typename get_series_store_type<series_type>::type>(
-          series_store)[record_id];
+                 series_store)
+          .at(record_id);
     }
   }
 
