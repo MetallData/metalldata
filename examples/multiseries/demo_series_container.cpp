@@ -83,8 +83,9 @@ int main(int argc, char **argv) {
                      []() { return std::rand(); });
 
   std::cout << "Ingest UUIDs" << std::endl;
-  std::cout << "Dense container" << std::endl;
   boost::uuids::random_generator gen;
+  std::cout << "Sample UUID: " << boost::uuids::to_string(gen()) << std::endl;
+  std::cout << "Dense container" << std::endl;
   run_bench<std::string_view>(metall_path,
                               num_records,
                               container_kind::dense,
