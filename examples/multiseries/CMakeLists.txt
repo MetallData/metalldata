@@ -6,3 +6,6 @@ add_metalldata_executable(ingest_parquet ingest_parquet.cpp)
 setup_metall_target(ingest_parquet)
 setup_ygm_target(ingest_parquet)
 link_arrow_parquet(ingest_parquet)
+
+add_metalldata_executable(demo_series_container demo_series_container.cpp)
+setup_metall_target(demo_series_container)
