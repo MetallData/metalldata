@@ -59,6 +59,9 @@ void run_bench(const std::filesystem::path &metall_path,
     record_store->set<data_type>("data", record_id, generator());
   }
 
+  std::cout << "Total #of records: " << record_store->num_records() <<
+    std::endl;
+  std::cout << "String store size: " << string_store->size() << std::endl;
   std::cout << get_dir_usage(metall_path) << std::endl;
 }
 
@@ -66,9 +69,7 @@ int main(int argc, char **argv) {
   std::filesystem::path metall_path{"./metall_data"};
   size_t num_records = 1'000'000;
   parse_option(argc, argv, metall_path, num_records);
-
-  std::cout << "#of records to ingest: " << num_records << std::endl;
-
+  
   std::cout << "Ingest int64_t values" << std::endl;
   std::cout << "Dense container" << std::endl;
   run_bench<int64_t>(metall_path,
