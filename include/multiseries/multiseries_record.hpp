@@ -372,6 +372,9 @@ class basic_record_store {
                  itr->container);
     }
 
+  /// \brief Returns the load factor of the series
+  /// When the series container is sparse, it always returns 1.0.
+  /// When the series container is dense, it returns the ratio of the number of items to the capacity.
     double load_factor(std::string_view series_name) const {
       auto itr = priv_find_series(series_name);
       if (itr == m_series.end()) {

@@ -180,6 +180,9 @@ class series_container {
     throw std::runtime_error("Unknown container kind");
   }
 
+  /// \brief Returns the load factor of the container
+  /// When the container is sparse, it always returns 1.0.
+  /// When the container is dense, it returns the ratio of the number of items to the capacity.
   double load_factor() const {
     if (m_kind == container_kind::sparse) {
       return 1.0;
@@ -261,11 +264,10 @@ class series_container {
       }
       const auto new_dense_size = max_index + 1;
       m_deq_container.resize(new_dense_size);
-      m_n_items = 0;
+      m_n_items = new_dense_size;
       for (auto &pair : m_map_container) {
         m_deq_container[pair.first].empty = false;
         m_deq_container[pair.first].value = std::move(pair.second);
-        ++m_n_items;
       }
       m_map_container.clear();
     } else {

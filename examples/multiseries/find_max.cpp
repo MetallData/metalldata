@@ -7,6 +7,8 @@
 #define METALL_DISABLE_CONCURRENCY
 #endif
 
+#include <unistd.h>
+
 #include <algorithm>
 #include <iostream>
 #include <string>
