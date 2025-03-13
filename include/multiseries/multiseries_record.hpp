@@ -55,6 +55,18 @@ class basic_record_store {
     using other_pointer_type =
     typename std::pointer_traits<pointer_type>::template rebind<T>;
 
+  public:
+    using record_id_type = size_t;
+    using allocator_type = Alloc;
+    using string_store_type = cstr::string_store<allocator_type>;
+    using string_store_pointer_type = other_pointer_type<string_store_type>;
+    template<typename T>
+    struct series_info_type {
+      using type = T;
+      size_t series_index;
+    };
+
+  private:
     template<typename T>
     using vector_type = bc::vector<T, scp_allocator<T> >;
 
@@ -81,9 +93,12 @@ class basic_record_store {
     using series_container_type = series_container<series_stored_type<T>, Alloc>
     ;
 
-    using container_variant = std::variant<
-      series_container_type<int64_t>, series_container_type<uint64_t>,
-      series_container_type<double>, series_container_type<std::string_view> >;
+    using container_variant = std::variant<series_container_type<bool>,
+                                           series_container_type<int64_t>,
+                                           series_container_type<uint64_t>,
+                                           series_container_type<double>,
+                                           series_container_type<
+                                             std::string_view> >;
 
     using string_type =
     bc::basic_string<char, std::char_traits<char>, other_allocator<char> >;
@@ -95,16 +110,6 @@ class basic_record_store {
     using multiseries_main_container_type = vector_type<series_header>;
 
   public:
-    using record_id_type = size_t;
-    using allocator_type = Alloc;
-    using string_store_type = cstr::string_store<allocator_type>;
-    using string_store_pointer_type = other_pointer_type<string_store_type>;
-    template<typename T>
-    struct series_info_type {
-      using type = T;
-      size_t series_index;
-    };
-
     explicit basic_record_store(string_store_type *string_store,
                                 const allocator_type &alloc = allocator_type())
       : m_record_status(alloc), m_series(alloc), m_string_store(string_store) {
@@ -372,9 +377,9 @@ class basic_record_store {
                  itr->container);
     }
 
-  /// \brief Returns the load factor of the series
-  /// When the series container is sparse, it always returns 1.0.
-  /// When the series container is dense, it returns the ratio of the number of items to the capacity.
+    /// \brief Returns the load factor of the series
+    /// When the series container is sparse, it always returns 1.0.
+    /// When the series container is dense, it returns the ratio of the number of items to the capacity.
     double load_factor(std::string_view series_name) const {
       auto itr = priv_find_series(series_name);
       if (itr == m_series.end()) {
@@ -389,7 +394,8 @@ class basic_record_store {
   private:
     template<class series_type>
     static constexpr void priv_series_type_check() {
-      static_assert(std::is_same_v<series_type, int64_t> ||
+      static_assert(std::is_same_v<series_type, bool> ||
+                    std::is_same_v<series_type, int64_t> ||
                     std::is_same_v<series_type, uint64_t> ||
                     std::is_same_v<series_type, double> ||
                     std::is_same_v<series_type, std::string_view>,
