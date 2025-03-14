@@ -18,11 +18,18 @@ def parse_args():
                         help='Output file')
     return parser.parse_args()
 
-def convert_json_to_parquet(input_file, output_file):
+def convert_json_to_parquet(input_file, output_file, batch_size=100_000):
     with open(input_file) as f:
-        data = [json.loads(line) for line in f]
-    df = pd.DataFrame(data)
-    df.to_parquet(output_file)
+        df = pd.DataFrame()
+        for i, line in enumerate(f):
+            data = json.loads(line)
+            df = df.append(data, ignore_index=True)
+            if i > 0 and i % batch_size == 0:
+                df.to_parquet(f'{output_file}-{i / batch_size - 1}.parquet')
+                df = pd.DataFrame()
+
+        if not df.empty:
+            df.to_parquet(f'{output_file}-{i / batch_size}.parquet')
 
 if __name__ == "__main__":
     args = parse_args()
