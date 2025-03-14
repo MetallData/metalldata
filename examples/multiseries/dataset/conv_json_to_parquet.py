@@ -16,9 +16,12 @@ def parse_args():
     # o for the output file
     parser.add_argument('-o', type=str, dest='output_file',
                         help='Output file')
+    # b for batch size
+    parser.add_argument('-b', type=int, dest='batch_size', default=100_000,
+                        help='Batch size for parallel generation')
     return parser.parse_args()
 
-def convert_json_to_parquet(input_file, output_file, batch_size=100_000):
+def convert_json_to_parquet(input_file, output_file, batch_size):
     with open(input_file) as f:
         data = []
         file_no = 0
@@ -37,4 +40,4 @@ def convert_json_to_parquet(input_file, output_file, batch_size=100_000):
 
 if __name__ == "__main__":
     args = parse_args()
-    convert_json_to_parquet(args.input_file, args.output_file)
+    convert_json_to_parquet(args.input_file, args.output_file, args.batch_size)
