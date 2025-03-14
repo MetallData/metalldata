@@ -27,7 +27,7 @@ def convert_json_to_parquet(input_file, output_file, batch_size):
         file_no = 0
         for i, line in enumerate(f):
             data.append(json.loads(line))
-            if i > 0 and i % batch_size == 0:
+            if i > 0 and len(data) % batch_size == 0:
                 df = pd.DataFrame(data)
                 df.to_parquet(f'{output_file}-{file_no}.parquet')
                 file_no += 1
