@@ -20,16 +20,20 @@ def parse_args():
 
 def convert_json_to_parquet(input_file, output_file, batch_size=100_000):
     with open(input_file) as f:
-        df = pd.DataFrame()
+        data = []
+        file_no = 0
         for i, line in enumerate(f):
-            data = json.loads(line)
-            df = df.append(data, ignore_index=True)
+            data.append(json.loads(line))
             if i > 0 and i % batch_size == 0:
-                df.to_parquet(f'{output_file}-{i / batch_size - 1}.parquet')
-                df = pd.DataFrame()
+                df = pd.DataFrame(data)
+                df.to_parquet(f'{output_file}-{file_no}.parquet')
+                file_no += 1
+                data.clear()
 
-        if not df.empty:
-            df.to_parquet(f'{output_file}-{i / batch_size}.parquet')
+        if len(data):
+            df = pd.DataFrame(data)
+            df.to_parquet(f'{output_file}-{file_no}.parquet')
+
 
 if __name__ == "__main__":
     args = parse_args()
