@@ -19,6 +19,7 @@
 
 #include <ygm/comm.hpp>
 #include <ygm/io/parquet2variant.hpp>
+#include <ygm/utility.hpp>
 #include <metall/metall.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
 #include <multiseries/multiseries_record.hpp>
@@ -75,6 +76,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  ygm::timer setup_timer;
   metall::utility::metall_mpi_adaptor mpi_adaptor(
     metall::create_only,
     opt.metall_path,
@@ -103,7 +105,10 @@ int main(int argc, char **argv) {
       MPI_Abort(comm.get_mpi_comm(), EXIT_FAILURE);
     }
   }
+  comm.cf_barrier();
+  comm.cout0() << "Setup took (s): " << setup_timer.elapsed() << std::endl;
 
+  ygm::timer ingest_timer;
   static size_t total_ingested_str_size = 0;
   static size_t total_ingested_bytes = 0;
   static size_t total_num_strs = 0;
@@ -148,6 +153,8 @@ int main(int argc, char **argv) {
           std::move(field));
       }
     });
+  comm.barrier();
+  comm.cout0() << "Ingest took (s): " << ingest_timer.elapsed() << std::endl;
 
   size_t total_unique_str_size = 0;
   if (opt.profile) {
