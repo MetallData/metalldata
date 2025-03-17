@@ -3,6 +3,9 @@
 #include <filesystem>
 #include <string>
 #include <cassert>
+#include <limits>
+#include <typeinfo>
+#include <chrono>
 
 #include <arrow/io/file.h>
 #include <arrow/util/logging.h>
@@ -16,6 +19,15 @@ using parquet::schema::GroupNode;
 using parquet::schema::PrimitiveNode;
 
 using value_type = int64_t;
+
+auto start_timer() {
+  return std::chrono::high_resolution_clock::now();
+}
+
+auto get_elapsed_time_seconds(const std::chrono::time_point<std::chrono::high_resolution_clock>& start) {
+  const auto end = std::chrono::high_resolution_clock::now();
+  return std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+}
 
 // Source:
 // https://github.com/apache/arrow/blob/release-16.1.0-rc1/cpp/examples/parquet/low_level_api/reader_writer.cc
@@ -94,9 +106,12 @@ int main(int argc, char** argv) {
   std::cout << "Value type is: " << typeid(value_type).name() << std::endl;
 
   try {
+    const auto start = start_timer();
     value_type max_val = read_single_column_chunk(file_path, column_name);
+    const auto elapsed_time = get_elapsed_time_seconds(start);
     std::cout << "Max value in column '" << column_name << "': " << max_val
               << std::endl;
+    std::cout << "Elapsed time: " << elapsed_time << " seconds" << std::endl;
   } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << std::endl;
     return 1;
