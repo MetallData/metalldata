@@ -62,17 +62,16 @@ void show_usage(std::ostream &os) {
   os << "  -s: Series name(s), separated by comma, e.g., name,age" << std::endl;
 }
 
-auto start_timer() {
-  return std::chrono::high_resolution_clock::now();
-}
+auto start_timer() { return std::chrono::high_resolution_clock::now(); }
 
-auto get_elapsed_time_seconds(const std::chrono::time_point<std::chrono::high_resolution_clock>& start) {
+auto get_elapsed_time_seconds(
+    const std::chrono::time_point<std::chrono::high_resolution_clock> &start) {
   const auto end = std::chrono::high_resolution_clock::now();
-  return std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+  return std::chrono::duration_cast<std::chrono::duration<double>>(end - start)
+      .count();
 }
 
 int main(int argc, char *argv[]) {
-
   option opt;
   if (!parse_options(argc, argv, &opt)) {
     show_usage(std::cerr);
@@ -88,7 +87,7 @@ int main(int argc, char *argv[]) {
   }
 
   metall::manager manager(metall::open_read_only, opt.metall_path);
-  auto *record_store =
+  auto           *record_store =
       manager.find<record_store_type>(metall::unique_instance).first;
   if (!record_store) {
     std::cerr << "Failed to find record store in " + opt.metall_path.string()
@@ -106,57 +105,22 @@ int main(int argc, char *argv[]) {
     std::cerr << "Finding max value in series: " << series_name << std::endl;
     const auto timer = start_timer();
 
-    struct max_value_t {
-      int64_t     i = std::numeric_limits<int64_t>::min();
-      uint64_t    u = std::numeric_limits<uint64_t>::min();
-      double      d = std::numeric_limits<double>::min();
-      std::string s;
-      bool        fi = false;
-      bool        fu = false;
-      bool        fd = false;
-      bool        fs = false;
-    };
-    static max_value_t max_value;
-    max_value = max_value_t(); // reset
-
+    using value_type     = uint64_t;
+    value_type max_value = std::numeric_limits<value_type>::min();
     record_store->for_all_dynamic(
-        series_name,
-        [](const record_store_type::record_id_type, const auto value) {
+        series_name, [&max_value](const record_store_type::record_id_type,
+                                  const auto value) {
           using T = std::decay_t<decltype(value)>;
-          if constexpr (std::is_same_v<T, int64_t>) {
-            max_value.i  = std::max(max_value.i, value);
-            max_value.fi = true;
-          } else if constexpr (std::is_same_v<T, uint64_t>) {
-            max_value.u  = std::max(max_value.u, value);
-            max_value.fu = true;
-          } else if constexpr (std::is_same_v<T, double>) {
-            max_value.d  = std::max(max_value.d, value);
-            max_value.fd = true;
-          } else if constexpr (std::is_same_v<T, std::string_view>) {
-            if (max_value.s.empty() ||
-                std::lexicographical_compare(max_value.s.begin(),
-                                             max_value.s.end(), value.begin(),
-                                             value.end())) {
-              max_value.s = std::string(value);
-            }
-            max_value.fs = true;
-          } else {
-            std::cerr << "Unsupported data type " << value << std::endl;
+          if constexpr (std::is_same_v<T, value_type>) {
+            max_value = std::max(max_value, value);
           }
         });
+
     const auto elapsed_time = get_elapsed_time_seconds(timer);
     std::cout << "Max value in series: " << series_name << std::endl;
     std::cout << "Elapsed time: " << elapsed_time << " seconds" << std::endl;
-    if (max_value.fi) {
-      std::cerr << "Max value: " << max_value.i << std::endl;
-    } else if (max_value.fu) {
-      std::cerr << "Max value: " << max_value.u << std::endl;
-    } else if (max_value.fd) {
-      std::cerr << "Max value: " << max_value.d << std::endl;
-    } else if (max_value.fs) {
-      std::cerr << "Max value: " << max_value.s << std::endl;
-    }
-    }
+    std::cout << "Max value: " << max_value << std::endl;
+  }
 
   return 0;
 }
