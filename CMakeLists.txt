@@ -31,24 +31,36 @@ find_package(Threads REQUIRED)
 
 #
 # Boost
-if (METALLDATA_USE_SYSTEM_BOOST)
-    find_package(Boost 1.80 REQUIRED COMPONENTS json)
-    message(STATUS "Boost include dirs: ${Boost_INCLUDE_DIRS}")
-else()
-    include(setup_boost)
-    prepare_fetchcontent_boost()
-    set(FETCHCONTENT_QUIET FALSE)
-    FetchContent_Declare(
-            Boost
-            GIT_REPOSITORY https://github.com/boostorg/boost.git
-            GIT_TAG boost-1.80.0
-            GIT_SUBMODULES ${BOOST_REQD_SUBMODULES}
-            GIT_PROGRESS TRUE
-            CONFIGURE_COMMAND ""  # tell CMake it's not a cmake project
-    )
-    FetchContent_MakeAvailable(Boost)
-    get_boost_include_dirs()
-endif()
+FetchContent_Declare(
+  Boost
+  URL https://github.com/boostorg/boost/releases/download/boost-1.87.0/boost-1.87.0-cmake.tar.gz
+  URL_HASH
+    SHA256=78fbf579e3caf0f47517d3fb4d9301852c3154bfecdc5eeebd9b2b0292366f5b)
+
+set(BOOST_INCLUDE_LIBRARIES
+    json
+    unordered
+    interprocess
+    container
+    property_tree
+    uuid
+    graph)
+
+# Boost::uuid depends on libatomic by default.
+# On LC, libatomic is not available somehow.
+# To make Boost::uuid stop depending on libatomic, use:
+# set(BOOST_UUID_LINK_LIBATOMIC OFF)
+# NOTE: this option works with boost-1.87.
+# For older versions, we need to modify their CMake files manually.
+
+FetchContent_MakeAvailable(Boost)
+# Memo: boost_POPULATED is set to TRUE by FetchContent_MakeAvailable This can be
+# used to avoid calling find_packge() in child projects
+
+# Utilize BOOST_INCLUDE_LIBRARIES to generate BOOST_COMPONENTS
+foreach(lib ${BOOST_INCLUDE_LIBRARIES})
+  list(APPEND BOOST_COMPONENTS "Boost::${lib}")
+endforeach()
 
 #
 #  cereal
@@ -182,8 +194,8 @@ endfunction()
 function(add_metalldata_executable name source)
     add_executable(${name} ${source})
     add_common_compile_options(${name})
-    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include ${BOOST_INCLUDE_DIRS})
-    target_link_libraries(${name} PRIVATE Boost::json)
+    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include)
+    target_link_libraries(${name} PRIVATE ${BOOST_COMPONENTS})
 endfunction()
 
 

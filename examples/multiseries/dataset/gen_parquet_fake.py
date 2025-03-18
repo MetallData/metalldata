@@ -16,6 +16,10 @@ def parse_args():
                         default='./data',
                         help='Output file prefix')
 
+    # N (bool): Add Nones to the data
+    parser.add_argument('-N', dest='add_nones', action='store_true',
+                        help='Add None values to the data')
+
     # b for batch size
     parser.add_argument('-b', type=int, dest='batch_size', default=1_000_000,
                         help='Batch size for parallel generation')
@@ -23,7 +27,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def generate_batch_data(num_rows, out_file):
+def generate_batch_data(num_rows, out_file, add_nones=False):
     fake = Faker()
 
     # Generate random data for each column
@@ -36,16 +40,17 @@ def generate_batch_data(num_rows, out_file):
         'job': [fake.job() for _ in range(num_rows)],
     }
 
-    # Add NaN and None values
-    for key in data.keys():
-        for i in range(0, num_rows, 10):
-            data[key][i] = None
+    # Add None values
+    if add_nones:
+        for key in data.keys():
+            for i in range(0, num_rows, 10):
+                data[key][i] = None
 
     df = pd.DataFrame(data)
     save_to_parquet(df, out_file)
 
 
-def generate_data(num_rows, batch_size, output_file_prefix):
+def generate_data(num_rows, batch_size, output_file_prefix, add_nones):
     batch_size = min(num_rows, batch_size)
     num_batches = (num_rows + batch_size - 1) // batch_size
 
@@ -54,7 +59,7 @@ def generate_data(num_rows, batch_size, output_file_prefix):
         file_names = [f'{output_file_prefix}-{i}.parquet' for i in
                       range(num_batches)]
         for i in range(num_batches):
-            executor.submit(generate_batch_data, batch_sizes[i], file_names[i])
+            executor.submit(generate_batch_data, batch_sizes[i], file_names[i], add_nones)
 
 
 def save_to_parquet(df, filename):
@@ -65,5 +70,5 @@ if __name__ == "__main__":
     args = parse_args()
     print(args)
 
-    generate_data(args.num_rows, args.batch_size, args.output_file_prefix)
+    generate_data(args.num_rows, args.batch_size, args.output_file_prefix, args.add_nones)
     print(f"Data saved to {args.output_file_prefix}-*.parquet")
