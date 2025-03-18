@@ -105,7 +105,9 @@ int main(int argc, char *argv[]) {
     std::cerr << "Finding max value in series: " << series_name << std::endl;
     const auto timer = start_timer();
 
-    using value_type     = uint64_t;
+    using value_type     = int64_t;
+    std::cout << "Value type is: " << typeid(value_type).name() << std::endl;
+
     value_type max_value = std::numeric_limits<value_type>::min();
     record_store->for_all<value_type>(
         series_name,
