@@ -2,148 +2,54 @@ cmake_minimum_required(VERSION 3.14)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 project(MetallData
-        VERSION 0.1
+        VERSION 0.2
         DESCRIPTION "Metall Containers"
         LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
 include(FetchContent)
+set(FETCHCONTENT_QUIET OFF)
 
 
-#
-#  Options
-#
-option(METALLDATA_USE_PRIVATEER "Use Privateer in Metall" OFF)
-if (APPLE AND METALLDATA_USE_PRIVATEER)
-    message(WARNING "Turn off Privateer on MacOS")
-    set(METALLDATA_USE_PRIVATEER OFF)
-endif ()
 
-option(METALLDATA_BUILD_TESTS "Build tests" OFF)
-option(METALLDATA_USE_PARQUET "Use Apache Parquet" OFF)
 
-#
-#  Threads
-#
-find_package(Threads REQUIRED)
-
+set(BOOST_URL 
+    "https://github.com/boostorg/boost/releases/download/boost-1.87.0/boost-1.87.0-cmake.tar.gz" 
+    CACHE STRING "URL to fetch Boost tarball")
 
 #
 # Boost
 FetchContent_Declare(
-  Boost
-  URL https://github.com/boostorg/boost/releases/download/boost-1.87.0/boost-1.87.0-cmake.tar.gz
-  URL_HASH
-    SHA256=78fbf579e3caf0f47517d3fb4d9301852c3154bfecdc5eeebd9b2b0292366f5b)
-
-set(BOOST_INCLUDE_LIBRARIES
-    json
-    unordered
-    interprocess
-    container
-    property_tree
-    uuid
-    graph)
-
-# Boost::uuid depends on libatomic by default.
-# On LC, libatomic is not available somehow.
-# To make Boost::uuid stop depending on libatomic, use:
-# set(BOOST_UUID_LINK_LIBATOMIC OFF)
-# NOTE: this option works with boost-1.87.
-# For older versions, we need to modify their CMake files manually.
-
+    Boost 
+    URL ${BOOST_URL}
+)
+set(BOOST_INCLUDE_LIBRARIES json container unordered interprocess property_tree uuid graph)
 FetchContent_MakeAvailable(Boost)
-# Memo: boost_POPULATED is set to TRUE by FetchContent_MakeAvailable This can be
-# used to avoid calling find_packge() in child projects
 
-# Utilize BOOST_INCLUDE_LIBRARIES to generate BOOST_COMPONENTS
-foreach(lib ${BOOST_INCLUDE_LIBRARIES})
-  list(APPEND BOOST_COMPONENTS "Boost::${lib}")
-endforeach()
-
-#
-#  cereal
-find_package(cereal QUIET)
-if (NOT cereal_FOUND)
-    set(JUST_INSTALL_CEREAL TRUE)
-    FetchContent_Declare(cereal
-            GIT_REPOSITORY https://github.com/USCiLab/cereal.git
-            GIT_TAG master
-    )
-    FetchContent_MakeAvailable(cereal)
-endif ()
-
-
-#
-#  MPI
-find_package(MPI)
-
-#
-# Parquet
-#
-include(FindArrowParquet)
-set(YGM_REQUIRE_ARROW_PARQUET OFF)
-find_or_install_arrow_parquet()
 
 #
 #  YGM
-if (MPI_CXX_FOUND)
-    find_package(YGM QUIET)
-    if (NOT YGM_FOUND)
-        set(JUST_INSTALL_YGM TRUE)
-        FetchContent_Declare(YGM
-                GIT_REPOSITORY https://github.com/LLNL/ygm.git
-                GIT_TAG v0.7-dev
+set(YGM_REQUIRE_PARQUET ON)
+set(YGM_INSTALL_PARQUET ON)
+FetchContent_Declare(YGM
+    GIT_REPOSITORY https://github.com/llnl/ygm.git
+    GIT_TAG v0.8-dev
         )
-        FetchContent_MakeAvailable(YGM)
-    endif ()
-endif ()
+FetchContent_MakeAvailable(YGM)
 
-
-#
-# Privateer
-#
-if (METALLDATA_USE_PRIVATEER)
-    #
-    #  ZSTD
-    #
-    find_package(zstd QUIET)
-    if (NOT zstd_FOUND)
-        FetchContent_Declare(zstd
-                GIT_REPOSITORY https://github.com/facebook/zstd.git
-                GIT_TAG v1.5.4
-        )
-        FetchContent_MakeAvailable(zstd)
-        list(APPEND CMAKE_MODULE_PATH "${zstd_SOURCE_DIR}/build/cmake")
-    endif ()
-    find_package(Privateer QUIET)
-    if (NOT Privateer_FOUND)
-        FetchContent_Declare(Privateer
-                GIT_REPOSITORY https://github.com/LLNL/Privateer.git
-                GIT_TAG feature/uffd
-        )
-        FetchContent_MakeAvailable(Privateer)
-    endif ()
-endif ()
 
 #
 #  Metall
 #
-find_package(Metall QUIET)
-if (NOT Metall_FOUND)
-    set(JUST_INSTALL_METALL_HEADER TRUE)
-    if (Privateer_FOUND)
-        set(METALL_GIT_TAG "privateer2.0")
-    else ()
-        set(METALL_GIT_TAG "develop")
-    endif ()
-    FetchContent_Declare(Metall
-            GIT_REPOSITORY https://github.com/LLNL/metall.git
-            GIT_TAG ${METALL_GIT_TAG}
-    )
-    FetchContent_MakeAvailable(Metall)
-endif ()
+set(JUST_INSTALL_METALL_HEADER TRUE)
+set(METALL_GIT_TAG "master")
+FetchContent_Declare(Metall
+        GIT_REPOSITORY https://github.com/LLNL/metall.git
+        GIT_TAG ${METALL_GIT_TAG}
+)
+FetchContent_MakeAvailable(Metall)
+
 
 
 #
@@ -194,26 +100,13 @@ endfunction()
 function(add_metalldata_executable name source)
     add_executable(${name} ${source})
     add_common_compile_options(${name})
-    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include)
-    target_link_libraries(${name} PRIVATE ${BOOST_COMPONENTS})
+    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include ${BOOST_INCLUDE_DIRS})
+    target_link_libraries(${name} PRIVATE Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph)
+    target_link_libraries(${name} PRIVATE Arrow::arrow_shared)
+    target_link_libraries(${name} PRIVATE Parquet::parquet_shared)
+    target_compile_definitions(${name} PRIVATE METALLDATA_USE_PARQUET)
 endfunction()
 
-
-#
-#  Clippy
-#
-find_package(CLIPPy QUIET)
-if (NOT CLIPPy_FOUND)
-    FetchContent_Declare(CLIPPy
-            GIT_REPOSITORY https://github.com/LLNL/clippy-cpp.git
-            GIT_TAG master
-    )
-    FetchContent_GetProperties(CLIPPy)
-    if (NOT clippy_POPULATED)
-        FetchContent_Populate(CLIPPy)
-    endif ()
-    set(CLIPPy_INCLUDE_DIR "${clippy_SOURCE_DIR}/include")
-endif ()
 
 #
 # spdlog
@@ -235,14 +128,6 @@ endfunction()
 # Function for setting up a target that uses YGM
 #
 function(setup_ygm_target exe_name)
-    if (NOT MPI_CXX_FOUND)
-        message(WARNING "YGM requires MPI; skip building ${exe_name}.")
-        return()
-    endif ()
-
-    target_link_libraries(${exe_name} PRIVATE MPI::MPI_CXX)
-    target_link_libraries(${exe_name} PRIVATE cereal)
-    target_link_libraries(${exe_name} PRIVATE Threads::Threads)
     if (${CMAKE_HOST_SYSTEM_NAME} MATCHES "Linux")
         target_link_libraries(${exe_name} PRIVATE rt)
     endif ()
@@ -263,21 +148,7 @@ endfunction()
 function(setup_metall_target exe_name)
     target_include_directories(${exe_name} PRIVATE ${Boost_INCLUDE_DIRS})
 
-    target_link_libraries(${exe_name} PRIVATE Threads::Threads)
-    if (Privateer_FOUND)
-        target_include_directories(${exe_name} PRIVATE "${Privateer_SOURCE_DIR}/include")
-
-        find_package(OpenSSL)
-        target_link_libraries(${exe_name} PRIVATE OpenSSL::SSL)
-        target_link_libraries(${exe_name} PRIVATE OpenSSL::Crypto)
-        target_link_libraries(${exe_name} PRIVATE rt)
-        target_link_libraries(${exe_name} PRIVATE zstd)
-
-        target_compile_definitions(${exe_name} PRIVATE USE_COMPRESSION)
-
-        target_link_libraries(${exe_name} PRIVATE privateer-static)
-        target_compile_definitions(${exe_name} PRIVATE METALL_USE_PRIVATEER)
-    endif ()
+    #target_link_libraries(${exe_name} PRIVATE Threads::Threads)
 
     target_link_libraries(${exe_name} PRIVATE Metall)
 
