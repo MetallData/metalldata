@@ -293,12 +293,10 @@ class basic_record_store {
         throw std::runtime_error("Series not found");
       }
 
-      const auto &series_item = *itr;
+      const auto &container = priv_get_series_container<series_type>(itr->container);
       for (size_t i = 0; i < m_record_status.size(); ++i) {
-        if (series_item.container.contains(i)) {
-          series_func(
-            i,
-            priv_get_series_data<series_type>(series_item.container, i));
+        if (container.contains(i)) {
+          series_func(i, container.at(i));
         }
       }
     }
@@ -310,12 +308,10 @@ class basic_record_store {
         throw std::runtime_error("Series not found");
       }
 
-      const auto &series_item = m_series[series_info.series_index];
+      const auto &container = priv_get_series_container<series_type>(m_series[series_info.series_index]);
       for (size_t i = 0; i < m_record_status.size(); ++i) {
-        if (series_item.container.contains(i)) {
-          series_func(
-            i,
-            priv_get_series_data<series_type>(series_item.container, i));
+        if (container.contains(i)) {
+          series_func(i, container.at(i));
         }
       }
     }
@@ -425,12 +421,12 @@ class basic_record_store {
     template<typename series_type>
     const auto &priv_get_series_container(
       const container_variant &series_store) const {
-      return std::get<series_container_type<series_type> >(series_store);
+      return std::get<series_container_type<series_type>>(series_store);
     }
 
     template<typename series_type>
     auto &priv_get_series_container(container_variant &series_store) {
-      return std::get<series_container_type<series_type> >(series_store);
+      return std::get<series_container_type<series_type>>(series_store);
     }
 
     template<typename series_type>

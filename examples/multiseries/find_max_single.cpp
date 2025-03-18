@@ -107,15 +107,11 @@ int main(int argc, char *argv[]) {
 
     using value_type     = uint64_t;
     value_type max_value = std::numeric_limits<value_type>::min();
-    record_store->for_all_dynamic(
-        series_name, [&max_value](const record_store_type::record_id_type,
-                                  const auto value) {
-          using T = std::decay_t<decltype(value)>;
-          if constexpr (std::is_same_v<T, value_type>) {
-            max_value = std::max(max_value, value);
-          }
+    record_store->for_all<value_type>(
+        series_name,
+        [&](const auto , const auto value) {
+          max_value = std::max(max_value, value);
         });
-
     const auto elapsed_time = get_elapsed_time_seconds(timer);
     std::cout << "Max value in series: " << series_name << std::endl;
     std::cout << "Elapsed time: " << elapsed_time << " seconds" << std::endl;
