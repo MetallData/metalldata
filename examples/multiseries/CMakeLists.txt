@@ -11,6 +11,7 @@ add_metalldata_executable(demo_series_container demo_series_container.cpp)
 setup_metall_target(demo_series_container)
 
 add_metalldata_executable(find_max_parquet find_max_parquet.cpp)
-setup_metall_target(find_max_parquet)
-setup_ygm_target(find_max_parquet)
 link_arrow_parquet(find_max_parquet)
+
+add_metalldata_executable(find_max_single find_max_single.cpp)
+setup_metall_target(find_max_single)
