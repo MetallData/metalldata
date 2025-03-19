@@ -40,6 +40,19 @@ FetchContent_MakeAvailable(YGM)
 
 
 #
+#  Clippy
+#
+
+FetchContent_Declare(CLIPPy
+        GIT_REPOSITORY https://github.com/LLNL/clippy-cpp.git
+        GIT_TAG master
+        )
+        FetchContent_MakeAvailable(CLIPPy)
+set(CLIPPy_INCLUDE_DIR "${clippy_SOURCE_DIR}/include")
+
+
+
+#
 #  Metall
 #
 set(JUST_INSTALL_METALL_HEADER TRUE)
@@ -168,7 +181,7 @@ function(setup_metall_target exe_name)
     target_compile_definitions(${exe_name} PRIVATE "METALL_DISABLE_CONCURRENCY")
 endfunction()
 
-#add_subdirectory(src)
+add_subdirectory(src)
 add_subdirectory(examples)
 
 if (METALLDATA_BUILD_TESTS)
