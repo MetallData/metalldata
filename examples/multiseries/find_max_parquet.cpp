@@ -1,3 +1,8 @@
+// Copyright 2025 Lawrence Livermore National Security, LLC and other Metall
+// Project Developers. See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: (Apache-2.0 OR MIT)
+
 #include <iostream>
 #include <memory>
 #include <filesystem>
@@ -12,6 +17,10 @@
 #include <parquet/api/reader.h>
 #include <parquet/api/writer.h>
 
+/// Find the maximum value in a single column chunk of a Parquet file using the
+/// parquet reader API.
+/// NOTE: this code is hardcoded to read a single column of type int64_t for now.
+
 using parquet::ConvertedType;
 using parquet::Repetition;
 using parquet::Type;
@@ -20,13 +29,13 @@ using parquet::schema::PrimitiveNode;
 
 using value_type = int64_t;
 
-auto start_timer() {
-  return std::chrono::high_resolution_clock::now();
-}
+auto start_timer() { return std::chrono::high_resolution_clock::now(); }
 
-auto get_elapsed_time_seconds(const std::chrono::time_point<std::chrono::high_resolution_clock>& start) {
+auto get_elapsed_time_seconds(
+    const std::chrono::time_point<std::chrono::high_resolution_clock>& start) {
   const auto end = std::chrono::high_resolution_clock::now();
-  return std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+  return std::chrono::duration_cast<std::chrono::duration<double>>(end - start)
+      .count();
 }
 
 // Source:
@@ -45,11 +54,9 @@ value_type read_single_column_chunk(const std::filesystem::path& file_path,
 
     // Get the number of RowGroups
     const int num_row_groups = file_metadata->num_row_groups();
-    assert(num_row_groups == 1);
 
     // Get the number of Columns
     const int num_columns = file_metadata->num_columns();
-    assert(num_columns == 8);
 
     const auto column_index = file_metadata->schema()->ColumnIndex(column_name);
 
@@ -93,7 +100,6 @@ value_type read_single_column_chunk(const std::filesystem::path& file_path,
 }
 
 int main(int argc, char** argv) {
-
   if (argc < 3) {
     std::cerr << "Usage: " << argv[0] << " <file_path> <column_name>"
               << std::endl;
@@ -106,8 +112,8 @@ int main(int argc, char** argv) {
   std::cout << "Value type is: " << typeid(value_type).name() << std::endl;
 
   try {
-    const auto start = start_timer();
-    value_type max_val = read_single_column_chunk(file_path, column_name);
+    const auto start        = start_timer();
+    value_type max_val      = read_single_column_chunk(file_path, column_name);
     const auto elapsed_time = get_elapsed_time_seconds(start);
     std::cout << "Max value in column '" << column_name << "': " << max_val
               << std::endl;
