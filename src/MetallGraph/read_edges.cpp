@@ -50,8 +50,8 @@ int main(int argc, char **argv) {
   // todo: check if doesn't exist and fail
   metall::utility::metall_mpi_adaptor mpi_adaptor(metall::open_only, path,
                                                   comm.get_mpi_comm());
-                                                  
-  auto                               &manager = mpi_adaptor.get_local_manager();
+
+  auto &manager = mpi_adaptor.get_local_manager();
 
   auto *string_store =
       manager.find<string_store_type>(metall::unique_instance).first;
