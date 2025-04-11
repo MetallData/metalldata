@@ -14,7 +14,6 @@
 #include <boost/json.hpp>
 
 #include "mjl-common.hpp"
-#include "clippy/clippy-eval.hpp"
 
 namespace xpr = experimental;
 

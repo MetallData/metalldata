@@ -201,6 +201,23 @@ if (NOT CLIPPy_FOUND)
     set(CLIPPy_INCLUDE_DIR "${clippy_SOURCE_DIR}/include")
 endif ()
 
+
+#
+#  JsonLogic
+#
+find_package(JsonLogic QUIET)
+if (NOT JsonLogic_FOUND)
+    FetchContent_Declare(JsonLogic
+            GIT_REPOSITORY https://github.com/LLNL/jsonlogic.git
+            GIT_TAG master
+            )
+    FetchContent_GetProperties(JsonLogic)
+    if (NOT jsonlogic_POPULATED)
+        FetchContent_Populate(JsonLogic)
+    endif ()
+    set(jsonlogic_INCLUDE_DIR "${jsonlogic_SOURCE_DIR}/cpp/include")
+endif ()
+
 #
 # Function for setting up a target that uses YGM
 #
@@ -226,6 +243,18 @@ function(setup_clippy_target exe_name)
     target_include_directories(${exe_name} PRIVATE ${Boost_INCLUDE_DIRS})
     target_include_directories(${exe_name} PRIVATE ${CLIPPy_INCLUDE_DIR})
 endfunction()
+
+
+#
+# Function for setting up a target that uses JsonLogic
+#   we also add source directory to enable source inclusion
+#
+function(setup_jsonlogic_target exe_name)
+    target_include_directories(${exe_name} PRIVATE ${Boost_INCLUDE_DIRS})
+    target_include_directories(${exe_name} PRIVATE ${jsonlogic_INCLUDE_DIR})
+    target_include_directories(${exe_name} PRIVATE ${jsonlogic_INCLUDE_DIR}/../src)
+endfunction()
+
 
 #
 # Function for setting up a target that uses Metall

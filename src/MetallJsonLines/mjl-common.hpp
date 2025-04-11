@@ -22,8 +22,8 @@
 
 #define WITH_YGM 1
 
-#include <clippy/clippy-eval.hpp>
 #include <clippy/clippy.hpp>
+#include <jsonlogic/src.hpp>
 
 #include "MetallJsonLines.hpp"
 
@@ -39,29 +39,29 @@ const std::string ST_SELECTED        = "selected";
 const std::string KEYS_SELECTOR      = "keys";
 
 CXX_MAYBE_UNUSED
-json_logic::ValueExpr to_value_expr(
+jsonlogic::any_expr to_value_expr(
     const experimental::metall_json_lines::accessor_type& el) {
-  if (el.is_int64()) return json_logic::toValueExpr(el.as_int64());
-  if (el.is_uint64()) return json_logic::toValueExpr(el.as_uint64());
-  if (el.is_double()) return json_logic::toValueExpr(el.as_double());
-  if (el.is_null()) return json_logic::toValueExpr(nullptr);
+  if (el.is_int64()) return jsonlogic::to_expr(el.as_int64());
+  if (el.is_uint64()) return jsonlogic::to_expr(el.as_uint64());
+  if (el.is_double()) return jsonlogic::to_expr(el.as_double());
+  if (el.is_null()) return jsonlogic::to_expr(nullptr);
 
   assert(el.is_string());  // \todo array
 
   const auto& str = el.as_string();
 
-  return json_logic::toValueExpr(boost::json::string(str.begin(), str.end()));
+  return jsonlogic::to_expr(boost::json::string(str.begin(), str.end()));
 }
 
 template <class MetallJsonObjectT>
-CXX_MAYBE_UNUSED json_logic::ValueExpr eval_path(std::string_view         path,
+CXX_MAYBE_UNUSED jsonlogic::any_expr eval_path(std::string_view         path,
                                                  const MetallJsonObjectT& obj) {
   if (auto pos = obj.find(path); pos != obj.end())
     return to_value_expr(pos->value());
 
   std::size_t selpos = path.find('.');
 
-  if (selpos == std::string::npos) return json_logic::toValueExpr(nullptr);
+  if (selpos == std::string::npos) return jsonlogic::to_expr(nullptr);
 
   std::string_view selector = path.substr(0, selpos);
   std::string_view suffix   = path.substr(selpos + 1);
@@ -74,7 +74,7 @@ auto variable_lookup(
     experimental::metall_json_lines::accessor_type::object_accessor objacc,
     std::string_view selectPrefix, std::size_t rownum, std::size_t rank) {
   return [objacc, rownum, rank, selLen = (selectPrefix.size() + 1)](
-             const boost::json::value& colv, int) -> json_logic::ValueExpr {
+             const boost::json::value& colv, int) -> jsonlogic::any_expr {
     // \todo match selector instead of skipping it
     const auto&      colname = colv.as_string();
     std::string_view col{colname.begin() + selLen, colname.size() - selLen};
@@ -84,8 +84,8 @@ auto variable_lookup(
       return to_value_expr(pos->value());
     }
 
-    if (col == "rowid") return json_logic::toValueExpr(rownum);
-    if (col == "mpiid") return json_logic::toValueExpr(std::int64_t(rank));
+    if (col == "rowid") return jsonlogic::to_expr(rownum);
+    if (col == "mpiid") return jsonlogic::to_expr(std::int64_t(rank));
 
     return eval_path(col, objacc);
   };
@@ -116,7 +116,7 @@ std::vector<experimental::metall_json_lines::filter_type> filter(
   // prepare AST
   for (boost::json::object& jexp : jsonExpr) {
     auto [ast, vars, hasComputedVarNames] =
-        json_logic::translateNode(jexp["rule"]);
+        jsonlogic::create_logic(jexp["rule"]);
 
     if (hasComputedVarNames)
       throw std::runtime_error("unable to work with computed variable names");
@@ -136,8 +136,8 @@ std::vector<experimental::metall_json_lines::filter_type> filter(
     // the repackaging requirement seems to be a deficiency in the C++
     //   standard, which does not allow lambda environments with unique_ptr
     //   be converted into a std::function - which requires copyability.
-    json_logic::Expr*                 rawexpr = ast.release();
-    std::shared_ptr<json_logic::Expr> pred{rawexpr};
+    jsonlogic::expr*                 rawexpr = ast.release();
+    std::shared_ptr<jsonlogic::expr> pred{rawexpr};
 
     res.emplace_back([rank, selectPrefix, pred = std::move(pred)](
                          std::size_t rownum,
@@ -145,8 +145,8 @@ std::vector<experimental::metall_json_lines::filter_type> filter(
                              rowval) mutable -> bool {
       auto varLookup = variable_lookup(rowval, selectPrefix, rownum, rank);
 
-      return json_logic::unpackValue<bool>(
-          json_logic::calculate(*pred, varLookup));
+      return jsonlogic::unpack_value<bool>(
+          jsonlogic::apply(*pred, varLookup));
     });
   }
 
@@ -209,7 +209,7 @@ CXX_MAYBE_UNUSED experimental::metall_json_lines::updater_type updater(
   std::string         columnName = clip.get<std::string>(colkey);
   boost::json::object columnExpr = clip.get<boost::json::object>(exprkey);
   auto [ast, vars, hasComputedVarNames] =
-      json_logic::translateNode(columnExpr["rule"]);
+      jsonlogic::create_logic(columnExpr["rule"]);
 
   if (hasComputedVarNames)
     throw std::runtime_error("unable to work with computed variable names");
@@ -217,15 +217,15 @@ CXX_MAYBE_UNUSED experimental::metall_json_lines::updater_type updater(
   // the repackaging requirement seems to be a deficiency in the C++
   //   standard, which does not allow lambda environments with unique_ptr
   //   be converted into a std::function - which requires copyability.
-  json_logic::Expr*                 rawexpr = ast.release();
-  std::shared_ptr<json_logic::Expr> oper{rawexpr};
+  jsonlogic::expr*                 rawexpr = ast.release();
+  std::shared_ptr<jsonlogic::expr> oper{rawexpr};
 
   return [rank, selectPrefix, colName = std::move(columnName),
           op = std::move(oper), objalloc{alloc}](
              std::size_t                           rownum,
              xpr::metall_json_lines::accessor_type rowval) -> void {
     auto varLookup = variable_lookup(rowval, selectPrefix, rownum, rank);
-    json_logic::ValueExpr exp    = json_logic::calculate(*op, varLookup);
+    jsonlogic::any_expr exp    = jsonlogic::apply(*op, varLookup);
     auto                  rowobj = rowval.as_object();
     std::stringstream     jstr;
 

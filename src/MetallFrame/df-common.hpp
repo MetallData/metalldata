@@ -20,8 +20,8 @@
 
 #define WITH_YGM 1
 
-#include <clippy/clippy-eval.hpp>
 #include <clippy/clippy.hpp>
+#include <jsonlogic/src.hpp>
 
 using vector_json_type = experimental::DataFrame;
 
@@ -55,23 +55,24 @@ inline std::unique_ptr<experimental::DataFrame> makeDataFrame(
   return std::unique_ptr<DataFrame>{res};
 }
 
-inline json_logic::ValueExpr toValueExpr(experimental::dataframe_variant_t el) {
+inline jsonlogic::any_expr toValueExpr(experimental::dataframe_variant_t el) {
   if (const experimental::string_t* s =
           std::get_if<experimental::string_t>(&el))
-    return json_logic::toValueExpr(boost::json::string(s->begin(), s->end()));
+    return jsonlogic::to_expr(boost::json::string(s->begin(), s->end()));
 
   if (const experimental::int_t* i = std::get_if<experimental::int_t>(&el))
-    return json_logic::toValueExpr(*i);
+    return jsonlogic::to_expr(*i);
 
   if (const experimental::real_t* r = std::get_if<experimental::real_t>(&el))
-    return json_logic::toValueExpr(*r);
+    return jsonlogic::to_expr(*r);
 
   if (const experimental::uint_t* u = std::get_if<experimental::uint_t>(&el))
-    return json_logic::toValueExpr(*u);
+    return jsonlogic::to_expr(*u);
 
   CXX_UNLIKELY;
-  return json_logic::toValueExpr(nullptr);
+  return jsonlogic::to_expr(nullptr);
 }
+
 
 inline std::vector<int> generateIndexN(std::vector<int> v, int count) {
   v.reserve(count);
@@ -91,12 +92,12 @@ template <class Fn, class DataSequence>
 inline void forAllSelected(Fn fn, int rank, DataSequence& dataset,
                            JsonExpression predicates = {},
                            int numrows = std::numeric_limits<int>::max()) {
-  std::vector<json_logic::AnyExpr> queries;
+  std::vector<jsonlogic::any_expr> queries;
 
   // prepare AST
   for (boost::json::object& jexp : predicates) {
     auto [ast, vars, hasComputedVarNames] =
-        json_logic::translateNode(jexp["rule"]);
+        jsonlogic::create_logic(jexp["rule"]);
 
     if (hasComputedVarNames)
       throw std::runtime_error("unable to work with computed variable names");
@@ -118,28 +119,28 @@ inline void forAllSelected(Fn fn, int rank, DataSequence& dataset,
     const std::int64_t selLen    = (SELECTOR.size() + 1);
     auto               varLookup = [&dataset, selLen, row, rank](
                          const boost::json::string& colname,
-                         int) -> json_logic::ValueExpr {
+                         int) -> jsonlogic::any_expr {
       // \todo match selector instead of skipping it
       std::string_view col{colname.begin() + selLen, colname.size() - selLen};
 
       try {
         return toValueExpr(dataset.get_cell_variant(row, col));
       } catch (const experimental::unknown_column_error&) {
-        if (col == "rowid") return json_logic::toValueExpr(row);
-        if (col == "mpiid") return json_logic::toValueExpr(std::int64_t(rank));
+        if (col == "rowid") return jsonlogic::to_expr(row);
+        if (col == "mpiid") return jsonlogic::to_expr(std::int64_t(rank));
 
-        return json_logic::toValueExpr(nullptr);
+        return jsonlogic::to_expr(nullptr);
       }
     };
 
-    auto rowPredicate = [varLookup](json_logic::AnyExpr& query) -> bool {
-      json_logic::ValueExpr exp = json_logic::calculate(query, varLookup);
+    auto rowPredicate = [varLookup](jsonlogic::any_expr& query) -> bool {
+      jsonlogic::any_expr exp = jsonlogic::apply(query, varLookup);
 
-      return !json_logic::unpackValue<bool>(std::move(exp));
+      return !jsonlogic::unpack_value<bool>(std::move(exp));
     };
 
-    const std::vector<json_logic::AnyExpr>::iterator lim = queries.end();
-    const std::vector<json_logic::AnyExpr>::iterator pos =
+    const std::vector<jsonlogic::any_expr>::iterator lim = queries.end();
+    const std::vector<jsonlogic::any_expr>::iterator pos =
         std::find_if(queries.begin(), lim, rowPredicate);
 
     if (pos == lim) {

@@ -32,7 +32,7 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
   clip.add_required_state<std::string>(ST_METALL_LOCATION,
                                        "Metall storage location");
   clip.add_required_state<std::string>(ST_METALLFRAME_NAME, "Metallframe2 key");
-  clip.add_selector<std::string>(SELECTOR, "Row Selector");
+  clip.update_selectors({{SELECTOR, "Row Selector"}});
 
   // \note running on rank 0 suffices
   if ((world.rank() == 0) && clip.parse(argc, argv)) {

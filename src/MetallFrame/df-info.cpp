@@ -14,7 +14,6 @@
 
 #include <boost/json.hpp>
 
-#include "clippy/clippy-eval.hpp"
 #include "df-common.hpp"
 
 namespace bj  = boost::json;

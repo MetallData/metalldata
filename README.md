@@ -16,7 +16,7 @@ Contents:
 ## Download and Build
 
 ```bash
-git clone https://github.com/LLNL/metalldata.git
+git clone https://github.com/MetallData/metalldata.git
 cd metalldata
 mkdir build
 cd build
@@ -38,6 +38,7 @@ If one prefers to use Spack to install the libraries, type `spack install [packa
 - cereal (tested with v1.3.0, available in Spack, required by YGM)
 - YGM (required)
 - Clippy-cpp (required)
+- JsonLogic (required)
 
 ### Apache Parquet
 

@@ -13,7 +13,6 @@
 
 #include <boost/json.hpp>
 
-#include "clippy/clippy-eval.hpp"
 #include "df-common.hpp"
 #include "experimental/json-io.hpp"
 

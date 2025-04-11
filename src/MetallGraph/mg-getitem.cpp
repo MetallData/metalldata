@@ -22,8 +22,9 @@ int ygm_main(ygm::comm& world, int argc, char** argv) {
 
   clip.add_required<std::vector<boost::json::object>>(expr,
                                                       "Expression selection");
-  clip.add_selector<std::string>(NODES_SELECTOR, "Node selection key");
-  clip.add_selector<std::string>(EDGES_SELECTOR, "Edge selection key");
+  clip.update_selectors( { {NODES_SELECTOR, "Node selection key"},
+                           {EDGES_SELECTOR, "Edge selection key"}
+                         });
   clip.add_required_state<std::string>(ST_METALL_LOCATION,
                                        "Metall storage location");
 
