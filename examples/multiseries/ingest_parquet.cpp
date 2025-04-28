@@ -18,7 +18,7 @@
 #include <vector>
 
 #include <ygm/comm.hpp>
-#include <ygm/io/parquet2variant.hpp>
+#include <ygm/io/parquet_parser.hpp>
 #include <ygm/utility.hpp>
 #include <metall/metall.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
@@ -89,19 +89,19 @@ int main(int argc, char **argv) {
     metall::unique_instance)(string_store, manager.get_allocator());
 
   ygm::io::parquet_parser parquetp(comm, {opt.input_path});
-  const auto &schema = parquetp.schema();
+  const auto &schema = parquetp.get_schema();
 
   // Add series
-  for (const auto &[type, name] : schema) {
-    if (type.equal(parquet::Type::INT32) || type.equal(parquet::Type::INT64)) {
-      record_store->add_series<int64_t>(name);
-    } else if (type.equal(parquet::Type::FLOAT) or
-      type.equal(parquet::Type::DOUBLE)) {
-      record_store->add_series<double>(name);
-    } else if (type.equal(parquet::Type::BYTE_ARRAY)) {
-      record_store->add_series<std::string_view>(name);
+  for (const auto &s : schema) {
+    if (s.type.equal(parquet::Type::INT32) || s.type.equal(parquet::Type::INT64)) {
+      record_store->add_series<int64_t>(s.name);
+    } else if (s.type.equal(parquet::Type::FLOAT) or
+      s.type.equal(parquet::Type::DOUBLE)) {
+      record_store->add_series<double>(s.name);
+    } else if (s.type.equal(parquet::Type::BYTE_ARRAY)) {
+      record_store->add_series<std::string_view>(s.name);
     } else {
-      comm.cerr0() << "Unsupported column type: " << type << std::endl;
+      comm.cerr0() << "Unsupported column type: " << s.type << std::endl;
       MPI_Abort(comm.get_mpi_comm(), EXIT_FAILURE);
     }
   }
@@ -113,16 +113,15 @@ int main(int argc, char **argv) {
   static size_t total_ingested_bytes = 0;
   static size_t total_num_strs = 0;
   parquetp.for_all(
-    [&schema, &record_store, &opt](auto &stream_reader, const auto &) {
+    [&schema, &record_store, &opt](auto &&row) {
       const auto record_id = record_store->add_record();
-      auto row = ygm::io::read_parquet_as_variant(stream_reader, schema);
       for (int i = 0; i < row.size(); ++i) {
         auto &field = row[i];
         if (std::holds_alternative<std::monostate>(field)) {
           continue; // Leave the field empty for None/NaN values
         }
 
-        const auto &name = std::get<1>(schema[i]);
+        const auto &name = schema[i].name;
         std::visit(
           [&record_store, &record_id, &name, &opt](auto &&field) {
             using T = std::decay_t<decltype(field)>;
@@ -168,10 +167,10 @@ int main(int argc, char **argv) {
       << comm.all_reduce_sum(record_store->num_records()) << std::endl;
 
   comm.cout0() << "Series name, Load factor" << std::endl;
-  for (const auto &[type, name] : schema) {
+  for (const auto s : schema) {
     const auto ave_load_factor = comm.all_reduce_sum(
-      record_store->load_factor(name)) / comm.size();
-    comm.cout0() << "  " << name << ", " << ave_load_factor << std::endl;
+      record_store->load_factor(s.name)) / comm.size();
+    comm.cout0() << "  " << s.name << ", " << ave_load_factor << std::endl;
   }
 
   if (opt.profile) {
