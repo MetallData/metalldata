@@ -8,7 +8,7 @@
 #include <boost/json.hpp>
 
 #include <ygm/comm.hpp>
-#include <ygm/io/parquet2variant.hpp>
+#include <ygm/io/parquet_parser.hpp>
 #include <ygm/utility.hpp>
 #include <metall/metall.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
@@ -79,9 +79,8 @@ int main(int argc, char **argv) {
   }
   comm.cf_barrier();
 
-  parquetp.for_all([&schema, &record_store](auto &stream_reader, const auto &) {
+  parquetp.for_all([&schema, &record_store](auto&& row) {
     const auto record_id = record_store->add_record();
-    auto       row = ygm::io::read_parquet_as_variant(stream_reader, schema);
     for (int i = 0; i < row.size(); ++i) {
       auto &field = row[i];
       if (std::holds_alternative<std::monostate>(field)) {

@@ -38,7 +38,6 @@ FetchContent_Declare(YGM
         )
 FetchContent_MakeAvailable(YGM)
 
-
 #
 #  Clippy
 #
