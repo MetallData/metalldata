@@ -8,7 +8,7 @@
 #include <boost/json.hpp>
 
 #include <ygm/comm.hpp>
-#include <ygm/io/parquet2variant.hpp>
+#include <ygm/io/parquet_parser.hpp>
 #include <ygm/utility.hpp>
 #include <metall/metall.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>

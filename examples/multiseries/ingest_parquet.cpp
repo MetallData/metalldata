@@ -33,18 +33,22 @@ using string_store_type = record_store_type::string_store_type;
 struct option {
   std::filesystem::path metall_path{"./metall_data"};
   std::filesystem::path input_path;
+  std::string primary_key;
   bool profile{false};
 };
 
 bool parse_options(int argc, char *argv[], option *opt) {
   int opt_char;
-  while ((opt_char = getopt(argc, argv, "d:i:Ph")) != -1) {
+  while ((opt_char = getopt(argc, argv, "d:i:k:Ph")) != -1) {
     switch (opt_char) {
       case 'd':
         opt->metall_path = std::filesystem::path(optarg);
         break;
       case 'i':
         opt->input_path = std::filesystem::path(optarg);
+        break;
+      case 'k':
+        opt->primary_key = std::filesystem::path(optarg);
         break;
       case 'P':
         opt->profile = true;
@@ -60,6 +64,7 @@ void show_usage(std::ostream &os) {
   os << "Usage: find_max -d metall_path -i input_path" << std::endl;
   os << "  -d: Path to Metall directory" << std::endl;
   os << "  -i: Path to the input Parquet file" << std::endl;
+  os << "  -k: Primary key (optional)" << std::endl;
   os << "  -P: Enable profiling (may harm speed)" << std::endl;
 }
 
@@ -90,6 +95,19 @@ int main(int argc, char **argv) {
 
   ygm::io::parquet_parser parquetp(comm, {opt.input_path});
   const auto &schema = parquetp.get_schema();
+
+  //
+  // Locate index of primary key
+  int primary_key_index = -1;
+  if(opt.primary_key.size() > 0) {
+    for(size_t i = 0; i < schema.size(); ++i) {
+      if(opt.primary_key == schedma[i].name) {
+        primary_key_index = i;
+        break
+      }
+    }
+    comm.cerr0("Primary key not found: ", opt.primary_key);
+  }
 
   // Add series
   for (const auto &s : schema) {

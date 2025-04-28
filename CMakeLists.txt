@@ -30,7 +30,7 @@ FetchContent_MakeAvailable(Boost)
 
 #
 #  YGM
-#set(YGM_REQUIRE_PARQUET ON)
+set(YGM_REQUIRE_PARQUET ON)
 set(YGM_INSTALL_PARQUET ON)
 FetchContent_Declare(YGM
     GIT_REPOSITORY https://github.com/llnl/ygm.git
@@ -42,7 +42,6 @@ FetchContent_MakeAvailable(YGM)
 #
 #  Clippy
 #
-
 FetchContent_Declare(CLIPPy
         GIT_REPOSITORY https://github.com/LLNL/clippy-cpp.git
         GIT_TAG master
@@ -146,6 +145,7 @@ function(setup_ygm_target exe_name)
     endif ()
     target_link_libraries(${exe_name} PRIVATE ygm::ygm)
 endfunction()
+
 
 #
 # Function for setting up a target that uses CLIPPy
