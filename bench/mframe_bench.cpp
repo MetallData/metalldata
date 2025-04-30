@@ -149,7 +149,7 @@ void run_peek(ygm::comm& comm, std::string& metall_path) {
 
   comm.cout0("Series Count: ", record_store->num_series());
   // todo:  manually count
-  comm.cout0("Record Count: ", record_store->num_records());
+  comm.cout0("Record Count: ", comm.all_reduce_sum(record_store->num_records()));
   comm.cout0("Hash key = ", *pm_hash_key);
 
   std::vector<std::string> series_names = record_store->get_series_names();
