@@ -229,6 +229,17 @@ class basic_record_store {
                                       record_id, value);
   }
 
+  template <typename series_type>
+  void set(size_t series_index, const record_id_type record_id,
+           series_type value) {
+    priv_series_type_check<series_type>();
+    if (series_index >= m_series.size()) {
+      throw std::runtime_error("Series not found");
+    }
+
+    priv_set_series_data<series_type>(m_series[series_index], record_id, value);
+  }
+
   /// Returns series_info_type<series_type>
   template <typename series_type>
   series_info_type<series_type> find_series(
@@ -244,7 +255,13 @@ class basic_record_store {
   }
 
   //// Returns the number of records (rows)
-  size_t num_records() const { return m_record_status.size(); }
+  size_t num_records() const {
+    size_t to_return = 0;
+    for (bool b : m_record_status) {
+      if (b) to_return++;
+    }
+    return to_return;
+  }
 
   /// \brief Returns the number of series (columns)
   size_t num_series() const { return m_series.size(); }
@@ -273,8 +290,10 @@ class basic_record_store {
     const auto &container =
         priv_get_series_container<series_type>(itr->container);
     for (size_t i = 0; i < m_record_status.size(); ++i) {
-      if (container.contains(i)) {
-        series_func(i, container.at(i));
+      if (m_record_status[i]) {
+        if (container.contains(i)) {
+          series_func(i, container.at(i));
+        }
       }
     }
   }
@@ -289,10 +308,40 @@ class basic_record_store {
     const auto &container = priv_get_series_container<series_type>(
         m_series[series_info.series_index]);
     for (size_t i = 0; i < m_record_status.size(); ++i) {
-      if (container.contains(i)) {
-        series_func(i, container.at(i));
+      if (m_record_status[i]) {
+        if (container.contains(i)) {
+          series_func(i, container.at(i));
+        }
       }
     }
+  }
+
+  // Change name
+  template <typename series_func_t>
+  void visit_field(std::string_view series_name, const record_id_type record_id,
+                   series_func_t series_func) const {
+    auto itr = priv_find_series(series_name);
+    if (itr == m_series.end()) {
+      throw std::runtime_error("Series not found");
+    }
+    if (!is_record_valid(record_id)) {
+      throw std::runtime_error("Invalid record");
+    }
+
+    const auto &series_item = *itr;
+
+    std::visit(
+        [&series_func, record_id](const auto &container) {
+          if (!container.contains(record_id)) return;
+          using T = std::decay_t<decltype(container)>;
+          if constexpr (std::is_same_v<
+                            T, series_container_type<std::string_view>>) {
+            series_func(container.at(record_id).to_view());
+          } else {
+            series_func(container.at(record_id));
+          }
+        },
+        series_item.container);
   }
 
   /// \brief for_all() without series_type
@@ -306,18 +355,20 @@ class basic_record_store {
 
     const auto &series_item = *itr;
     for (size_t i = 0; i < m_record_status.size(); ++i) {
-      std::visit(
-          [&series_func, i](const auto &container) {
-            if (!container.contains(i)) return;
-            using T = std::decay_t<decltype(container)>;
-            if constexpr (std::is_same_v<
-                              T, series_container_type<std::string_view>>) {
-              series_func(i, container.at(i).to_view());
-            } else {
-              series_func(i, container.at(i));
-            }
-          },
-          series_item.container);
+      if (m_record_status[i]) {
+        std::visit(
+            [&series_func, i](const auto &container) {
+              if (!container.contains(i)) return;
+              using T = std::decay_t<decltype(container)>;
+              if constexpr (std::is_same_v<
+                                T, series_container_type<std::string_view>>) {
+                series_func(i, container.at(i).to_view());
+              } else {
+                series_func(i, container.at(i));
+              }
+            },
+            series_item.container);
+      }
     }
   }
 
@@ -365,6 +416,11 @@ class basic_record_store {
 
     m_record_status[record_id] = false;
     return true;
+  }
+
+  bool is_record_valid(size_t record_index) const {
+    return m_record_status.size() > record_index &&
+           m_record_status[record_index];
   }
 
   /// \brief Convert the container kind of a series
