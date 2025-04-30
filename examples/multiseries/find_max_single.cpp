@@ -3,6 +3,9 @@
 //
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
+// This is a single process version of find_max.cpp.
+// Series type is also hardcoded to int64_t.
+
 #ifndef METALL_DISABLE_CONCURRENCY
 #define METALL_DISABLE_CONCURRENCY
 #endif
@@ -107,7 +110,6 @@ int main(int argc, char *argv[]) {
 
     using value_type     = int64_t;
     std::cout << "Value type is: " << typeid(value_type).name() << std::endl;
-
     value_type max_value = std::numeric_limits<value_type>::min();
     record_store->for_all<value_type>(
         series_name,

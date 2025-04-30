@@ -123,4 +123,6 @@ TEST(MultiSeriesTest, Basic) {
     EXPECT_TRUE(store.is_none("city", 0));
     EXPECT_TRUE(store.is_none("flag", 0));
   }
+
+  std::cout << store.load_factor("age") << std::endl;
 }
