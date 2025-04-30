@@ -24,7 +24,7 @@ FetchContent_Declare(
     Boost 
     URL ${BOOST_URL}
 )
-set(BOOST_INCLUDE_LIBRARIES json container unordered interprocess property_tree uuid graph)
+set(BOOST_INCLUDE_LIBRARIES json container unordered interprocess property_tree uuid graph program_options)
 FetchContent_MakeAvailable(Boost)
 
 
@@ -112,7 +112,7 @@ function(add_metalldata_executable name source)
     add_executable(${name} ${source})
     add_common_compile_options(${name})
     target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include ${BOOST_INCLUDE_DIRS})
-    target_link_libraries(${name} PRIVATE Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph)
+    target_link_libraries(${name} PRIVATE Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph Boost::program_options)
     target_link_libraries(${name} PRIVATE Arrow::arrow_shared)
     target_link_libraries(${name} PRIVATE Parquet::parquet_shared)
     target_compile_definitions(${name} PRIVATE METALLDATA_USE_PARQUET)
@@ -182,6 +182,7 @@ endfunction()
 
 add_subdirectory(src)
 add_subdirectory(examples)
+add_subdirectory(bench)
 
 if (METALLDATA_BUILD_TESTS)
     enable_testing()
