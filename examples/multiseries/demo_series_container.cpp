@@ -1,3 +1,10 @@
+// Copyright 2025 Lawrence Livermore National Security, LLC and other Metall
+// Project Developers. See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: (Apache-2.0 OR MIT)
+
+/// Demonstration of how the multiseries containers work.
+
 #ifndef METALL_DISABLE_CONCURRENCY
 #define METALL_DISABLE_CONCURRENCY
 #endif

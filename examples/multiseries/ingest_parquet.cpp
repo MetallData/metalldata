@@ -33,22 +33,18 @@ using string_store_type = record_store_type::string_store_type;
 struct option {
   std::filesystem::path metall_path{"./metall_data"};
   std::filesystem::path input_path;
-  std::string           primary_key;
   bool                  profile{false};
 };
 
 bool parse_options(int argc, char *argv[], option *opt) {
   int opt_char;
-  while ((opt_char = getopt(argc, argv, "d:i:k:Ph")) != -1) {
+  while ((opt_char = getopt(argc, argv, "d:i:Ph")) != -1) {
     switch (opt_char) {
       case 'd':
         opt->metall_path = std::filesystem::path(optarg);
         break;
       case 'i':
         opt->input_path = std::filesystem::path(optarg);
-        break;
-      case 'k':
-        opt->primary_key = std::filesystem::path(optarg);
         break;
       case 'P':
         opt->profile = true;
@@ -68,10 +64,10 @@ size_t make_hash(const T &value) {
 }
 
 void show_usage(std::ostream &os) {
-  os << "Usage: find_max -d metall_path -i input_path" << std::endl;
+  os << "Usage: ingest_parquet -d metall_path -i input_path" << std::endl;
   os << "  -d: Path to Metall directory" << std::endl;
-  os << "  -i: Path to the input Parquet file" << std::endl;
-  os << "  -k: Primary key (optional)" << std::endl;
+  os << "  -i: Path to an input Parquet file or directory contains Parquet "
+        "files" << std::endl;
   os << "  -P: Enable profiling (may harm speed)" << std::endl;
 }
 
@@ -95,43 +91,21 @@ int main(int argc, char **argv) {
 
   auto *string_store = manager.construct<string_store_type>(
       metall::unique_instance)(manager.get_allocator());
-  static auto *record_store = manager.construct<record_store_type>(
+  auto *record_store = manager.construct<record_store_type>(
       metall::unique_instance)(string_store, manager.get_allocator());
-   
 
   ygm::io::parquet_parser parquetp(comm, {opt.input_path});
-  const auto             &schema = parquetp.get_schema();
-
-  //
-  // Locate index of primary key
-  int primary_key_index = -1;
-  if (opt.primary_key.size() > 0) {
-    for (size_t i = 0; i < schema.size(); ++i) {
-      if (opt.primary_key == schema[i].name) {
-        comm.cerr0("Found primary key: ", i);
-        primary_key_index = i;
-        break;
-      }
-    }
-    if(primary_key_index == -1) {
-      comm.cerr0("Primary key not found: ", opt.primary_key);
-    }
-  }
+  const auto             &schema = parquetp.schema();
 
   // Add series
-  static std::vector<size_t> vec_col_ids;
-  for (const auto &s : schema) {
-    if (s.type.equal(parquet::Type::INT32) ||
-        s.type.equal(parquet::Type::INT64)) {
-      auto sinfo = record_store->add_series<int64_t>(s.name);
-      vec_col_ids.push_back(sinfo.series_index);
-    } else if (s.type.equal(parquet::Type::FLOAT) or
-               s.type.equal(parquet::Type::DOUBLE)) {
-      auto sinfo = record_store->add_series<double>(s.name);
-      vec_col_ids.push_back(sinfo.series_index);
-    } else if (s.type.equal(parquet::Type::BYTE_ARRAY)) {
-      auto sinfo = record_store->add_series<std::string_view>(s.name);
-      vec_col_ids.push_back(sinfo.series_index);
+  for (const auto &[type, name] : schema) {
+    if (type.equal(parquet::Type::INT32) || type.equal(parquet::Type::INT64)) {
+      record_store->add_series<int64_t>(name);
+    } else if (type.equal(parquet::Type::FLOAT) or
+               type.equal(parquet::Type::DOUBLE)) {
+      record_store->add_series<double>(name);
+    } else if (type.equal(parquet::Type::BYTE_ARRAY)) {
+      record_store->add_series<std::string_view>(name);
     } else {
       comm.cerr0() << "Unsupported column type: " << s.type << std::endl;
       MPI_Abort(comm.get_mpi_comm(), EXIT_FAILURE);
@@ -146,63 +120,45 @@ int main(int argc, char **argv) {
   static size_t total_ingested_bytes    = 0;
   static size_t total_num_strs          = 0;
   parquetp.for_all(
-      [&schema, &opt, primary_key_index, &comm](auto &&row) {
-
-
-        auto record_inserter = [](auto&& row, bool bprofile) {
-          const auto record_id = record_store->add_record();
-          for (int i = 0; i < row.size(); ++i) {
-            auto &field = row[i];
-            if (std::holds_alternative<std::monostate>(field)) {
-              continue;  // Leave the field empty for None/NaN values
-            }
-            //const auto &name = schema[i].name;
-            size_t name = vec_col_ids[i];
-            std::visit(
-                [&record_id, &name, bprofile](auto &&field) {
-                  using T = std::decay_t<decltype(field)>;
-                  if constexpr (std::is_same_v<T, int32_t> ||
-                                std::is_same_v<T, int64_t>) {
-                    record_store->set<int64_t>(name, record_id, field);
-                    if (bprofile) {
-                      total_ingested_bytes += sizeof(T);
-                    }
-                  } else if constexpr (std::is_same_v<T, float> ||
-                                       std::is_same_v<T, double>) {
-                    record_store->set<double>(name, record_id, field);
-                    if (bprofile) {
-                      total_ingested_bytes += sizeof(T);
-                    }
-                  } else if constexpr (std::is_same_v<T, std::string>) {
-                    record_store->set<std::string_view>(name, record_id, field);
-  
-                    if (bprofile) {
-                      total_ingested_str_size += field.size();
-                      total_ingested_bytes += field.size();  // Assume ASCII
-                      ++total_num_strs;
-                    }
-                  } else {
-                    throw std::runtime_error("Unsupported type");
-                  }
-                },
-                std::move(field));
+      [&schema, &record_store, &opt](auto &stream_reader, const auto &) {
+        const auto record_id = record_store->add_record();
+        auto row = ygm::io::read_parquet_as_variant(stream_reader, schema);
+        for (int i = 0; i < row.size(); ++i) {
+          auto &field = row[i];
+          if (std::holds_alternative<std::monostate>(field)) {
+            continue;  // Leave the field empty for None/NaN values
           }
-        };
 
+          const auto &name = std::get<1>(schema[i]);
+          std::visit(
+              [&record_store, &record_id, &name, &opt](auto &&field) {
+                using T = std::decay_t<decltype(field)>;
+                if constexpr (std::is_same_v<T, int32_t> ||
+                              std::is_same_v<T, int64_t>) {
+                  record_store->set<int64_t>(name, record_id, field);
+                  if (opt.profile) {
+                    total_ingested_bytes += sizeof(T);
+                  }
+                } else if constexpr (std::is_same_v<T, float> ||
+                                     std::is_same_v<T, double>) {
+                  record_store->set<double>(name, record_id, field);
+                  if (opt.profile) {
+                    total_ingested_bytes += sizeof(T);
+                  }
+                } else if constexpr (std::is_same_v<T, std::string>) {
+                  record_store->set<std::string_view>(name, record_id, field);
 
-
-        if (primary_key_index != -1) {
-          // partition based on primary key
-          int owner = std::visit([](auto &&field) { return make_hash(field); },
-                                row[primary_key_index]) % comm.size();
-          //std::cout << "owner = " << owner << std::endl;
-          comm.async(owner, record_inserter, row, opt.profile);
-        } else {
-          // do it locally
-          record_inserter(row, opt.profile);
+                  if (opt.profile) {
+                    total_ingested_str_size += field.size();
+                    total_ingested_bytes += field.size();  // Assume ASCII
+                    ++total_num_strs;
+                  }
+                } else {
+                  throw std::runtime_error("Unsupported type");
+                }
+              },
+              std::move(field));
         }
-
-
       });
   comm.barrier();
   comm.cout0() << "Ingest took (s): " << ingest_timer.elapsed() << std::endl;
@@ -219,11 +175,10 @@ int main(int argc, char **argv) {
                << comm.all_reduce_sum(record_store->num_records()) << std::endl;
 
   comm.cout0() << "Series name, Load factor" << std::endl;
-  for (const auto s : schema) {
-    //comm.cout("record_store->load_factor(s.name) = ", record_store->load_factor(s.name));
+  for (const auto &[type, name] : schema) {
     const auto ave_load_factor =
-        comm.all_reduce_sum(record_store->load_factor(s.name)) / comm.size();
-    comm.cout0() << "  " << s.name << ", " << ave_load_factor << std::endl;
+        comm.all_reduce_sum(record_store->load_factor(name)) / comm.size();
+    comm.cout0() << "  " << name << ", " << ave_load_factor << std::endl;
   }
 
   if (opt.profile) {

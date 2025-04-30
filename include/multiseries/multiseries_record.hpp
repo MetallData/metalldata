@@ -204,6 +204,7 @@ class basic_record_store {
                 .contains(record_id);
   }
 
+  /// \brief Set a series data of a record (row)
   template <typename series_type>
   void set(std::string_view series_name, const record_id_type record_id,
            series_type value) {
@@ -214,17 +215,6 @@ class basic_record_store {
     }
 
     priv_set_series_data<series_type>(*itr, record_id, value);
-  }
-
-  template <typename series_type>
-  void set(size_t series_index, const record_id_type record_id,
-           series_type value) {
-    priv_series_type_check<series_type>();
-    if (series_index >= m_series.size()) {
-      throw std::runtime_error("Series not found");
-    }
-
-    priv_set_series_data<series_type>(m_series[series_index], record_id, value);
   }
 
   template <typename series_type>
@@ -253,78 +243,26 @@ class basic_record_store {
         .series_index = (size_t)std::abs(std::distance(m_series.begin(), itr))};
   }
 
-  size_t num_records() const {
-    size_t to_return = 0;
-    for (bool b : m_record_status) {
-      if (b) to_return++;
-    }
-    return to_return;
-  }
+  //// Returns the number of records (rows)
+  size_t num_records() const { return m_record_status.size(); }
 
+  /// \brief Returns the number of series (columns)
   size_t num_series() const { return m_series.size(); }
 
-  bool is_record_valid(const record_id_type record_id) const {
-    return m_record_status.size() > record_id && m_record_status[record_id];
-  }
-
-  // Change name
-  template <typename series_func_t>
-  void visit_field(std::string_view     series_name,
-                     const record_id_type record_id,
-                     series_func_t        series_func) const {
-    auto itr = priv_find_series(series_name);
-    if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found");
-    }
-    if (!is_record_valid(record_id)) {
-      throw std::runtime_error("Invalid record");
-    }
-
-    const auto &series_item = *itr;
-
-    std::visit(
-        [&series_func, record_id](const auto &container) {
-          if (!container.contains(record_id)) return;
-          using T = std::decay_t<decltype(container)>;
-          if constexpr (std::is_same_v<
-                            T, series_container_type<std::string_view>>) {
-            series_func(container.at(record_id).to_view());
-          } else {
-            series_func(container.at(record_id));
-          }
-        },
-        series_item.container);
-  }
-
-  // Change name
-  template <typename series_func_t>
-  void for_all_dynamic(std::string_view series_name,
-                       series_func_t    series_func) const {
+  /// \brief Returns the number of non-None items in a series
+  size_t size(std::string_view series_name) const {
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
       throw std::runtime_error("Series not found");
     }
 
-    const auto &series_item = *itr;
-    for (size_t i = 0; i < m_record_status.size(); ++i) {
-      if (m_record_status[i]) {
-        std::visit(
-            [&series_func, i](const auto &container) {
-              if (!container.contains(i)) return;
-              using T = std::decay_t<decltype(container)>;
-              if constexpr (std::is_same_v<
-                                T, series_container_type<std::string_view>>) {
-                series_func(i, container.at(i).to_view());
-              } else {
-                series_func(i, container.at(i));
-              }
-            },
-            series_item.container);
-      }
-    }
+    return std::visit(
+        [this](const auto &container) { return container.size(); },
+        itr->container);
   }
 
-  // series_func_t: [](int record_id, auto value) {}
+  /// \brief Loop over all records of a series, skipping None values.
+  /// series_func_t: [](int record_id, auto single_series_value) {}
   template <typename series_type, typename series_func_t>
   void for_all(std::string_view series_name, series_func_t series_func) const {
     auto itr = priv_find_series(series_name);
@@ -335,7 +273,7 @@ class basic_record_store {
     const auto &container =
         priv_get_series_container<series_type>(itr->container);
     for (size_t i = 0; i < m_record_status.size(); ++i) {
-      if (m_record_status[i] && container.contains(i)) {
+      if (container.contains(i)) {
         series_func(i, container.at(i));
       }
     }
@@ -357,10 +295,38 @@ class basic_record_store {
     }
   }
 
+  /// \brief for_all() without series_type
+  template <typename series_func_t>
+  void for_all_dynamic(std::string_view series_name,
+                       series_func_t    series_func) const {
+    auto itr = priv_find_series(series_name);
+    if (itr == m_series.end()) {
+      throw std::runtime_error("Series not found");
+    }
+
+    const auto &series_item = *itr;
+    for (size_t i = 0; i < m_record_status.size(); ++i) {
+      std::visit(
+          [&series_func, i](const auto &container) {
+            if (!container.contains(i)) return;
+            using T = std::decay_t<decltype(container)>;
+            if constexpr (std::is_same_v<
+                              T, series_container_type<std::string_view>>) {
+              series_func(i, container.at(i).to_view());
+            } else {
+              series_func(i, container.at(i));
+            }
+          },
+          series_item.container);
+    }
+  }
+
+  /// \brief Returns if a series exists associated with the name
   bool contains(std::string_view series_name) const {
     return priv_find_series(series_name) != m_series.end();
   }
 
+  /// \brief Returns the series names
   std::vector<std::string> get_series_names() const {
     std::vector<std::string> series_names;
     for (const auto &item : m_series) {
@@ -369,7 +335,7 @@ class basic_record_store {
     return series_names;
   }
 
-  // Remove a series by name
+  /// \brief Remove a series by name
   bool remove_series(std::string_view series_name) {
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
@@ -380,14 +346,13 @@ class basic_record_store {
     return true;
   }
 
-  // Remove a series by series_info_type
+  /// \brief  Remove a series by series_info_type
   template <typename series_type>
   bool remove_series(const series_info_type<series_type> &series_info) {
     return priv_remove_series(series_info.series_index);
   }
 
-  // Remove a record,
-  // Destroy all series data of the record
+  /// \brief Remove a record, destroy all series data of the record
   bool remove_record(const record_id_type record_id) {
     if (record_id >= m_record_status.size()) {
       return false;
@@ -402,6 +367,7 @@ class basic_record_store {
     return true;
   }
 
+  /// \brief Convert the container kind of a series
   void convert(std::string_view series_name, container_kind new_kind) {
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
@@ -412,24 +378,11 @@ class basic_record_store {
                itr->container);
   }
 
-  /// \brief Returns the load factor of the series
-  /// When the series container is sparse, it always returns 1.0.
-  /// When the series container is dense, it returns the ratio of the number of
-  /// items to the capacity.
+  /// \brief Returns the load factor of the series, which is determined by
+  /// load-factor = non-None items / #of records.
+  /// This one does not consider
   double load_factor(std::string_view series_name) const {
-    auto itr = priv_find_series(series_name);
-    if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found");
-    }
-
-    return std::visit(
-        [](const auto &container) {
-          if (container.empty()) {
-            return double(0);
-          }
-          return container.load_factor();
-        },
-        itr->container);
+    return double(size(series_name)) / m_record_status.size();
   }
 
  private:

@@ -3,6 +3,10 @@
 //
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
+/// \brief Find the maximum values in already constructed multi-series record
+/// container Use the ingest_parquet.cpp to create the container first, for
+/// example.
+
 #ifndef METALL_DISABLE_CONCURRENCY
 #define METALL_DISABLE_CONCURRENCY
 #endif
@@ -113,7 +117,7 @@ int main(int argc, char *argv[]) {
       bool        fs = false;
     };
     static max_value_t max_value;
-    max_value = max_value_t(); // reset
+    max_value = max_value_t();  // reset
 
     record_store->for_all_dynamic(
         series_name,
