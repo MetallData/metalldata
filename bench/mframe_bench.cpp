@@ -76,13 +76,17 @@ namespace po = boost::program_options;
 void print_command_help(const char*                    argv0,
                         const po::options_description& global,
                         const po::options_description& ingest,
-                        const po::options_description& rm_options) {
+                        const po::options_description& rm_options,
+                        const po::options_description& peek_options,
+                        const po::options_description& erase_keys_options) {
   std::cout << std::endl
             << "Usage: " << argv0 << " <command> [options]" << std::endl
             << std::endl;
   std::cout << "Commands:" << std::endl;
   std::cout << ingest << std::endl;
   std::cout << rm_options << std::endl;
+  std::cout << peek_options << std::endl;
+  std::cout << erase_keys_options << std::endl;
 }
 
 void run_erase_keys(ygm::comm& comm, std::string& metall_path,
@@ -457,7 +461,7 @@ int main(int argc, char** argv) {
       }
     } else {
       if (world.rank0()) {
-        print_command_help(argv[0], global, ingest, rm_options);
+        print_command_help(argv[0], global, ingest, rm_options, peek_options, erase_keys_options);
       }
       return 1;
     }
