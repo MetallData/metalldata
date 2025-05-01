@@ -220,15 +220,15 @@ void run_ingest(ygm::comm& comm, const std::string& input_path,
   for (const auto& s : schema) {
     if (s.type.equal(parquet::Type::INT32) ||
         s.type.equal(parquet::Type::INT64)) {
-      auto sinfo = record_store->add_series<int64_t>(s.name);
-      vec_col_ids.push_back(sinfo.series_index);
+      auto series_index = record_store->add_series<int64_t>(s.name);
+      vec_col_ids.push_back(series_index);
     } else if (s.type.equal(parquet::Type::FLOAT) or
                s.type.equal(parquet::Type::DOUBLE)) {
-      auto sinfo = record_store->add_series<double>(s.name);
-      vec_col_ids.push_back(sinfo.series_index);
+      auto series_index = record_store->add_series<double>(s.name);
+      vec_col_ids.push_back(series_index);
     } else if (s.type.equal(parquet::Type::BYTE_ARRAY)) {
-      auto sinfo = record_store->add_series<std::string_view>(s.name);
-      vec_col_ids.push_back(sinfo.series_index);
+      auto series_index = record_store->add_series<std::string_view>(s.name);
+      vec_col_ids.push_back(series_index);
     } else {
       comm.cerr0() << "Unsupported column type: " << s.type << std::endl;
       MPI_Abort(comm.get_mpi_comm(), EXIT_FAILURE);
