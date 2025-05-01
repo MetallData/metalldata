@@ -11,26 +11,21 @@ using namespace multiseries;
 
 TEST(MultiSeriesTest, Basic) {
   record_store::string_store_type string_store;
-  record_store store(&string_store);
+  record_store                    store(&string_store);
 
   [[maybe_unused]] const auto name_series =
       store.add_series<std::string_view>("name");
   [[maybe_unused]] const auto age_series = store.add_series<uint64_t>("age");
   [[maybe_unused]] const auto city_series =
       store.add_series<std::string_view>("city");
-  [[maybe_unused]] const auto flag_series =
-    store.add_series<bool>("flag");
+  [[maybe_unused]] const auto flag_series = store.add_series<bool>("flag");
 
-  std::vector<std::string_view> names = {
-    "Alice", "Bob", "Charlie", "David",
-    "Eve"
-  };
-  std::vector<uint64_t> ages = {20, 30, 40, 50, 60};
-  std::vector<std::string_view> cities = {
-    "New York", "Los Angeles", "Chicago",
-    "New York", "Chicago"
-  };
-  std::vector<bool> flags = {true, false, true, false, true};
+  std::vector<std::string_view> names  = {"Alice", "Bob", "Charlie", "David",
+                                          "Eve"};
+  std::vector<uint64_t>         ages   = {20, 30, 40, 50, 60};
+  std::vector<std::string_view> cities = {"New York", "Los Angeles", "Chicago",
+                                          "New York", "Chicago"};
+  std::vector<bool>             flags  = {true, false, true, false, true};
 
   for (size_t i = 0; i < cities.size(); ++i) {
     const auto record_id = store.add_record();
@@ -59,27 +54,38 @@ TEST(MultiSeriesTest, Basic) {
     EXPECT_EQ(store.get<bool>("flag", i), flags[i]);
   }
 
+  // Test is_series_type
+  {
+    EXPECT_TRUE(store.is_series_type<std::string_view>("name"));
+    EXPECT_TRUE(store.is_series_type<uint64_t>("age"));
+    EXPECT_TRUE(store.is_series_type<std::string_view>("city"));
+    EXPECT_TRUE(store.is_series_type<bool>("flag"));
+
+    EXPECT_FALSE(store.is_series_type<int64_t>("name"));
+    EXPECT_FALSE(store.is_series_type<double>("age"));
+    EXPECT_FALSE(store.is_series_type<int64_t>("city"));
+    EXPECT_FALSE(store.is_series_type<std::string_view>("flag"));
+  }
+
   // Test for_all_dynamic
   {
-    store.for_all_dynamic("age",
-                          [&](const auto record_id, const auto value) {
-                            using T = std::decay_t<decltype(value)>;
-                            if constexpr (std::is_same_v<T, uint64_t>) {
-                              EXPECT_EQ(value, ages[record_id]);
-                            } else {
-                              FAIL() << "Unexpected type";
-                            }
-                          });
+    store.for_all_dynamic("age", [&](const auto record_id, const auto value) {
+      using T = std::decay_t<decltype(value)>;
+      if constexpr (std::is_same_v<T, uint64_t>) {
+        EXPECT_EQ(value, ages[record_id]);
+      } else {
+        FAIL() << "Unexpected type";
+      }
+    });
 
-    store.for_all_dynamic("city",
-                          [&](const auto record_id, const auto value) {
-                            using T = std::decay_t<decltype(value)>;
-                            if constexpr (std::is_same_v<T, std::string_view>) {
-                              EXPECT_EQ(value, cities[record_id]);
-                            } else {
-                              FAIL() << "Unexpected type";
-                            }
-                          });
+    store.for_all_dynamic("city", [&](const auto record_id, const auto value) {
+      using T = std::decay_t<decltype(value)>;
+      if constexpr (std::is_same_v<T, std::string_view>) {
+        EXPECT_EQ(value, cities[record_id]);
+      } else {
+        FAIL() << "Unexpected type";
+      }
+    });
   }
 
   // Test convert

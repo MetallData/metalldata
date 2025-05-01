@@ -418,6 +418,18 @@ class basic_record_store {
     return true;
   }
 
+  /// \brief Check if the series is of a specific type.
+  /// Returns false if the series does not exist.
+  template <typename series_type>
+  bool is_series_type(std::string_view series_name) const {
+    auto itr = priv_find_series(series_name);
+    if (itr == m_series.end()) {
+      return false;
+    }
+    return std::holds_alternative<series_container_type<series_type>>(
+        itr->container);
+  }
+
   bool is_record_valid(size_t record_index) const {
     return m_record_status.size() > record_index &&
            m_record_status[record_index];
