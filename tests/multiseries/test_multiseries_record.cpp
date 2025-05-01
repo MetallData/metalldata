@@ -114,10 +114,10 @@ TEST(MultiSeriesTest, Basic) {
   // Remove series
   {
     store.remove_series("name");
-    EXPECT_FALSE(store.contains("name"));
-    EXPECT_TRUE(store.contains("age"));
-    EXPECT_TRUE(store.contains("city"));
-    EXPECT_TRUE(store.contains("flag"));
+    EXPECT_FALSE(store.contains_series("name"));
+    EXPECT_TRUE(store.contains_series("age"));
+    EXPECT_TRUE(store.contains_series("city"));
+    EXPECT_TRUE(store.contains_series("flag"));
     EXPECT_EQ(store.num_series(), 3);
   }
 

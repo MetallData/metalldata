@@ -107,7 +107,7 @@ void run_erase_keys(ygm::comm& comm, std::string& metall_path,
   lp.for_all([&comm](const std::string& line) {
     // partition based on primary key
     int owner = make_hash(line) % comm.size();
-    comm.async(owner, [](std::string key){keys_to_erase.insert(key);}, line);
+    comm.async(owner, [](std::string key) { keys_to_erase.insert(key); }, line);
   });
   comm.barrier();
 
@@ -149,7 +149,8 @@ void run_peek(ygm::comm& comm, std::string& metall_path) {
 
   comm.cout0("Series Count: ", record_store->num_series());
   // todo:  manually count
-  comm.cout0("Record Count: ", comm.all_reduce_sum(record_store->num_records()));
+  comm.cout0("Record Count: ",
+             comm.all_reduce_sum(record_store->num_records()));
   comm.cout0("Hash key = ", *pm_hash_key);
 
   std::vector<std::string> series_names = record_store->get_series_names();
@@ -159,7 +160,7 @@ void run_peek(ygm::comm& comm, std::string& metall_path) {
   comm.cout0() << std::endl;
   comm.barrier();
   if (record_store->num_records() > 0) {
-    if (record_store->is_record_valid(0)) {
+    if (record_store->contains_record(0)) {
       for (const auto& name : series_names) {
         record_store->visit_field(
             name, 0, [](const auto& value) { std::cout << value << "\t\t"; });
@@ -461,7 +462,8 @@ int main(int argc, char** argv) {
       }
     } else {
       if (world.rank0()) {
-        print_command_help(argv[0], global, ingest, rm_options, peek_options, erase_keys_options);
+        print_command_help(argv[0], global, ingest, rm_options, peek_options,
+                           erase_keys_options);
       }
       return 1;
     }

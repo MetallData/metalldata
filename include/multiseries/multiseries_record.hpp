@@ -373,8 +373,18 @@ class basic_record_store {
   }
 
   /// \brief Returns if a series exists associated with the name
-  bool contains(std::string_view series_name) const {
+  bool contains_series(std::string_view series_name) const {
     return priv_find_series(series_name) != m_series.end();
+  }
+
+  /// \brief Returns if a series exists associated with the name
+  // bool contains_series(std::string_view id) const {
+  //   return priv_find_series(series_name) != m_series.end();
+  // }
+
+  /// \brief Returns if a series exists associated with the name
+  bool contains_record(const record_id_type id) const {
+    return m_record_status.size() > id && m_record_status[id];
   }
 
   /// \brief Returns the series names
@@ -430,9 +440,9 @@ class basic_record_store {
         itr->container);
   }
 
+  /// \Note: this function is deprecated and replaced by contains_record()
   bool is_record_valid(size_t record_index) const {
-    return m_record_status.size() > record_index &&
-           m_record_status[record_index];
+    return contains_record(record_index);
   }
 
   /// \brief Convert the container kind of a series

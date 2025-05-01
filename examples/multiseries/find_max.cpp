@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
 
   for (size_t i = 0; i < opt.series_names.size(); ++i) {
     const auto &series_name = opt.series_names[i];
-    if (!record_store->contains(series_name)) {
+    if (!record_store->contains_series(series_name)) {
       comm.cerr0() << "Series not found: " << series_name << std::endl;
       continue;
     }
