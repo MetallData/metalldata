@@ -62,6 +62,8 @@ class basic_record_store {
   using allocator_type            = Alloc;
   using string_store_type         = cstr::string_store<allocator_type>;
   using string_store_pointer_type = other_pointer_type<string_store_type>;
+  using series_type = std::variant<std::monostate, bool, int64_t, uint64_t,
+                                   double, std::string_view>;
 
  private:
   template <typename T>
@@ -218,12 +220,11 @@ class basic_record_store {
     if (series_index >= m_series.size()) {
       return true;
     }
-    const auto &container = m_series[series_index].container;
     return !std::visit(
         [&record_id](const auto &container) {
           return container.contains(record_id);
         },
-        container);
+        m_series[series_index].container);
   }
 
   /// \brief Set a series data of a record (row)
@@ -297,10 +298,8 @@ class basic_record_store {
     const auto &container =
         priv_get_series_container<series_type>(itr->container);
     for (size_t i = 0; i < m_record_status.size(); ++i) {
-      if (m_record_status[i]) {
-        if (container.contains(i)) {
-          series_func(i, container.at(i));
-        }
+      if (m_record_status[i] && container.contains(i)) {
+        series_func(i, container.at(i));
       }
     }
   }
@@ -315,10 +314,8 @@ class basic_record_store {
     const auto &container =
         priv_get_series_container<series_type>(m_series[series_index]);
     for (size_t i = 0; i < m_record_status.size(); ++i) {
-      if (m_record_status[i]) {
-        if (container.contains(i)) {
-          series_func(i, container.at(i));
-        }
+      if (m_record_status[i] && container.contains(i)) {
+        series_func(i, container.at(i));
       }
     }
   }
@@ -363,20 +360,21 @@ class basic_record_store {
 
     const auto &series_item = *itr;
     for (size_t i = 0; i < m_record_status.size(); ++i) {
-      if (m_record_status[i]) {
-        std::visit(
-            [&series_func, i](const auto &container) {
-              if (!container.contains(i)) return;
-              using T = std::decay_t<decltype(container)>;
-              if constexpr (std::is_same_v<
-                                T, series_container_type<std::string_view>>) {
-                series_func(i, container.at(i).to_view());
-              } else {
-                series_func(i, container.at(i));
-              }
-            },
-            series_item.container);
+      if (!m_record_status[i]) {  // Just for performance optimization
+        continue;
       }
+      std::visit(
+          [&series_func, i](const auto &container) {
+            if (!container.contains(i)) return;
+            using T = std::decay_t<decltype(container)>;
+            if constexpr (std::is_same_v<
+                              T, series_container_type<std::string_view>>) {
+              series_func(i, container.at(i).to_view());
+            } else {
+              series_func(i, container.at(i));
+            }
+          },
+          series_item.container);
     }
   }
 
@@ -385,10 +383,9 @@ class basic_record_store {
     return priv_find_series(series_name) != m_series.end();
   }
 
-  /// \brief Returns if a series exists associated with the name
-  // bool contains_series(std::string_view id) const {
-  //   return priv_find_series(series_name) != m_series.end();
-  // }
+  bool contains_series(const series_index_type index) const {
+    return index < m_series.size();
+  }
 
   /// \brief Returns if a series exists associated with the name
   bool contains_record(const record_id_type id) const {
@@ -404,6 +401,43 @@ class basic_record_store {
     return series_names;
   }
 
+  /// \brief Remove a single data
+  bool remove(const std::string_view series_name,
+              const record_id_type   record_id) {
+    auto itr = priv_find_series(series_name);
+    if (itr == m_series.end()) {
+      return false;
+    }
+
+    bool to_return = false;
+    std::visit(
+        [&record_id, &to_return](auto &container) {
+          if (container.contains(record_id)) {
+            to_return = container.erase(record_id);
+          }
+        },
+        itr->container);
+    return to_return;
+  }
+
+  /// \brief Remove a single data
+  bool remove(const series_index_type series_index,
+              const record_id_type    record_id) {
+    if (series_index >= m_series.size()) {
+      return false;
+    }
+
+    bool to_return = false;
+    std::visit(
+        [&record_id, &to_return](auto &container) {
+          if (container.contains(record_id)) {
+            to_return = container.erase(record_id);
+          }
+        },
+        m_series[series_index].container);
+    return to_return;
+  }
+
   /// \brief Remove a series by name
   bool remove_series(const std::string_view series_name) {
     auto itr = priv_find_series(series_name);
@@ -415,9 +449,8 @@ class basic_record_store {
     return true;
   }
 
-  template <typename series_type>
   bool remove_series(const series_index_type series_index) {
-    return m_series.erase(m_series.begin() + series_index) > 0;
+    return m_series.erase(m_series.begin() + series_index) != m_series.end();
   }
 
   /// \brief Remove a record, destroy all series data of the record
@@ -447,6 +480,15 @@ class basic_record_store {
         itr->container);
   }
 
+  template <typename series_type>
+  bool is_series_type(const series_index_type series_index) const {
+    if (series_index >= m_series.size()) {
+      return false;
+    }
+    return std::holds_alternative<series_container_type<series_type>>(
+        m_series[series_index].container);
+  }
+
   /// \Note: this function is deprecated and replaced by contains_record()
   bool is_record_valid(size_t record_index) const {
     return contains_record(record_index);
@@ -461,6 +503,15 @@ class basic_record_store {
 
     std::visit([new_kind](auto &container) { container.convert(new_kind); },
                itr->container);
+  }
+
+  void convert(const series_index_type series_index, container_kind new_kind) {
+    if (series_index >= m_series.size()) {
+      throw std::runtime_error("Series not found");
+    }
+
+    std::visit([new_kind](auto &container) { container.convert(new_kind); },
+               m_series[series_index].container);
   }
 
   /// \brief Returns the load factor of the series, which is determined by
