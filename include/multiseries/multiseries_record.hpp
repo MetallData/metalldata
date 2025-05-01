@@ -371,18 +371,6 @@ class basic_record_store {
     return priv_find_series(series_name) != m_series.end();
   }
 
-  /// \brief Check if the series is of a specific type.
-  /// Returns false if the series does not exist.
-  template <typename series_type>
-  bool is_series_type(std::string_view series_name) const {
-    auto itr = priv_find_series(series_name);
-    if (itr == m_series.end()) {
-      return false;
-    }
-    return std::holds_alternative<series_container_type<series_type>>(
-        itr->container);
-  }
-
   /// \brief Returns the series names
   std::vector<std::string> get_series_names() const {
     std::vector<std::string> series_names;
