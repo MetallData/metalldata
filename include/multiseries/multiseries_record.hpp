@@ -290,10 +290,8 @@ class basic_record_store {
     const auto &container =
         priv_get_series_container<series_type>(itr->container);
     for (size_t i = 0; i < m_record_status.size(); ++i) {
-      if (m_record_status[i]) {
-        if (container.contains(i)) {
-          series_func(i, container.at(i));
-        }
+      if (container.contains(i)) {
+        series_func(i, container.at(i));
       }
     }
   }
@@ -308,10 +306,8 @@ class basic_record_store {
     const auto &container = priv_get_series_container<series_type>(
         m_series[series_info.series_index]);
     for (size_t i = 0; i < m_record_status.size(); ++i) {
-      if (m_record_status[i]) {
-        if (container.contains(i)) {
-          series_func(i, container.at(i));
-        }
+      if (container.contains(i)) {
+        series_func(i, container.at(i));
       }
     }
   }
@@ -355,20 +351,18 @@ class basic_record_store {
 
     const auto &series_item = *itr;
     for (size_t i = 0; i < m_record_status.size(); ++i) {
-      if (m_record_status[i]) {
-        std::visit(
-            [&series_func, i](const auto &container) {
-              if (!container.contains(i)) return;
-              using T = std::decay_t<decltype(container)>;
-              if constexpr (std::is_same_v<
-                                T, series_container_type<std::string_view>>) {
-                series_func(i, container.at(i).to_view());
-              } else {
-                series_func(i, container.at(i));
-              }
-            },
-            series_item.container);
-      }
+      std::visit(
+          [&series_func, i](const auto &container) {
+            if (!container.contains(i)) return;
+            using T = std::decay_t<decltype(container)>;
+            if constexpr (std::is_same_v<
+                              T, series_container_type<std::string_view>>) {
+              series_func(i, container.at(i).to_view());
+            } else {
+              series_func(i, container.at(i));
+            }
+          },
+          series_item.container);
     }
   }
 
