@@ -170,6 +170,33 @@ class basic_record_store {
     return priv_get_series_data<series_type>(container, record_id);
   }
 
+  /// \brief Returns all series data of a single record
+  ///\param record_id Record ID
+  ///\return A vector of std::variant containing all series data
+  std::vector<series_type> get(const record_id_type record_id) const {
+    if (!contains_record(record_id)) {
+      return {};
+    }
+
+    std::vector<series_type> to_return_record(m_series.size(),
+                                              std::monostate{});
+    for (size_t si = 0; si < m_series.size(); ++si) {
+      std::visit(
+          [&to_return_record, record_id, si](const auto &container) {
+            if (!container.contains(record_id)) return;
+            using T = std::decay_t<decltype(container)>;
+            if constexpr (std::is_same_v<
+                              T, series_container_type<std::string_view>>) {
+              to_return_record[si] = container.at(record_id).to_view();
+            } else {
+              to_return_record[si] = container.at(record_id);
+            }
+          },
+          m_series[si].container);
+    }
+    return to_return_record;
+  }
+
   /// \brief Returns if a series data of a record is None (does not exist)
   bool is_none(const std::string_view series_name,
                const record_id_type   record_id) const {
