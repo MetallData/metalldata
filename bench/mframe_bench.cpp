@@ -20,64 +20,22 @@
 #include <ygm/comm.hpp>
 #include <ygm/io/parquet_parser.hpp>
 #include <ygm/io/line_parser.hpp>
+#include <ygm/container/set.hpp>
 #include <ygm/utility.hpp>
 #include <metall/metall.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
 #include <multiseries/multiseries_record.hpp>
 #include <boost/program_options.hpp>
 
-// #include "utils.hpp"
-
-using record_store_type =
-    multiseries::basic_record_store<metall::manager::allocator_type<std::byte>>;
-using string_store_type = record_store_type::string_store_type;
-
-using persistent_string =
-    boost::container::basic_string<char, std::char_traits<char>,
-                                   metall::manager::allocator_type<char>>;
-
-// Generic make_hash function using std::hash
-template <typename T>
-size_t make_hash(const T& value) {
-  std::hash<T> hasher;
-  return hasher(value);
-}
-
-std::string run_command(const std::string& cmd) {
-  // std::cout << cmd << std::endl;
-
-  const std::string tmp_file("/tmp/tmp_command_result");
-  std::string       command(cmd + " > " + tmp_file);
-  const auto        ret = std::system(command.c_str());
-  if (ret != 0) {
-    return std::string("Failed to execute: " + cmd);
-  }
-
-  std::ifstream ifs(tmp_file);
-  if (!ifs.is_open()) {
-    return std::string("Failed to open: " + tmp_file);
-  }
-
-  std::string buf;
-  buf.assign((std::istreambuf_iterator<char>(ifs)),
-             std::istreambuf_iterator<char>());
-
-  metall::mtlldetail::remove_file(tmp_file);
-
-  return buf;
-}
-
-std::string get_dir_usage(const std::string& dir_path) {
-  return run_command("du -d 0 -h " + dir_path + " | head -n 1");
-}
-
-namespace po = boost::program_options;
+#include "mframe_bench.hpp"
+#include "distinct.hpp"
+#include "peek.hpp"
+#include "gen_uuids.hpp"
 
 void print_command_help(const char*                    argv0,
                         const po::options_description& global,
                         const po::options_description& ingest,
                         const po::options_description& rm_options,
-                        const po::options_description& peek_options,
                         const po::options_description& erase_keys_options) {
   std::cout << std::endl
             << "Usage: " << argv0 << " <command> [options]" << std::endl
@@ -85,8 +43,9 @@ void print_command_help(const char*                    argv0,
   std::cout << "Commands:" << std::endl;
   std::cout << ingest << std::endl;
   std::cout << rm_options << std::endl;
-  std::cout << peek_options << std::endl;
+  std::cout << peek_options() << std::endl;
   std::cout << erase_keys_options << std::endl;
+  std::cout << distinct_options() << std::endl;
 }
 
 void run_erase_keys(ygm::comm& comm, std::string& metall_path,
@@ -134,40 +93,6 @@ void run_erase_keys(ygm::comm& comm, std::string& metall_path,
   }
   keys_to_erase.clear();
   records_to_erase.clear();
-}
-
-void run_peek(ygm::comm& comm, std::string& metall_path) {
-  comm.cout0("Peek at: ", metall_path);
-  metall::utility::metall_mpi_adaptor mpi_adaptor(
-      metall::open_only, metall_path, comm.get_mpi_comm());
-  auto& manager = mpi_adaptor.get_local_manager();
-
-  static auto* record_store =
-      manager.find<record_store_type>(metall::unique_instance).first;
-
-  auto* pm_hash_key = manager.find<persistent_string>("hash_key").first;
-
-  comm.cout0("Series Count: ", record_store->num_series());
-  // todo:  manually count
-  comm.cout0("Record Count: ",
-             comm.all_reduce_sum(record_store->num_records()));
-  comm.cout0("Hash key = ", *pm_hash_key);
-
-  std::vector<std::string> series_names = record_store->get_series_names();
-  for (const auto& name : series_names) {
-    comm.cout0() << name << "\t\t";
-  }
-  comm.cout0() << std::endl;
-  comm.barrier();
-  if (record_store->num_records() > 0) {
-    if (record_store->contains_record(0)) {
-      for (const auto& name : series_names) {
-        record_store->visit_field(
-            name, 0, [](const auto& value) { std::cout << value << "\t\t"; });
-      }
-      std::cout << std::endl;
-    }
-  }
 }
 
 void run_ingest(ygm::comm& comm, const std::string& input_path,
@@ -354,10 +279,6 @@ int main(int argc, char** argv) {
   rm_options.add_options()("metall_path", po::value<std::string>(),
                            "Path to Metall storage");
 
-  po::options_description peek_options("peek:  peeks at metall data");
-  peek_options.add_options()("metall_path", po::value<std::string>(),
-                             "Path to Metall storage");
-
   po::options_description erase_keys_options(
       "erase_keys:  erases all matching keys");
   erase_keys_options.add_options()("metall_path", po::value<std::string>(),
@@ -417,22 +338,11 @@ int main(int argc, char** argv) {
           return 1;
         }
       } else if (command == "peek") {
-        po::store(po::parse_command_line(argc, argv, peek_options), vm);
+        po::store(po::parse_command_line(argc, argv, peek_options()), vm);
         po::notify(vm);
 
-        if (vm.count("metall_path")) {
-          std::string metall_path = vm["metall_path"].as<std::string>();
-          if (!std::filesystem::exists(metall_path)) {
-            world.cerr0("Not found: ", metall_path);
-            return 1;
-          }
-          world.cf_barrier();
-          run_peek(world, metall_path);
-        } else {
-          world.cout0("Error: missing required options for peek");
-          world.cout0(peek_options);
-          return 1;
-        }
+        return run_peek(world, vm);
+
       } else if (command == "erase_keys") {
         po::store(po::parse_command_line(argc, argv, erase_keys_options), vm);
         po::notify(vm);
@@ -455,17 +365,27 @@ int main(int argc, char** argv) {
           world.cout0(erase_keys_options);
           return 1;
         }
+      } else if (command == "distinct") {
+        po::store(po::parse_command_line(argc, argv, distinct_options()), vm);
+        po::notify(vm);
+        return run_distinct(world, vm);
+      } else if (command == "gen_uuids") {
+        po::store(po::parse_command_line(argc, argv, gen_uuids_options()), vm);
+        po::notify(vm);
+        return run_gen_uuids(world, vm);
       } else {
-        std::cout << "Error: Invalid command: " << command << std::endl;
-        std::cout << global << std::endl;
+        if (world.rank0()) {
+          print_command_help(argv[0], global, ingest, rm_options,
+                             erase_keys_options);
+        }
         return 1;
       }
     } else {
       if (world.rank0()) {
-        print_command_help(argv[0], global, ingest, rm_options, peek_options,
+        print_command_help(argv[0], global, ingest, rm_options,
                            erase_keys_options);
       }
-      return 1;
+      return 0;
     }
   } catch (const po::error& ex) {
     world.cout0("Options error: ", ex.what());
