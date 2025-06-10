@@ -23,6 +23,7 @@ set(BOOST_URL
 FetchContent_Declare(
     Boost 
     URL ${BOOST_URL}
+    DOWNLOAD_EXTRACT_TIMESTAMP ON
 )
 set(BOOST_INCLUDE_LIBRARIES json container unordered interprocess property_tree uuid graph program_options)
 FetchContent_MakeAvailable(Boost)
