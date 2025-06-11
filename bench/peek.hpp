@@ -34,8 +34,7 @@ int run_peek(ygm::comm& comm, const po::variables_map& vm) {
 
     comm.cout0("Series Count: ", record_store->num_series());
     // todo:  manually count
-    comm.cout0("Record Count: ",
-               comm.all_reduce_sum(record_store->num_records()));
+    comm.cout0("Record Count: ", ygm::sum(record_store->num_records(), comm));
     comm.cout0("Hash key = ", *pm_hash_key);
 
     std::vector<std::string> series_names = record_store->get_series_names();

@@ -146,24 +146,23 @@ int main(int argc, char *argv[]) {
         });
 
     if (max_value.fi) {
-      comm.cout0() << "Max value: " << comm.all_reduce_max(max_value.i)
-                   << std::endl;
+      comm.cout0() << "Max value: " << ygm::max(max_value.i, comm) << std::endl;
     } else if (max_value.fu) {
-      comm.cout0() << "Max value: " << comm.all_reduce_max(max_value.u)
-                   << std::endl;
+      comm.cout0() << "Max value: " << ygm::max(max_value.u, comm) << std::endl;
     } else if (max_value.fd) {
-      comm.cout0() << "Max value: " << comm.all_reduce_max(max_value.d)
-                   << std::endl;
+      comm.cout0() << "Max value: " << ygm::max(max_value.d, comm) << std::endl;
     } else if (max_value.fs) {
       comm.cout0() << "Max value: "
-                   << comm.all_reduce(max_value.s,
-                                      [](const auto &lhd, const auto &rhd) {
-                                        return std::lexicographical_compare(
-                                                   lhd.begin(), lhd.end(),
-                                                   rhd.begin(), rhd.end())
-                                                   ? rhd
-                                                   : lhd;
-                                      })
+                   << ygm::all_reduce(
+                          max_value.s,
+                          [](const auto &lhd, const auto &rhd) {
+                            return std::lexicographical_compare(
+                                       lhd.begin(), lhd.end(), rhd.begin(),
+                                       rhd.end())
+                                       ? rhd
+                                       : lhd;
+                          },
+                          comm)
                    << std::endl;
     }
     comm.cout0() << "Find max took (s)\t" << timer.elapsed() << "\n"

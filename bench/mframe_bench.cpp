@@ -31,6 +31,7 @@
 #include "distinct.hpp"
 #include "peek.hpp"
 #include "gen_uuids.hpp"
+#include <ygm/progress_indicator.hpp>
 
 void print_command_help(const char*                    argv0,
                         const po::options_description& global,
@@ -226,31 +227,31 @@ void run_ingest(ygm::comm& comm, const std::string& input_path,
   }
 
   comm.cout0() << "#of series: " << record_store->num_series() << std::endl;
-  comm.cout0() << "#of records: "
-               << comm.all_reduce_sum(record_store->num_records()) << std::endl;
+  comm.cout0() << "#of records: " << ygm::sum(record_store->num_records(), comm)
+               << std::endl;
 
   comm.cout0() << "Series name, Load factor" << std::endl;
   for (const auto s : schema) {
     // comm.cout("record_store->load_factor(s.name) = ",
     // record_store->load_factor(s.name));
     const auto ave_load_factor =
-        comm.all_reduce_sum(record_store->load_factor(s.name)) / comm.size();
+        ygm::sum(record_store->load_factor(s.name), comm) / comm.size();
     comm.cout0() << "  " << s.name << ", " << ave_load_factor << std::endl;
   }
 
   if (bprofile) {
     comm.cout0() << "Total ingested bytes: "
-                 << comm.all_reduce_sum(total_ingested_bytes) << std::endl;
+                 << ygm::sum(total_ingested_bytes, comm) << std::endl;
     comm.cout0() << "Total #of ingested chars: "
-                 << comm.all_reduce_sum(total_ingested_str_size) << std::endl;
+                 << ygm::sum(total_ingested_str_size, comm) << std::endl;
     comm.cout0() << "Total bytes of ingested numbers: "
-                 << comm.all_reduce_sum(total_ingested_bytes -
-                                        total_ingested_str_size)
+                 << ygm::sum(total_ingested_bytes - total_ingested_str_size,
+                             comm)
                  << std::endl;
     comm.cout0() << "#of unique strings: "
-                 << comm.all_reduce_sum(string_store->size()) << std::endl;
+                 << ygm::sum(string_store->size(), comm) << std::endl;
     comm.cout0() << "Total #of chars of unique strings: "
-                 << comm.all_reduce_sum(total_unique_str_size) << std::endl;
+                 << ygm::sum(total_unique_str_size, comm) << std::endl;
     comm.cout0() << "Metall datastore size (only the path rank 0 can access):"
                  << std::endl;
     comm.cout0() << get_dir_usage(metall_path) << std::endl;
