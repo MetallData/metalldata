@@ -163,12 +163,15 @@ void run_ingest(ygm::comm& comm, const std::string& input_path,
   comm.cf_barrier();
   comm.cout0() << "Setup took (s): " << setup_timer.elapsed() << std::endl;
 
-  ygm::timer    ingest_timer;
-  static size_t total_ingested_str_size = 0;
-  static size_t total_ingested_bytes    = 0;
-  static size_t total_num_strs          = 0;
-  static bool   bprofile                = false;
-  parquetp.for_all([&schema, primary_key_index, &comm](auto&& row) {
+  ygm::timer              ingest_timer;
+  static size_t           total_ingested_str_size = 0;
+  static size_t           total_ingested_bytes    = 0;
+  static size_t           total_num_strs          = 0;
+  static bool             bprofile                = false;
+  ygm::progress_indicator pi(
+      comm, {.update_freq = 100, .message = "Records ingested"});
+  parquetp.for_all([&schema, primary_key_index, &comm, &pi](auto&& row) {
+    pi.async_inc();
     auto record_inserter = [](auto&& row) {
       const auto record_id = record_store->add_record();
       for (int i = 0; i < row.size(); ++i) {
@@ -216,6 +219,7 @@ void run_ingest(ygm::comm& comm, const std::string& input_path,
     // std::cout << "owner = " << owner << std::endl;
     comm.async(owner, record_inserter, row);
   });
+  pi.complete();
   comm.barrier();
   comm.cout0() << "Ingest took (s): " << ingest_timer.elapsed() << std::endl;
 
