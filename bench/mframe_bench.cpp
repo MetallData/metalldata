@@ -21,7 +21,7 @@
 #include <ygm/io/parquet_parser.hpp>
 #include <ygm/io/line_parser.hpp>
 #include <ygm/container/set.hpp>
-#include <ygm/utility.hpp>
+#include <ygm/utility/timer.hpp>
 #include <metall/metall.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
 #include <multiseries/multiseries_record.hpp>
@@ -31,7 +31,7 @@
 #include "distinct.hpp"
 #include "peek.hpp"
 #include "gen_uuids.hpp"
-#include <ygm/progress_indicator.hpp>
+#include <ygm/utility/progress_indicator.hpp>
 
 void print_command_help(const char*                    argv0,
                         const po::options_description& global,
@@ -110,7 +110,7 @@ void run_ingest(ygm::comm& comm, const std::string& input_path,
   }
   comm.cf_barrier();
 
-  ygm::timer                          setup_timer;
+  ygm::utility::timer                 setup_timer;
   metall::utility::metall_mpi_adaptor mpi_adaptor(
       metall::create_only, metall_path, comm.get_mpi_comm());
   auto& manager = mpi_adaptor.get_local_manager();
@@ -163,12 +163,12 @@ void run_ingest(ygm::comm& comm, const std::string& input_path,
   comm.cf_barrier();
   comm.cout0() << "Setup took (s): " << setup_timer.elapsed() << std::endl;
 
-  ygm::timer              ingest_timer;
-  static size_t           total_ingested_str_size = 0;
-  static size_t           total_ingested_bytes    = 0;
-  static size_t           total_num_strs          = 0;
-  static bool             bprofile                = false;
-  ygm::progress_indicator pi(
+  ygm::utility::timer              ingest_timer;
+  static size_t                    total_ingested_str_size = 0;
+  static size_t                    total_ingested_bytes    = 0;
+  static size_t                    total_num_strs          = 0;
+  static bool                      bprofile                = false;
+  ygm::utility::progress_indicator pi(
       comm, {.update_freq = 100, .message = "Records ingested"});
   parquetp.for_all([&schema, primary_key_index, &comm, &pi](auto&& row) {
     pi.async_inc();

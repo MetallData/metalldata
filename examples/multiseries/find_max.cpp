@@ -20,7 +20,7 @@
 
 #include <mpi.h>
 #include <ygm/comm.hpp>
-#include <ygm/utility.hpp>
+#include <ygm/utility/timer.hpp>
 #include <metall/metall.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
 
@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
     }
 
     comm.cout0() << "Finding max value in series: " << series_name << std::endl;
-    ygm::timer timer;
+    ygm::utility::timer timer;
 
     struct max_value_t {
       int64_t     i = std::numeric_limits<int64_t>::min();

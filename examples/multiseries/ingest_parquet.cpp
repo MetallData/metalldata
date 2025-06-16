@@ -19,7 +19,7 @@
 
 #include <ygm/comm.hpp>
 #include <ygm/io/parquet_parser.hpp>
-#include <ygm/utility.hpp>
+#include <ygm/utility/timer.hpp>
 #include <metall/metall.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
 #include <multiseries/multiseries_record.hpp>
@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  ygm::timer                          setup_timer;
+  ygm::utility::timer                 setup_timer;
   metall::utility::metall_mpi_adaptor mpi_adaptor(
       metall::create_only, opt.metall_path, comm.get_mpi_comm());
   auto &manager = mpi_adaptor.get_local_manager();
@@ -117,10 +117,10 @@ int main(int argc, char **argv) {
   comm.cf_barrier();
   comm.cout0() << "Setup took (s): " << setup_timer.elapsed() << std::endl;
 
-  ygm::timer    ingest_timer;
-  static size_t total_ingested_str_size = 0;
-  static size_t total_ingested_bytes    = 0;
-  static size_t total_num_strs          = 0;
+  ygm::utility::timer ingest_timer;
+  static size_t       total_ingested_str_size = 0;
+  static size_t       total_ingested_bytes    = 0;
+  static size_t       total_num_strs          = 0;
   parquetp.for_all([&schema, &record_store, &opt](const auto &row) {
     const auto record_id = record_store->add_record();
     for (int i = 0; i < row.size(); ++i) {

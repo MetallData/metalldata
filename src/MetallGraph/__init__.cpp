@@ -9,22 +9,20 @@
 
 #include <ygm/comm.hpp>
 #include <ygm/io/parquet_parser.hpp>
-#include <ygm/utility.hpp>
+#include <ygm/utility/timer.hpp>
 #include <metall/metall.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
 #include <multiseries/multiseries_record.hpp>
 
 namespace boostjsn = boost::json;
 
-static const std::string method_name = "__init__";
-static const std::string state_name = "INTERNAL";
+static const std::string method_name    = "__init__";
+static const std::string state_name     = "INTERNAL";
 static const std::string sel_state_name = "selectors";
 
-
-using record_store_type =
-multiseries::basic_record_store<metall::manager::allocator_type<std::byte> >;
+using record_store_type = multiseries::basic_record_store<
+    metall::manager::allocator_type<std::byte> >;
 using string_store_type = record_store_type::string_store_type;
-
 
 int main(int argc, char **argv) {
   ygm::comm comm(&argc, &argv);
@@ -40,17 +38,15 @@ int main(int argc, char **argv) {
   std::string path = clip.get<std::string>("path");
   clip.set_state("path", path);
 
-  //todo: check if already exists and open existing
-  metall::utility::metall_mpi_adaptor mpi_adaptor(
-    metall::create_only,
-    path,
-    comm.get_mpi_comm());
-  auto &manager = mpi_adaptor.get_local_manager();
+  // todo: check if already exists and open existing
+  metall::utility::metall_mpi_adaptor mpi_adaptor(metall::create_only, path,
+                                                  comm.get_mpi_comm());
+  auto                               &manager = mpi_adaptor.get_local_manager();
 
   auto *string_store = manager.construct<string_store_type>(
-    metall::unique_instance)(manager.get_allocator());
+      metall::unique_instance)(manager.get_allocator());
   auto *record_store = manager.construct<record_store_type>(
-    metall::unique_instance)(string_store, manager.get_allocator());
+      metall::unique_instance)(string_store, manager.get_allocator());
 
   return 0;
 }
