@@ -1,4 +1,7 @@
 #pragma once
+#include <metall/metall.hpp>
+#include <multiseries/multiseries_record.hpp>
+#include <boost/program_options.hpp>
 
 using record_store_type =
     multiseries::basic_record_store<metall::manager::allocator_type<std::byte>>;
@@ -15,7 +18,7 @@ size_t make_hash(const T& value) {
   return hasher(value);
 }
 
-std::string run_command(const std::string& cmd) {
+inline std::string run_command(const std::string& cmd) {
   // std::cout << cmd << std::endl;
 
   const std::string tmp_file("/tmp/tmp_command_result");
@@ -39,8 +42,6 @@ std::string run_command(const std::string& cmd) {
   return buf;
 }
 
-std::string get_dir_usage(const std::string& dir_path) {
+inline std::string get_dir_usage(const std::string& dir_path) {
   return run_command("du -d 0 -h " + dir_path + " | head -n 1");
 }
-
-namespace po = boost::program_options;

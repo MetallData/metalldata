@@ -1,10 +1,14 @@
+#include "mframe_bench.hpp"
 #include "subcommand.hpp"
+#include "ygm/io/parquet_parser.hpp"
 #include <iostream>
 #include <string>
 
 #include <ygm/comm.hpp>
 #include <ygm/utility/timer.hpp>
 #include <ygm/utility/progress_indicator.hpp>
+
+#include <metall/utility/metall_mpi_adaptor.hpp>
 
 class ingest_cmd : public base_subcommand {
  public:
