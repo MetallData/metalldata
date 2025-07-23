@@ -28,6 +28,12 @@ FetchContent_Declare(
     DOWNLOAD_EXTRACT_TIMESTAMP ON
 )
 set(BOOST_INCLUDE_LIBRARIES json container unordered interprocess property_tree uuid graph program_options static_string)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# Boost specific PIC settings
+set(Boost_USE_STATIC_LIBS ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+
 FetchContent_MakeAvailable(Boost)
 
 
