@@ -3,6 +3,9 @@
 
 #include <ygm/comm.hpp>
 
+// todo:   Add optional extra parameter to be series name to delete when
+// "hash_key" is missing from the metall store.
+
 class erase_keys_cmd : public base_subcommand {
  public:
   std::string name() override { return "erase_keys"; }
@@ -22,6 +25,7 @@ class erase_keys_cmd : public base_subcommand {
     if (vm.count("metall_path") && vm.count("keys_path")) {
       metall_path = vm["metall_path"].as<std::string>();
       keys_path   = vm["keys_path"].as<std::string>();
+
       if (!std::filesystem::exists(metall_path)) {
         return std::string("Not found: ") + metall_path;
       }
@@ -48,11 +52,16 @@ class erase_keys_cmd : public base_subcommand {
     static std::set<std::string> keys_to_erase;
     comm.cf_barrier();
     ygm::io::line_parser lp(comm, {keys_path});
-    lp.for_all([&comm](const std::string& line) {
+    lp.for_all([&comm, pm_hash_key](const std::string& line) {
       // partition based on primary key
-      int owner = make_hash(line) % comm.size();
-      comm.async(
-          owner, [](std::string key) { keys_to_erase.insert(key); }, line);
+      if (pm_hash_key) {
+        int owner = make_hash(line) % comm.size();
+        comm.async(
+            owner, [](std::string key) { keys_to_erase.insert(key); }, line);
+      } else {
+        comm.async_bcast([](std::string key) { keys_to_erase.insert(key); },
+                         line);
+      }
     });
     comm.barrier();
 

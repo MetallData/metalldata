@@ -16,7 +16,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
 
-set(BOOST_URL 
+set(BOOST_FETCH_URL 
     "https://github.com/boostorg/boost/releases/download/boost-1.87.0/boost-1.87.0-cmake.tar.gz" 
     CACHE STRING "URL to fetch Boost tarball")
 
@@ -24,7 +24,7 @@ set(BOOST_URL
 # Boost
 FetchContent_Declare(
     Boost 
-    URL ${BOOST_URL}
+    URL ${BOOST_FETCH_URL}
     DOWNLOAD_EXTRACT_TIMESTAMP ON
 )
 set(BOOST_INCLUDE_LIBRARIES json container unordered interprocess property_tree uuid graph program_options static_string)
@@ -43,7 +43,7 @@ set(YGM_REQUIRE_PARQUET ON)
 set(YGM_INSTALL_PARQUET ON)
 FetchContent_Declare(YGM
     GIT_REPOSITORY https://github.com/llnl/ygm.git
-    GIT_TAG v0.8-dev
+    GIT_TAG v0.8
         )
 FetchContent_MakeAvailable(YGM)
 

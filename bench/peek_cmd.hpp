@@ -50,7 +50,9 @@ class peek_cmd : public base_subcommand {
       comm.cout0("Series Count: ", record_store->num_series());
       // todo:  manually count
       comm.cout0("Record Count: ", ygm::sum(record_store->num_records(), comm));
-      comm.cout0("Hash key = ", *pm_hash_key);
+      if (pm_hash_key) {
+        comm.cout0("Hash key = ", *pm_hash_key);
+      }
 
       std::vector<std::string> series_names = record_store->get_series_names();
       for (const auto& name : series_names) {
