@@ -36,6 +36,7 @@
 #include "rm_cmd.hpp"
 #include "ingest_cmd.hpp"
 #include "erase_keys_cmd.hpp"
+#include "remove_if_cmd.hpp"
 #include <ygm/utility/progress_indicator.hpp>
 
 int main(int argc, char** argv) {
@@ -48,6 +49,7 @@ int main(int argc, char** argv) {
   cli.add_subcommand<peek_cmd>();
   cli.add_subcommand<distinct_cmd>();
   cli.add_subcommand<gen_uuids_cmd>();
+  cli.add_subcommand<remove_if_cmd>();
 
   return cli.run(argc, argv);
 }
