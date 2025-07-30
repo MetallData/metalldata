@@ -266,11 +266,7 @@ class basic_record_store {
 
   //// Returns the number of records (rows)
   size_t num_records() const {
-    size_t to_return = 0;
-    for (bool b : m_record_status) {
-      if (b) to_return++;
-    }
-    return to_return;
+    return std::count(m_record_status.begin(), m_record_status.end(), true);
   }
 
   /// \brief Returns the number of series (columns)
