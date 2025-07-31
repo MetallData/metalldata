@@ -36,7 +36,21 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
 FetchContent_MakeAvailable(Boost)
 
+# JSONLogic
+set(Boost_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/boost-install) # needed for jsonlogic
 
+FetchContent_Declare(jsonlogic
+    GIT_REPOSITORY https://github.com/LLNL/jsonlogic.git
+    GIT_TAG master
+    SOURCE_SUBDIR cpp
+)
+
+FetchContent_MakeAvailable(jsonlogic)
+set(jsonlogic_INCLUDE_DIR ${jsonlogic_SOURCE_DIR}/cpp/include)
+message(STATUS "jsonlogic source dir: ${jsonlogic_SOURCE_DIR}")
+message(STATUS "jsonlogic include dir: ${jsonlogic_INCLUDE_DIR}")
+get_property(targets DIRECTORY ${jsonlogic_SOURCE_DIR}/cpp PROPERTY BUILDSYSTEM_TARGETS)
+message(STATUS "jsonlogic targets: ${targets}")
 #
 #  YGM
 set(YGM_REQUIRE_PARQUET ON)
@@ -120,8 +134,8 @@ endfunction()
 function(add_metalldata_executable name source)
     add_executable(${name} ${source})
     add_common_compile_options(${name})
-    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include ${BOOST_INCLUDE_DIRS})
-    target_link_libraries(${name} PRIVATE Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph Boost::program_options)
+    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include ${BOOST_INCLUDE_DIRS} ${jsonlogic_INCLUDE_DIR})
+    target_link_libraries(${name} PRIVATE Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph Boost::program_options jsonlogic)
     target_link_libraries(${name} PRIVATE Arrow::arrow_shared)
     target_link_libraries(${name} PRIVATE Parquet::parquet_shared)
     target_compile_definitions(${name} PRIVATE METALLDATA_USE_PARQUET)
