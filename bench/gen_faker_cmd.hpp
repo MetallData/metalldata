@@ -12,7 +12,7 @@
 #include <faker-cxx/person.h>
 #include <boost/program_options.hpp>
 #include <iostream>
-#include <memory>
+
 #include <unordered_map>
 #include <functional>
 
@@ -20,6 +20,7 @@
 #include <string_table/string_store.hpp>
 #include <ygm/comm.hpp>
 #include <ygm/utility/timer.hpp>
+#include <ygm/utility/progress_indicator.hpp>
 #include <metall/metall.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
 
@@ -39,7 +40,7 @@ using persistent_string =
     boost::container::basic_string<char, std::char_traits<char>,
                                    metall::manager::allocator_type<char>>;
 
-using generator_func = std::function<void(record_store_type*, size_t,
+using generator_func = std::function<void(record_store_type&, size_t,
                                           record_store::record_id_type)>;
 
 }  // namespace
@@ -73,76 +74,76 @@ inline GeneratorRegistry create_registry() {
   GeneratorRegistry registry;
 
   registry.register_generator(
-      "uuid4", [](record_store_type* store, size_t series_idx,
+      "uuid4", [](record_store_type& store, size_t series_idx,
                   record_store::record_id_type record_id) {
         auto uuid = faker::string::uuidV4();
-        store->set<std::string_view>(series_idx, record_id,
-                                     std::string_view(uuid));
+        store.set<std::string_view>(series_idx, record_id,
+                                    std::string_view(uuid));
       });
 
   registry.register_generator(
-      "integer", [](record_store_type* store, size_t series_idx,
+      "integer", [](record_store_type& store, size_t series_idx,
                     record_store::record_id_type record_id) {
-        store->set<int64_t>(series_idx, record_id,
-                            faker::number::integer<int64_t>(10'000'000));
+        store.set<int64_t>(series_idx, record_id,
+                           faker::number::integer<int64_t>(10'000'000));
       });
 
   registry.register_generator(
-      "uint", [](record_store_type* store, size_t series_idx,
+      "uint", [](record_store_type& store, size_t series_idx,
                  record_store::record_id_type record_id) {
-        store->set<uint64_t>(series_idx, record_id,
-                             faker::number::integer<uint64_t>(10'000'000));
+        store.set<uint64_t>(series_idx, record_id,
+                            faker::number::integer<uint64_t>(10'000'000));
       });
 
   registry.register_generator(
-      "double", [](record_store_type* store, size_t series_idx,
+      "double", [](record_store_type& store, size_t series_idx,
                    record_store::record_id_type record_id) {
-        store->set<double>(series_idx, record_id,
-                           faker::number::decimal<double>(10'000'000.0));
+        store.set<double>(series_idx, record_id,
+                          faker::number::decimal<double>(10'000'000.0));
       });
 
   registry.register_generator(
-      "percentage", [](record_store_type* store, size_t series_idx,
+      "percentage", [](record_store_type& store, size_t series_idx,
                        record_store::record_id_type record_id) {
-        store->set<double>(series_idx, record_id,
-                           faker::number::decimal<double>(0.0, 100.0));
+        store.set<double>(series_idx, record_id,
+                          faker::number::decimal<double>(0.0, 100.0));
       });
 
   registry.register_generator(
-      "bool", [](record_store_type* store, size_t series_idx,
+      "bool", [](record_store_type& store, size_t series_idx,
                  record_store::record_id_type record_id) {
-        store->set<bool>(series_idx, record_id,
-                         faker::number::integer(0, 1) == 1);
+        store.set<bool>(series_idx, record_id,
+                        faker::number::integer(0, 1) == 1);
       });
 
   registry.register_generator(
-      "name", [](record_store_type* store, size_t series_idx,
+      "name", [](record_store_type& store, size_t series_idx,
                  record_store::record_id_type record_id) {
         auto name = faker::person::fullName();
-        store->set<std::string_view>(series_idx, record_id,
-                                     std::string_view(name));
+        store.set<std::string_view>(series_idx, record_id,
+                                    std::string_view(name));
       });
 
   registry.register_generator(
-      "email", [](record_store_type* store, size_t series_idx,
+      "email", [](record_store_type& store, size_t series_idx,
                   record_store::record_id_type record_id) {
         auto email = faker::internet::email();
-        store->set<std::string_view>(series_idx, record_id,
-                                     std::string_view(email));
+        store.set<std::string_view>(series_idx, record_id,
+                                    std::string_view(email));
       });
 
   registry.register_generator(
-      "username", [](record_store_type* store, size_t series_idx,
+      "username", [](record_store_type& store, size_t series_idx,
                      record_store::record_id_type record_id) {
         auto username = faker::internet::username();
-        store->set<std::string_view>(series_idx, record_id,
-                                     std::string_view(username));
+        store.set<std::string_view>(series_idx, record_id,
+                                    std::string_view(username));
       });
 
   registry.register_generator(
-      "timestamp", [](record_store_type* store, size_t series_idx,
+      "timestamp", [](record_store_type& store, size_t series_idx,
                       record_store::record_id_type record_id) {
-        store->set<int64_t>(
+        store.set<int64_t>(
             series_idx, record_id,
             faker::number::integer<int64_t>(1640995200, 1735689600));
       });
@@ -155,18 +156,18 @@ struct SeriesConfig {
   std::string name;
   std::string type;
 
-  size_t add_to_store(record_store_type* store) const {
+  size_t add_to_store(record_store_type& store) const {
     if (type == "uuid4" || type == "name" || type == "email" ||
         type == "username") {
-      return store->add_series<std::string_view>(name);
+      return store.add_series<std::string_view>(name);
     } else if (type == "integer" || type == "timestamp") {
-      return store->add_series<int64_t>(name);
+      return store.add_series<int64_t>(name);
     } else if (type == "uint") {
-      return store->add_series<uint64_t>(name);
+      return store.add_series<uint64_t>(name);
     } else if (type == "double" || type == "percentage") {
-      return store->add_series<double>(name);
+      return store.add_series<double>(name);
     } else if (type == "bool") {
-      return store->add_series<bool>(name);
+      return store.add_series<bool>(name);
     }
     throw std::runtime_error("Unknown type: " + type);
   }
@@ -214,8 +215,7 @@ class gen_faker_cmd : public base_subcommand {
         "Total number of rows to generate (default 1000000)")(
         "series,s", po::value<std::vector<std::string>>()->multitoken(),
         "Series specifications in format name:type (e.g., user_id:uuid4)")(
-        "progress,p", po::value<int64_t>()->default_value(1000000),
-        "Progress report interval")("list-types", "List available data types");
+        "list-types", "List available data types");
     return desc;
   }
 
@@ -239,11 +239,7 @@ class gen_faker_cmd : public base_subcommand {
       return metall_path + " already exists; aborting";
     }
 
-    // Parse arguments
-    // std::string datastore_path    = vm["datastore"].as<std::string>();
-    n_rows = vm["n_rows"].as<int64_t>();
-    // int64_t     progress_interval = vm["progress"].as<int64_t>();
-
+    n_rows         = vm["n_rows"].as<int64_t>();
     series_configs = parse_series(vm["series"].as<std::vector<std::string>>());
 
     // Validate series types
@@ -272,6 +268,9 @@ class gen_faker_cmd : public base_subcommand {
       }
       std::cout << "Datastore: " << metall_path << std::endl;
     }
+    ygm::utility::progress_indicator pi(
+        comm, {.update_freq = 10000, .message = "Records generated"});
+
     ygm::utility::timer timer{};
 
     // Create/open Metall datastore
@@ -281,7 +280,7 @@ class gen_faker_cmd : public base_subcommand {
 
     auto* string_store = manager.construct<string_store_type>(
         metall::unique_instance)(manager.get_allocator());
-    static auto* record_store = manager.construct<record_store_type>(
+    static auto& record_store = *manager.construct<record_store_type>(
         metall::unique_instance)(string_store, manager.get_allocator());
 
     // Add series and collect generators (only on rank 0, then broadcast
@@ -298,31 +297,27 @@ class gen_faker_cmd : public base_subcommand {
 
     // Generate data
     for (int64_t row_id = start_row; row_id < end_row; ++row_id) {
-      auto record_id = record_store->add_record();
+      auto record_id = record_store.add_record();
 
       // Generate data for each series
       for (const auto& [series_idx, generator] : series_generators) {
         generator(record_store, series_idx, record_id);
       }
 
-      // if ((row_id - start_row) % progress_interval == 0 &&
-      //     (row_id - start_row) > 0) {
-      //   std::cout << "Rank " << world_.rank() << ": Generated "
-      //             << (row_id - start_row) << " records" << std::endl;
-      // }
+      pi.async_inc();
     }
-
+    pi.complete();
     comm.barrier();
 
-    size_t local_ttl = record_store->num_records();
+    size_t local_ttl = record_store.num_records();
 
     size_t ttl_recs = ygm::sum(local_ttl, comm);
     comm.barrier();
 
-    comm.cout0() << "Generation completed in " << timer.elapsed()
+    comm.cout0() << "\nGeneration completed in " << timer.elapsed()
                  << " seconds\n";
     comm.cout0() << "Total records: " << ttl_recs << std::endl;
-    comm.cout0() << "Total series: " << record_store->num_series() << std::endl;
+    comm.cout0() << "Total series: " << record_store.num_series() << std::endl;
 
     return 0;
   }
