@@ -220,7 +220,6 @@ class gen_faker_cmd : public base_subcommand {
   }
 
   std::string parse(const boost::program_options::variables_map& vm) override {
-    std::cerr << "in parse\n";
     registry = create_registry();
 
     if (vm.contains("list-types")) {
@@ -240,30 +239,24 @@ class gen_faker_cmd : public base_subcommand {
       return metall_path + " already exists; aborting";
     }
 
-    std::cerr << "found metall_path = " + metall_path + "\n";
     // Parse arguments
     // std::string datastore_path    = vm["datastore"].as<std::string>();
     n_rows = vm["n_rows"].as<int64_t>();
     // int64_t     progress_interval = vm["progress"].as<int64_t>();
 
-    std::cerr << "found n_rows\n";
     series_configs = parse_series(vm["series"].as<std::vector<std::string>>());
 
-    std::cerr << "past series_configs\n";
     // Validate series types
     for (const auto& config : series_configs) {
-      std::cerr << "  checking config type = " + config.type + "\n";
       if (!registry.get_generator(config.type)) {
         throw std::runtime_error("Unknown data type: " + config.type);
       }
     }
 
-    std::cerr << "leaving parse\n";
     return {};
   }
-  ///////////// DONE HERE Aug 3
+
   int run(ygm::comm& comm) override {
-    comm.cerr0("in run\n");
     // Calculate work distribution
     const int64_t rows_per_rank = n_rows / comm.size();
     const int64_t start_row     = comm.rank() * rows_per_rank;
@@ -291,7 +284,6 @@ class gen_faker_cmd : public base_subcommand {
     static auto* record_store = manager.construct<record_store_type>(
         metall::unique_instance)(string_store, manager.get_allocator());
 
-    comm.cerr0("past initialization of stores\n");
     // Add series and collect generators (only on rank 0, then broadcast
     // structure)
     std::vector<std::pair<size_t, generator_func>> series_generators;
@@ -303,7 +295,6 @@ class gen_faker_cmd : public base_subcommand {
     }
 
     comm.barrier();
-    comm.cerr0("past barrier. Generating data\n");
 
     // Generate data
     for (int64_t row_id = start_row; row_id < end_row; ++row_id) {
