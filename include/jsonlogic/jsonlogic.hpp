@@ -11,7 +11,7 @@
 
 namespace bjsn = boost::json;
 
-namespace jl {
+namespace {
 using record_store_type =
     multiseries::basic_record_store<metall::manager::allocator_type<std::byte>>;
 using string_store_type = record_store_type::string_store_type;
@@ -20,6 +20,9 @@ using persistent_string =
     boost::container::basic_string<char, std::char_traits<char>,
                                    metall::manager::allocator_type<char>>;
 
+}  // namespace
+
+namespace jl {
 inline bjsn::value parseStream(std::istream& inps) {
   bjsn::stream_parser p;
   std::string         line;
@@ -49,8 +52,7 @@ inline bjsn::value parseFile(const std::string& filename) {
 }
 }  // namespace jl
 template <typename Fn>
-size_t apply_jl(bjsn::value jl_rule, jl::record_store_type& record_store,
-                Fn fn) {
+size_t apply_jl(bjsn::value jl_rule, record_store_type& record_store, Fn fn) {
   std::vector<bjsn::string> vars;
   jsonlogic::any_expr       expression_rule;
 
@@ -66,8 +68,8 @@ size_t apply_jl(bjsn::value jl_rule, jl::record_store_type& record_store,
   size_t fn_count = 0;
   record_store.for_all_dynamic(
       [varset, series, &expression_rule, &fn, &fn_count](
-          const jl::record_store_type::record_id_type index,
-          const auto&                                 series_values) {
+          const record_store_type::record_id_type index,
+          const auto&                             series_values) {
         bjsn::object data{};
         bool         has_monostate = false;
         for (size_t i = 0; i < series.size(); ++i) {
