@@ -4,7 +4,7 @@ setup_metall_target(mframe_bench)
 setup_ygm_target(mframe_bench)
 #link_arrow_parquet(mframe_bench)
 target_link_libraries(mframe_bench PUBLIC
-                Arrow::arrow_shared Parquet::parquet_shared jsonlogic)
+                Arrow::arrow_shared Parquet::parquet_shared jsonlogic faker-cxx)
 
 
 add_metalldata_executable(test_subcommand test_subcommand.cpp)
