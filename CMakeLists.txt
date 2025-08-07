@@ -61,6 +61,13 @@ FetchContent_Declare(YGM
         )
 FetchContent_MakeAvailable(YGM)
 
+FetchContent_Declare(faker
+    GIT_REPOSITORY https://github.com/cieslarmichal/faker-cxx
+    GIT_TAG v4.0.1
+        )
+FetchContent_MakeAvailable(faker)
+
+
 #
 #  Clippy
 #

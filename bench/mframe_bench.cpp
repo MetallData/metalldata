@@ -31,6 +31,7 @@
 #include "distinct_cmd.hpp"
 #include "peek_cmd.hpp"
 #include "gen_uuids_cmd.hpp"
+#include "gen_faker_cmd.hpp"  // Add new include
 #include "subcommand.hpp"
 #include "welcome_cmd.hpp"
 #include "rm_cmd.hpp"
@@ -50,6 +51,7 @@ int main(int argc, char** argv) {
   cli.add_subcommand<peek_cmd>();
   cli.add_subcommand<distinct_cmd>();
   cli.add_subcommand<gen_uuids_cmd>();
+  cli.add_subcommand<gen_faker_cmd>();  // Add new subcommand
   cli.add_subcommand<remove_if_cmd>();
   cli.add_subcommand<remove_if2_cmd>();
 

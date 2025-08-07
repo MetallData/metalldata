@@ -15,11 +15,11 @@
 #include <iostream>
 
 namespace bjsn = boost::json;
-namespace rif2 {
-static const char* JL_ARG     = "jl_file";
-static const char* METALL_ARG = "metall_path";
+namespace {
+static const char* JL_PATH     = "jl_file";
+static const char* METALL_PATH = "metall_path";
 
-}  // namespace rif2
+}  // namespace
 class remove_if2_cmd : public base_subcommand {
  public:
   std::string name() override { return "remove_if2"; }
@@ -30,15 +30,15 @@ class remove_if2_cmd : public base_subcommand {
   boost::program_options::options_description get_options() override {
     namespace po = boost::program_options;
     po::options_description od;
-    od.add_options()(rif2::METALL_ARG, po::value<std::string>(),
+    od.add_options()(METALL_PATH, po::value<std::string>(),
                      "Path to Metall storage");
-    od.add_options()(rif2::JL_ARG, po::value<std::string>(),
+    od.add_options()(JL_PATH, po::value<std::string>(),
                      "Path to JSONLogic file (if not specified, use stdin)");
     return od;
   }
 
   std::string parse(const boost::program_options::variables_map& vm) override {
-    if (!vm.contains(rif2::METALL_ARG)) {
+    if (!vm.contains(METALL_PATH)) {
       return "Error: missing required options for subcommand";
     }
 
@@ -49,7 +49,7 @@ class remove_if2_cmd : public base_subcommand {
 
     bjsn::value jl;
 
-    if (!vm.contains(rif2::JL_ARG)) {
+    if (!vm.contains(JL_PATH)) {
       jl = jl::parseStream(std::cin);
     } else {
       auto jl_file = vm["jl_file"].as<std::string>();

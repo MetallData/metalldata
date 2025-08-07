@@ -11,6 +11,7 @@
 
 namespace bjsn = boost::json;
 
+namespace {
 using record_store_type =
     multiseries::basic_record_store<metall::manager::allocator_type<std::byte>>;
 using string_store_type = record_store_type::string_store_type;
@@ -18,6 +19,8 @@ using string_store_type = record_store_type::string_store_type;
 using persistent_string =
     boost::container::basic_string<char, std::char_traits<char>,
                                    metall::manager::allocator_type<char>>;
+
+}  // namespace
 
 namespace jl {
 inline bjsn::value parseStream(std::istream& inps) {
