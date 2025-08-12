@@ -39,6 +39,7 @@
 #include "erase_keys_cmd.hpp"
 #include "remove_if_cmd.hpp"
 #include "remove_if2_cmd.hpp"
+#include "ygm_test_cmd.hpp"
 #include <ygm/utility/progress_indicator.hpp>
 
 int main(int argc, char** argv) {
@@ -54,6 +55,7 @@ int main(int argc, char** argv) {
   cli.add_subcommand<gen_faker_cmd>();  // Add new subcommand
   cli.add_subcommand<remove_if_cmd>();
   cli.add_subcommand<remove_if2_cmd>();
+  cli.add_subcommand<ygm_test_cmd>();
 
   return cli.run(argc, argv);
 }
