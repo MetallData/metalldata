@@ -38,7 +38,7 @@ class ingest_cmd : public base_subcommand {
     if (vm.count("hash_key")) {
       hash_key = vm["hash_key"].as<std::string>();
     } else {
-      std::cout << "using local partitioning scheme\n";
+      ygm::wout0("using local partitioning scheme");
     }  // default is local partitioning.
 
     if (std::filesystem::exists(metall_path)) {
@@ -346,8 +346,8 @@ class ingest_cmd : public base_subcommand {
   }
 
  private:
-  std::string input_path;
-  std::string metall_path;
+  std::string                input_path;
+  std::string                metall_path;
   std::optional<std::string> hash_key = std::nullopt;
-  bool        recursive;
+  bool                       recursive;
 };
