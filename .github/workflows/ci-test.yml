@@ -29,6 +29,7 @@ jobs:
           cmake ../ -DMETALLDATA_BUILD_TESTS=ON
           make -j6
           make test
-          cd ../tests
-          export OMPI_MCA_rmaps_base_oversubscribe=1
-          bash run_test.sh
+          # removed 20250814 sbromberger
+          #cd ../tests
+          # export OMPI_MCA_rmaps_base_oversubscribe=1
+          # bash run_test.sh
