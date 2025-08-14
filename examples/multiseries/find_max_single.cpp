@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
 
   for (size_t i = 0; i < opt.series_names.size(); ++i) {
     const auto &series_name = opt.series_names[i];
-    if (!record_store->contains(series_name)) {
+    if (!record_store->contains_series(series_name)) {
       std::cerr << "Series not found: " << series_name << std::endl;
       continue;
     }
@@ -108,14 +108,13 @@ int main(int argc, char *argv[]) {
     std::cerr << "Finding max value in series: " << series_name << std::endl;
     const auto timer = start_timer();
 
-    using value_type     = int64_t;
+    using value_type = int64_t;
     std::cout << "Value type is: " << typeid(value_type).name() << std::endl;
     value_type max_value = std::numeric_limits<value_type>::min();
-    record_store->for_all<value_type>(
-        series_name,
-        [&](const auto , const auto value) {
-          max_value = std::max(max_value, value);
-        });
+    record_store->for_all<value_type>(series_name,
+                                      [&](const auto, const auto value) {
+                                        max_value = std::max(max_value, value);
+                                      });
     const auto elapsed_time = get_elapsed_time_seconds(timer);
     std::cout << "Max value in series: " << series_name << std::endl;
     std::cout << "Elapsed time: " << elapsed_time << " seconds" << std::endl;

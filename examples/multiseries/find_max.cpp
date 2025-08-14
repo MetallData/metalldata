@@ -20,7 +20,7 @@
 
 #include <mpi.h>
 #include <ygm/comm.hpp>
-#include <ygm/utility.hpp>
+#include <ygm/utility/timer.hpp>
 #include <metall/metall.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
 
@@ -98,13 +98,13 @@ int main(int argc, char *argv[]) {
 
   for (size_t i = 0; i < opt.series_names.size(); ++i) {
     const auto &series_name = opt.series_names[i];
-    if (!record_store->contains(series_name)) {
+    if (!record_store->contains_series(series_name)) {
       comm.cerr0() << "Series not found: " << series_name << std::endl;
       continue;
     }
 
     comm.cout0() << "Finding max value in series: " << series_name << std::endl;
-    ygm::timer timer;
+    ygm::utility::timer timer;
 
     struct max_value_t {
       int64_t     i = std::numeric_limits<int64_t>::min();
@@ -146,24 +146,23 @@ int main(int argc, char *argv[]) {
         });
 
     if (max_value.fi) {
-      comm.cout0() << "Max value: " << comm.all_reduce_max(max_value.i)
-                   << std::endl;
+      comm.cout0() << "Max value: " << ygm::max(max_value.i, comm) << std::endl;
     } else if (max_value.fu) {
-      comm.cout0() << "Max value: " << comm.all_reduce_max(max_value.u)
-                   << std::endl;
+      comm.cout0() << "Max value: " << ygm::max(max_value.u, comm) << std::endl;
     } else if (max_value.fd) {
-      comm.cout0() << "Max value: " << comm.all_reduce_max(max_value.d)
-                   << std::endl;
+      comm.cout0() << "Max value: " << ygm::max(max_value.d, comm) << std::endl;
     } else if (max_value.fs) {
       comm.cout0() << "Max value: "
-                   << comm.all_reduce(max_value.s,
-                                      [](const auto &lhd, const auto &rhd) {
-                                        return std::lexicographical_compare(
-                                                   lhd.begin(), lhd.end(),
-                                                   rhd.begin(), rhd.end())
-                                                   ? rhd
-                                                   : lhd;
-                                      })
+                   << ygm::all_reduce(
+                          max_value.s,
+                          [](const auto &lhd, const auto &rhd) {
+                            return std::lexicographical_compare(
+                                       lhd.begin(), lhd.end(), rhd.begin(),
+                                       rhd.end())
+                                       ? rhd
+                                       : lhd;
+                          },
+                          comm)
                    << std::endl;
     }
     comm.cout0() << "Find max took (s)\t" << timer.elapsed() << "\n"

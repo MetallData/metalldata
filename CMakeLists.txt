@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.14)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 project(MetallData
-        VERSION 0.2
+        VERSION 0.3
         DESCRIPTION "Metall Containers"
         LANGUAGES CXX)
 
@@ -11,10 +11,12 @@ set(CMAKE_CXX_STANDARD 20)
 include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
 
-set(BOOST_URL 
+
+set(BOOST_FETCH_URL 
     "https://github.com/boostorg/boost/releases/download/boost-1.87.0/boost-1.87.0-cmake.tar.gz" 
     CACHE STRING "URL to fetch Boost tarball")
 
@@ -22,21 +24,60 @@ set(BOOST_URL
 # Boost
 FetchContent_Declare(
     Boost 
-    URL ${BOOST_URL}
+    URL ${BOOST_FETCH_URL}
+    DOWNLOAD_EXTRACT_TIMESTAMP ON
 )
-set(BOOST_INCLUDE_LIBRARIES json container unordered interprocess property_tree uuid graph)
+set(BOOST_INCLUDE_LIBRARIES json container unordered interprocess property_tree uuid graph program_options static_string)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# Boost specific PIC settings
+set(Boost_USE_STATIC_LIBS ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+
 FetchContent_MakeAvailable(Boost)
 
+# JSONLogic
+set(Boost_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/boost-install) # needed for jsonlogic
 
+FetchContent_Declare(jsonlogic
+    GIT_REPOSITORY https://github.com/LLNL/jsonlogic.git
+    GIT_TAG v0.1.0
+    SOURCE_SUBDIR cpp
+)
+
+FetchContent_MakeAvailable(jsonlogic)
+set(jsonlogic_INCLUDE_DIR ${jsonlogic_SOURCE_DIR}/cpp/include)
+message(STATUS "jsonlogic source dir: ${jsonlogic_SOURCE_DIR}")
+message(STATUS "jsonlogic include dir: ${jsonlogic_INCLUDE_DIR}")
+get_property(targets DIRECTORY ${jsonlogic_SOURCE_DIR}/cpp PROPERTY BUILDSYSTEM_TARGETS)
+message(STATUS "jsonlogic targets: ${targets}")
 #
 #  YGM
 set(YGM_REQUIRE_PARQUET ON)
 set(YGM_INSTALL_PARQUET ON)
 FetchContent_Declare(YGM
     GIT_REPOSITORY https://github.com/llnl/ygm.git
-    GIT_TAG v0.8-dev
+    GIT_TAG v0.8
         )
 FetchContent_MakeAvailable(YGM)
+
+FetchContent_Declare(faker
+    GIT_REPOSITORY https://github.com/cieslarmichal/faker-cxx
+    GIT_TAG v4.0.1
+        )
+FetchContent_MakeAvailable(faker)
+
+
+#
+#  Clippy
+#
+FetchContent_Declare(CLIPPy
+        GIT_REPOSITORY https://github.com/LLNL/clippy-cpp.git
+        GIT_TAG master
+        )
+        FetchContent_MakeAvailable(CLIPPy)
+set(CLIPPy_INCLUDE_DIR "${clippy_SOURCE_DIR}/include")
+
 
 
 #
@@ -100,8 +141,8 @@ endfunction()
 function(add_metalldata_executable name source)
     add_executable(${name} ${source})
     add_common_compile_options(${name})
-    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include ${BOOST_INCLUDE_DIRS})
-    target_link_libraries(${name} PRIVATE Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph)
+    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include ${BOOST_INCLUDE_DIRS} ${jsonlogic_INCLUDE_DIR})
+    target_link_libraries(${name} PRIVATE Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph Boost::program_options jsonlogic)
     target_link_libraries(${name} PRIVATE Arrow::arrow_shared)
     target_link_libraries(${name} PRIVATE Parquet::parquet_shared)
     target_compile_definitions(${name} PRIVATE METALLDATA_USE_PARQUET)
@@ -133,6 +174,7 @@ function(setup_ygm_target exe_name)
     endif ()
     target_link_libraries(${exe_name} PRIVATE ygm::ygm)
 endfunction()
+
 
 #
 # Function for setting up a target that uses CLIPPy
@@ -168,8 +210,9 @@ function(setup_metall_target exe_name)
     target_compile_definitions(${exe_name} PRIVATE "METALL_DISABLE_CONCURRENCY")
 endfunction()
 
-#add_subdirectory(src)
+add_subdirectory(src)
 add_subdirectory(examples)
+add_subdirectory(bench)
 
 if (METALLDATA_BUILD_TESTS)
     enable_testing()

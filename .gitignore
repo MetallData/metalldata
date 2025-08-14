@@ -1,5 +1,6 @@
 .swp
-build*/
+**/build/
+.cache/
 .cobaltlog
 .error
 .autosave
@@ -9,3 +10,5 @@ cmake-build-*/
 *~
 ~*
 .vscode/
+CMakeCache.txt
+CMakeFiles/
