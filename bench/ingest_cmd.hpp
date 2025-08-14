@@ -38,7 +38,7 @@ class ingest_cmd : public base_subcommand {
     if (vm.count("hash_key")) {
       hash_key = vm["hash_key"].as<std::string>();
     } else {
-      ygm::wout0("using local partitioning scheme");
+      ygm::wcout0("using local partitioning scheme");
     }  // default is local partitioning.
 
     if (std::filesystem::exists(metall_path)) {
