@@ -9,3 +9,4 @@ endfunction()
 
 add_subdirectory(string_table)
 add_subdirectory(multiseries)
+add_subdirectory(metall_graph)

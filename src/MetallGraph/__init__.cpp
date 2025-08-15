@@ -14,6 +14,8 @@
 #include <metall/utility/metall_mpi_adaptor.hpp>
 #include <multiseries/multiseries_record.hpp>
 
+#include "metall_graph.hpp"
+
 namespace boostjsn = boost::json;
 
 static const std::string method_name    = "__init__";
@@ -25,6 +27,8 @@ using record_store_type = multiseries::basic_record_store<
 using string_store_type = record_store_type::string_store_type;
 
 int main(int argc, char **argv) {
+  metalldata::metall_graph test;
+
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{method_name, "Initializes a MetallGraph"};
