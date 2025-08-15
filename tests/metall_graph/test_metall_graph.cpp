@@ -5,4 +5,7 @@
 
 #include <metall_graph.hpp>
 
-int main(int argc, char** argv) { metalldata::metall_graph test; }
+int main(int argc, char** argv) {
+  metalldata::metall_graph test(metalldata::metall_graph::open_or_create_tag{},
+                                "dummy");
+}

@@ -13,6 +13,8 @@ function(add_metallgraph_test name source)
   setup_clippy_target(${name})
   setup_ygm_target(${name})
   setup_metall_target(${name})
+  # add this back in later when ready
+  #add_test(NAME ${name} COMMAND ${name}) 
 endfunction()
 
 add_metallgraph_test(test_metall_graph test_metall_graph.cpp)

@@ -27,7 +27,8 @@ using record_store_type = multiseries::basic_record_store<
 using string_store_type = record_store_type::string_store_type;
 
 int main(int argc, char **argv) {
-  metalldata::metall_graph test;
+  metalldata::metall_graph test(metalldata::metall_graph::open_or_create_tag{},
+                                "dummy");
 
   ygm::comm comm(&argc, &argv);
 
