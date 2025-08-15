@@ -9,6 +9,24 @@
 #include <string_view>
 #include <vector>
 
+/* ASSUMPTIONS
+Everything is a multigraph
+3 multi_series (vertices, directed edges, undirected edges)
+
+internally hardcode u,v has primary col names in edge tables
+
+Edges are not partitioned by u/v hashing
+
+Vertex ids are always string,  col name in vertex dataframe is 'id'.  Vertices
+are partitioned by has of id
+
+
+
+
+
+
+*/
+
 namespace metalldata {
 class metall_graph {
  public:
@@ -28,7 +46,8 @@ class metall_graph {
                             std::vector<std::string_view> meta);
 
   void ingest_parquet_verts(std::string_view path, std::string_view key,
-                            std::vector<std::string_view> meta);
+                            std::vector<std::string_view> meta,
+                            bool                          update = true);
 
   template <typename T>
   void add_vert_series(std::string_view name);
@@ -48,5 +67,8 @@ class metall_graph {
 
  private:
   std::string m_metall_path;
+
+  // metall stuff
+  //
 };
 }  // namespace metalldata
