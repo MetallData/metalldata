@@ -16,17 +16,19 @@ include_directories(${PROJECT_SOURCE_DIR}/src/MetallGraph/)
 
 
 add_library(MetallGraphLib STATIC metall_graph.cpp) 
+setup_metall_target(MetallGraphLib)
+setup_ygm_target(MetallGraphLib)
+#these could be made public if we used the PIMPL technique
+target_link_libraries(MetallGraphLib PUBLIC Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph Boost::program_options jsonlogic)
+target_include_directories(MetallGraphLib PUBLIC ${PROJECT_SOURCE_DIR}/include ${BOOST_INCLUDE_DIRS} ${jsonlogic_INCLUDE_DIR})
+target_link_libraries(MetallGraphLib PUBLIC Arrow::arrow_shared)
+target_link_libraries(MetallGraphLib PUBLIC Parquet::parquet_shared)
 
 function(add_metallgraph_executable name source)
   add_executable(${name} ${source})
   add_common_compile_options(${name})
-  target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include ${BOOST_INCLUDE_DIRS} ${jsonlogic_INCLUDE_DIR})
-  target_link_libraries(${name} PRIVATE Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph Boost::program_options jsonlogic)
-  target_link_libraries(${name} PRIVATE Arrow::arrow_shared)
-  target_link_libraries(${name} PRIVATE Parquet::parquet_shared)
   target_link_libraries(${name} PRIVATE MetallGraphLib)
   target_compile_definitions(${name} PRIVATE METALLDATA_USE_PARQUET)
-
   setup_clippy_target(${name})
   setup_ygm_target(${name})
   setup_metall_target(${name})

@@ -4,8 +4,10 @@
 // SPDX-License-Identifier: MIT
 
 #include <metall_graph.hpp>
+#include <ygm/comm.hpp>
 
 int main(int argc, char** argv) {
-  metalldata::metall_graph test(metalldata::metall_graph::open_or_create_tag{},
-                                "dummy");
+  ygm::comm world(&argc, &argv);
+
+  metalldata::metall_graph test(world, "dummy");
 }
