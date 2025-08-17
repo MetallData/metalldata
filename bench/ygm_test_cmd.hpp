@@ -1,10 +1,10 @@
 #pragma once
 
 #include "subcommand.hpp"
-#include <iostream>
 #include <random>
 
 #include <ygm/comm.hpp>
+#include <ygm/utility/timer.hpp>
 
 class ygm_test_cmd : public base_subcommand {
  public:
@@ -51,7 +51,31 @@ class ygm_test_cmd : public base_subcommand {
     }
     comm.barrier();
 
-    comm.stats_print("100M sent per rank");
+    comm.stats_print(
+        "To compute All-to-all bandwidth divide isend_bytes by elapsed time.");
+
+    static size_t hop_count = 0;
+    static auto&  scomm     = comm;
+    comm.barrier();
+    ygm::utility::timer atw_test;
+
+    struct around_the_world {
+      void operator()() {
+        if (hop_count++ < 100) {
+          int next_rank = (scomm.rank() + 1) % scomm.size();
+          scomm.async(next_rank, around_the_world{});
+        }
+      }
+    };
+
+    if (comm.rank0()) {
+      int next_rank = (scomm.rank() + 1) % scomm.size();
+      scomm.async(next_rank, around_the_world{});
+    }
+    comm.local_wait_until([]() { return hop_count == 100; });
+    comm.barrier();
+    comm.cout0("Around the world hop latency: ",
+               atw_test.elapsed() / 100.0 / comm.size() * 1000000.0, " us");
 
     return 0;
   }
