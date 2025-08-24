@@ -1,3 +1,5 @@
+#include <boost/unordered/unordered_flat_set.hpp>
+#include <boost/static_string/static_string.hpp>
 #include "metall/utility/metall_mpi_adaptor.hpp"
 #include "mframe_bench.hpp"
 #include "subcommand.hpp"
@@ -75,7 +77,9 @@ class erase_keys_cmd : public base_subcommand {
       hash_key_unwrapped = {pm_hash_key->cbegin(), pm_hash_key->cend()};
     }
 
-    static std::set<std::string> keys_to_erase;
+    // static std::set<std::string> keys_to_erase;
+    using string40 = boost::static_strings::static_string<40>;
+    static boost::unordered::unordered_flat_set<string40> keys_to_erase;
     comm.cf_barrier();
     ygm::io::line_parser lp(comm, {keys_path});
     lp.for_all([&comm, local_partition](const std::string& line) {
@@ -83,10 +87,11 @@ class erase_keys_cmd : public base_subcommand {
       if (!local_partition) {
         int owner = make_hash(line) % comm.size();
         comm.async(
-            owner, [](std::string key) { keys_to_erase.insert(key); }, line);
+            owner, [](std::string key) { keys_to_erase.insert(string40(key)); },
+            line);
       } else {
-        comm.async_bcast([](std::string key) { keys_to_erase.insert(key); },
-                         line);
+        comm.async_bcast(
+            [](std::string key) { keys_to_erase.insert(string40(key)); }, line);
       }
     });
 
@@ -99,7 +104,7 @@ class erase_keys_cmd : public base_subcommand {
                 const auto                              value) {
           using T = std::decay_t<decltype(value)>;
           if constexpr (std::is_same_v<T, std::string_view>) {
-            if (keys_to_erase.contains(std::string(value))) {
+            if (keys_to_erase.contains(string40(value))) {
               records_to_erase.push_back(index);
             }
           } else {
