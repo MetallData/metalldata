@@ -6,6 +6,7 @@
 #include "ygm/io/line_parser.hpp"
 #include "ygm/utility/timer.hpp"
 #include "ygm/utility/world.hpp"
+#include <fstream>
 #include <optional>
 #include <ygm/comm.hpp>
 
@@ -83,19 +84,22 @@ class erase_keys_cmd : public base_subcommand {
     using string40 = boost::static_strings::static_string<40>;
     static boost::unordered::unordered_flat_set<string40> keys_to_erase;
     comm.cf_barrier();
-    ygm::io::line_parser lp(comm, {keys_path});
-    lp.for_all([&comm, local_partition](const std::string& line) {
-      // partition based on primary key
-      if (!local_partition) {
+    if (local_partition) {
+      std::ifstream ifs(keys_path.c_str());
+      std::string   line;
+      while (std::getline(ifs, line)) {
+        keys_to_erase.insert(string40(line));
+      }
+    } else {
+      ygm::io::line_parser lp(comm, {keys_path});
+      lp.for_all([&comm, local_partition](const std::string& line) {
+        // partition based on primary key
         int owner = make_hash(line) % comm.size();
         comm.async(
             owner, [](std::string key) { keys_to_erase.insert(string40(key)); },
             line);
-      } else {
-        comm.async_bcast(
-            [](std::string key) { keys_to_erase.insert(string40(key)); }, line);
-      }
-    });
+      });
+    }
 
     comm.barrier();
 
