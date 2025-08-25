@@ -4,6 +4,7 @@
 #include "mframe_bench.hpp"
 #include "subcommand.hpp"
 #include "ygm/io/line_parser.hpp"
+#include "ygm/utility/timer.hpp"
 #include "ygm/utility/world.hpp"
 #include <optional>
 #include <ygm/comm.hpp>
@@ -54,6 +55,7 @@ class erase_keys_cmd : public base_subcommand {
 
   int run(ygm::comm& comm) override {
     comm.cout0("Erase keys in: ", metall_path);
+    ygm::utility::timer                 erase_time;
     metall::utility::metall_mpi_adaptor mpi_adaptor(
         metall::open_only, metall_path, comm.get_mpi_comm());
     auto& manager = mpi_adaptor.get_local_manager();
@@ -114,6 +116,7 @@ class erase_keys_cmd : public base_subcommand {
           }
         });
 
+    comm.barrier();
     comm.cout0(ygm::sum(records_to_erase.size(), comm),
                " entries to be removed.");
     for (size_t index : records_to_erase) {
@@ -121,6 +124,8 @@ class erase_keys_cmd : public base_subcommand {
     }
     keys_to_erase.clear();
     records_to_erase.clear();
+    comm.barrier();
+    comm.cout0("Elapsed time = ", erase_time.elapsed());
     return 0;
   }
 
