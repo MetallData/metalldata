@@ -88,12 +88,13 @@ class remove_if2_cmd : public base_subcommand {
     for (auto v : vars) {
       varset.emplace(v);
     }
+
     auto series = record_store->get_series_names();
 
-    apply_jl(
-        jl_rule, *record_store,
-        [&records_to_erase](record_store_type::record_id_type index,
-                            const auto) { records_to_erase.push_back(index); });
+    apply_jl(jl_rule, *record_store,
+             [&records_to_erase](record_store_type::record_id_type index) {
+               records_to_erase.push_back(index);
+             });
 
     comm.cout0(records_to_erase.size(), " entries to be removed.");
     for (size_t index : records_to_erase) {

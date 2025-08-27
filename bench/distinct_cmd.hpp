@@ -1,5 +1,7 @@
 #pragma once
 
+// TODO: support where clauses for distinct.
+
 #include "subcommand.hpp"
 #include <iostream>
 
