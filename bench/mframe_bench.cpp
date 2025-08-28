@@ -41,6 +41,7 @@
 #include "remove_if2_cmd.hpp"
 #include "ygm_test_cmd.hpp"
 #include "partition_test_cmd.hpp"
+#include "count_cmd.hpp"
 #include <ygm/utility/progress_indicator.hpp>
 
 int main(int argc, char** argv) {
@@ -58,6 +59,7 @@ int main(int argc, char** argv) {
   cli.add_subcommand<remove_if2_cmd>();
   cli.add_subcommand<ygm_test_cmd>();
   cli.add_subcommand<partition_test_cmd>();
+  cli.add_subcommand<count_cmd>();
 
   return cli.run(argc, argv);
 }

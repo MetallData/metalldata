@@ -4,7 +4,6 @@
 
 #include "subcommand.hpp"
 #include "jsonlogic/jsonlogic.hpp"
-#include <iostream>
 #include <boost/json.hpp>
 #include <boost/json/src.hpp>
 #include <ygm/comm.hpp>
