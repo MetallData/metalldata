@@ -9,6 +9,8 @@
 
 #include <iostream>
 
+namespace parquet_writer {
+
 // Type mappings
 const std::unordered_map<char, Metall_Type> char_to_type = {
     {'b', Metall_Type::Bool},
@@ -30,7 +32,7 @@ std::pair<std::vector<std::string>, name_to_type> parse_field_types(
   std::vector<std::string> field_list{};
   field_list.reserve(fields_with_type.size());
 
-  for (auto field_with_type : fields_with_type) {
+  for (const auto& field_with_type : fields_with_type) {
     size_t n = field_with_type.size();
     if (n < 3) {
       std::cerr << "Invalid field name/type designation: " << field_with_type
@@ -120,6 +122,18 @@ ParquetWriter::ParquetWriter(const std::string&              filename,
   field_names_  = std::move(field_names);
   name_to_type_ = std::move(name_type_map);
 
+  // Initialize builders for all fields
+  type_builders_.emplace(Metall_Type::Bool,
+                         std::make_unique<arrow::BooleanBuilder>());
+  type_builders_.emplace(Metall_Type::Int64,
+                         std::make_unique<arrow::Int64Builder>());
+  type_builders_.emplace(Metall_Type::UInt64,
+                         std::make_unique<arrow::UInt64Builder>());
+  type_builders_.emplace(Metall_Type::Double,
+                         std::make_unique<arrow::DoubleBuilder>());
+  type_builders_.emplace(Metall_Type::String,
+                         std::make_unique<arrow::StringBuilder>());
+
   auto status = initialize();
   if (!status.ok()) {
     is_valid_ = false;
@@ -139,6 +153,7 @@ ParquetWriter::ParquetWriter(ParquetWriter&& other) noexcept
       schema_(std::move(other.schema_)),
       outfile_(std::move(other.outfile_)),
       writer_(std::move(other.writer_)),
+      type_builders_(std::move(other.type_builders_)),
       is_valid_(other.is_valid_) {
   other.is_valid_ = false;
 }
@@ -156,6 +171,7 @@ ParquetWriter& ParquetWriter::operator=(ParquetWriter&& other) noexcept {
     schema_       = std::move(other.schema_);
     outfile_      = std::move(other.outfile_);
     writer_       = std::move(other.writer_);
+    type_builders_ = std::move(other.type_builders_);
     is_valid_     = other.is_valid_;
 
     other.is_valid_ = false;
@@ -228,54 +244,28 @@ arrow::Status ParquetWriter::write_row(
 
     Metall_Type expected_type = it->second;
 
+    // Get reusable builder and reset it
+    auto* builder = type_builders_.at(expected_type).get();
+    builder->Reset();
+
     std::shared_ptr<arrow::Array> array;
 
     // Handle std::monostate (null) case first
     if (std::holds_alternative<std::monostate>(value)) {
-      // Create a null array of the appropriate type
-      switch (expected_type) {
-        case Metall_Type::Bool: {
-          arrow::BooleanBuilder builder;
-          ARROW_RETURN_NOT_OK(builder.AppendNull());
-          ARROW_ASSIGN_OR_RAISE(array, builder.Finish());
-          break;
-        }
-        case Metall_Type::Int64: {
-          arrow::Int64Builder builder;
-          ARROW_RETURN_NOT_OK(builder.AppendNull());
-          ARROW_ASSIGN_OR_RAISE(array, builder.Finish());
-          break;
-        }
-        case Metall_Type::UInt64: {
-          arrow::UInt64Builder builder;
-          ARROW_RETURN_NOT_OK(builder.AppendNull());
-          ARROW_ASSIGN_OR_RAISE(array, builder.Finish());
-          break;
-        }
-        case Metall_Type::Double: {
-          arrow::DoubleBuilder builder;
-          ARROW_RETURN_NOT_OK(builder.AppendNull());
-          ARROW_ASSIGN_OR_RAISE(array, builder.Finish());
-          break;
-        }
-        case Metall_Type::String: {
-          arrow::StringBuilder builder;
-          ARROW_RETURN_NOT_OK(builder.AppendNull());
-          ARROW_ASSIGN_OR_RAISE(array, builder.Finish());
-          break;
-        }
-      }
+      ARROW_RETURN_NOT_OK(builder->AppendNull());
+      ARROW_ASSIGN_OR_RAISE(array, builder->Finish());
     } else {
-      // Handle non-null values
+      // Handle non-null values using the reusable builder
       switch (expected_type) {
         case Metall_Type::Bool: {
           if (!std::holds_alternative<bool>(value)) {
             return arrow::Status::Invalid("Type mismatch for field " +
                                           field_name);
           }
-          arrow::BooleanBuilder builder;
-          ARROW_RETURN_NOT_OK(builder.Append(std::get<bool>(value)));
-          ARROW_ASSIGN_OR_RAISE(array, builder.Finish());
+          ARROW_RETURN_NOT_OK(
+              static_cast<arrow::BooleanBuilder*>(builder)->Append(
+                  std::get<bool>(value)));
+          ARROW_ASSIGN_OR_RAISE(array, builder->Finish());
           break;
         }
         case Metall_Type::Int64: {
@@ -283,9 +273,10 @@ arrow::Status ParquetWriter::write_row(
             return arrow::Status::Invalid("Type mismatch for field " +
                                           field_name);
           }
-          arrow::Int64Builder builder;
-          ARROW_RETURN_NOT_OK(builder.Append(std::get<int64_t>(value)));
-          ARROW_ASSIGN_OR_RAISE(array, builder.Finish());
+          ARROW_RETURN_NOT_OK(
+              static_cast<arrow::Int64Builder*>(builder)->Append(
+                  std::get<int64_t>(value)));
+          ARROW_ASSIGN_OR_RAISE(array, builder->Finish());
           break;
         }
         case Metall_Type::UInt64: {
@@ -293,9 +284,10 @@ arrow::Status ParquetWriter::write_row(
             return arrow::Status::Invalid("Type mismatch for field " +
                                           field_name);
           }
-          arrow::UInt64Builder builder;
-          ARROW_RETURN_NOT_OK(builder.Append(std::get<uint64_t>(value)));
-          ARROW_ASSIGN_OR_RAISE(array, builder.Finish());
+          ARROW_RETURN_NOT_OK(
+              static_cast<arrow::UInt64Builder*>(builder)->Append(
+                  std::get<uint64_t>(value)));
+          ARROW_ASSIGN_OR_RAISE(array, builder->Finish());
           break;
         }
         case Metall_Type::Double: {
@@ -303,9 +295,10 @@ arrow::Status ParquetWriter::write_row(
             return arrow::Status::Invalid("Type mismatch for field " +
                                           field_name);
           }
-          arrow::DoubleBuilder builder;
-          ARROW_RETURN_NOT_OK(builder.Append(std::get<double>(value)));
-          ARROW_ASSIGN_OR_RAISE(array, builder.Finish());
+          ARROW_RETURN_NOT_OK(
+              static_cast<arrow::DoubleBuilder*>(builder)->Append(
+                  std::get<double>(value)));
+          ARROW_ASSIGN_OR_RAISE(array, builder->Finish());
           break;
         }
         case Metall_Type::String: {
@@ -313,10 +306,11 @@ arrow::Status ParquetWriter::write_row(
             return arrow::Status::Invalid("Type mismatch for field " +
                                           field_name);
           }
-          arrow::StringBuilder builder;
-          auto                 sv = std::get<std::string_view>(value);
-          ARROW_RETURN_NOT_OK(builder.Append(sv.data(), sv.size()));
-          ARROW_ASSIGN_OR_RAISE(array, builder.Finish());
+          auto sv = std::get<std::string_view>(value);
+          ARROW_RETURN_NOT_OK(
+              static_cast<arrow::StringBuilder*>(builder)->Append(sv.data(),
+                                                                  sv.size()));
+          ARROW_ASSIGN_OR_RAISE(array, builder->Finish());
           break;
         }
       }
@@ -330,22 +324,6 @@ arrow::Status ParquetWriter::write_row(
 
   return arrow::Status::OK();
 }
-
-// arrow::Status ParquetWriter::WriteRowWithNulls(
-//     const std::vector<std::optional<metall_series_type>>& row) {
-//   std::vector<metall_series_type> converted_row;
-//   converted_row.reserve(row.size());
-
-//   for (const auto& opt_value : row) {
-//     if (opt_value.has_value()) {
-//       converted_row.push_back(opt_value.value());
-//     } else {
-//       converted_row.push_back(std::monostate{});
-//     }
-//   }
-
-//   return WriteParquet(converted_row);
-// }
 
 arrow::Status ParquetWriter::write_rows(
     const std::vector<std::vector<metall_series_type>>& rows) {
@@ -525,3 +503,5 @@ arrow::Status ParquetWriter::close() {
 //                                   std::string(e.what()));
 //   }
 // }
+
+}  // namespace parquet_writer

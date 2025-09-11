@@ -1,6 +1,8 @@
 #include "parquet_writer.hpp"
 #include <iostream>
 
+using namespace parquet_writer;
+
 // Example usage
 int main() {
   try {

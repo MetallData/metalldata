@@ -3,6 +3,8 @@
 #include <iostream>
 #include <filesystem>
 
+using namespace parquet_writer;
+
 // Test function 1: Basic field specification functionality
 void test_field_specification() {
   std::cout << "Testing field specification functionality..." << std::endl;

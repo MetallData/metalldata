@@ -13,6 +13,7 @@
 namespace arrow {
 class Schema;
 class DataType;
+class ArrayBuilder;
 namespace io {
 class FileOutputStream;
 }
@@ -23,6 +24,8 @@ namespace arrow {
 class FileWriter;
 }
 }  // namespace parquet
+
+namespace parquet_writer {
 
 // Type definitions
 using metall_series_type = std::variant<std::monostate, bool, int64_t, uint64_t,
@@ -66,7 +69,6 @@ class ParquetWriter {
   bool               is_valid() const;
   const std::string& get_filename() const;
 
-  arrow::Status initialize();
   arrow::Status write_row(const std::vector<metall_series_type>& row);
 
   // Variadic template overload for write_row - disabled when first arg is a
@@ -93,5 +95,11 @@ class ParquetWriter {
   std::shared_ptr<arrow::Schema>               schema_;
   std::shared_ptr<arrow::io::FileOutputStream> outfile_;
   std::unique_ptr<parquet::arrow::FileWriter>  writer_;
-  bool                                         is_valid_;
+  std::unordered_map<Metall_Type, std::unique_ptr<arrow::ArrayBuilder>>
+       type_builders_;
+  bool is_valid_;
+
+  arrow::Status initialize();
 };
+
+}  // namespace parquet_writer
