@@ -26,6 +26,51 @@ const std::unordered_map<Metall_Type, std::shared_ptr<arrow::DataType>>
                             {Metall_Type::Double, arrow::float64()},
                             {Metall_Type::String, arrow::utf8()}};
 
+// Simple helper to append a value to the appropriate builder type
+arrow::Status append_value_to_builder(arrow::ArrayBuilder*      builder,
+                                      const metall_series_type& value,
+                                      Metall_Type               expected_type) {
+  if (std::holds_alternative<std::monostate>(value)) {
+    return builder->AppendNull();
+  }
+
+  switch (expected_type) {
+    case Metall_Type::Bool:
+      if (std::holds_alternative<bool>(value)) {
+        return static_cast<arrow::BooleanBuilder*>(builder)->Append(
+            std::get<bool>(value));
+      }
+      break;
+    case Metall_Type::Int64:
+      if (std::holds_alternative<int64_t>(value)) {
+        return static_cast<arrow::Int64Builder*>(builder)->Append(
+            std::get<int64_t>(value));
+      }
+      break;
+    case Metall_Type::UInt64:
+      if (std::holds_alternative<uint64_t>(value)) {
+        return static_cast<arrow::UInt64Builder*>(builder)->Append(
+            std::get<uint64_t>(value));
+      }
+      break;
+    case Metall_Type::Double:
+      if (std::holds_alternative<double>(value)) {
+        return static_cast<arrow::DoubleBuilder*>(builder)->Append(
+            std::get<double>(value));
+      }
+      break;
+    case Metall_Type::String:
+      if (std::holds_alternative<std::string_view>(value)) {
+        auto sv = std::get<std::string_view>(value);
+        return static_cast<arrow::StringBuilder*>(builder)->Append(sv.data(),
+                                                                   sv.size());
+      }
+      break;
+  }
+  return arrow::Status::Invalid(
+      "Type mismatch - variant type doesn't match expected builder type");
+}
+
 std::pair<std::vector<std::string>, name_to_type> parse_field_types(
     const std::vector<std::string>& fields_with_type, char delimiter) {
   name_to_type             ntt{};
@@ -251,71 +296,13 @@ arrow::Status ParquetWriter::write_row(
 
     std::shared_ptr<arrow::Array> array;
 
-    // Handle std::monostate (null) case first
-    if (std::holds_alternative<std::monostate>(value)) {
-      ARROW_RETURN_NOT_OK(builder->AppendNull());
-      ARROW_ASSIGN_OR_RAISE(array, builder->Finish());
-    } else {
-      // Handle non-null values using the reusable builder
-      switch (expected_type) {
-        case Metall_Type::Bool: {
-          if (!std::holds_alternative<bool>(value)) {
-            return arrow::Status::Invalid("Type mismatch for field " +
-                                          field_name);
-          }
-          ARROW_RETURN_NOT_OK(
-              static_cast<arrow::BooleanBuilder*>(builder)->Append(
-                  std::get<bool>(value)));
-          ARROW_ASSIGN_OR_RAISE(array, builder->Finish());
-          break;
-        }
-        case Metall_Type::Int64: {
-          if (!std::holds_alternative<int64_t>(value)) {
-            return arrow::Status::Invalid("Type mismatch for field " +
-                                          field_name);
-          }
-          ARROW_RETURN_NOT_OK(
-              static_cast<arrow::Int64Builder*>(builder)->Append(
-                  std::get<int64_t>(value)));
-          ARROW_ASSIGN_OR_RAISE(array, builder->Finish());
-          break;
-        }
-        case Metall_Type::UInt64: {
-          if (!std::holds_alternative<uint64_t>(value)) {
-            return arrow::Status::Invalid("Type mismatch for field " +
-                                          field_name);
-          }
-          ARROW_RETURN_NOT_OK(
-              static_cast<arrow::UInt64Builder*>(builder)->Append(
-                  std::get<uint64_t>(value)));
-          ARROW_ASSIGN_OR_RAISE(array, builder->Finish());
-          break;
-        }
-        case Metall_Type::Double: {
-          if (!std::holds_alternative<double>(value)) {
-            return arrow::Status::Invalid("Type mismatch for field " +
-                                          field_name);
-          }
-          ARROW_RETURN_NOT_OK(
-              static_cast<arrow::DoubleBuilder*>(builder)->Append(
-                  std::get<double>(value)));
-          ARROW_ASSIGN_OR_RAISE(array, builder->Finish());
-          break;
-        }
-        case Metall_Type::String: {
-          if (!std::holds_alternative<std::string_view>(value)) {
-            return arrow::Status::Invalid("Type mismatch for field " +
-                                          field_name);
-          }
-          auto sv = std::get<std::string_view>(value);
-          ARROW_RETURN_NOT_OK(
-              static_cast<arrow::StringBuilder*>(builder)->Append(sv.data(),
-                                                                  sv.size()));
-          ARROW_ASSIGN_OR_RAISE(array, builder->Finish());
-          break;
-        }
-      }
+    // Use simple helper function
+    auto status = append_value_to_builder(builder, value, expected_type);
+    if (!status.ok()) {
+      return arrow::Status::Invalid("Error in field '" + field_name +
+                                    "': " + status.message());
     }
+    ARROW_ASSIGN_OR_RAISE(array, builder->Finish());
 
     arrays.push_back(array);
   }
@@ -353,99 +340,27 @@ arrow::Status ParquetWriter::write_rows(
   for (size_t col = 0; col < num_cols; ++col) {
     const auto& field_name = field_names_[col];
 
-    // Use pre-computed field type instead of map lookup
     Metall_Type expected_type = field_types_[col];
 
     std::shared_ptr<arrow::Array> array;
 
-    switch (expected_type) {
-      case Metall_Type::Bool: {
-        arrow::BooleanBuilder builder;
-        ARROW_RETURN_NOT_OK(builder.Reserve(num_rows));
-        for (size_t row_idx = 0; row_idx < num_rows; ++row_idx) {
-          const auto& value = rows[row_idx][col];
-          if (std::holds_alternative<std::monostate>(value)) {
-            ARROW_RETURN_NOT_OK(builder.AppendNull());
-          } else if (std::holds_alternative<bool>(value)) {
-            ARROW_RETURN_NOT_OK(builder.Append(std::get<bool>(value)));
-          } else {
-            return arrow::Status::Invalid("Type mismatch for field " +
-                                          field_name);
-          }
-        }
-        ARROW_ASSIGN_OR_RAISE(array, builder.Finish());
-        break;
-      }
-      case Metall_Type::Int64: {
-        arrow::Int64Builder builder;
-        ARROW_RETURN_NOT_OK(builder.Reserve(num_rows));
-        for (size_t row_idx = 0; row_idx < num_rows; ++row_idx) {
-          const auto& value = rows[row_idx][col];
-          if (std::holds_alternative<std::monostate>(value)) {
-            ARROW_RETURN_NOT_OK(builder.AppendNull());
-          } else if (std::holds_alternative<int64_t>(value)) {
-            ARROW_RETURN_NOT_OK(builder.Append(std::get<int64_t>(value)));
-          } else {
-            return arrow::Status::Invalid("Type mismatch for field " +
-                                          field_name);
-          }
-        }
-        ARROW_ASSIGN_OR_RAISE(array, builder.Finish());
-        break;
-      }
-      case Metall_Type::UInt64: {
-        arrow::UInt64Builder builder;
-        ARROW_RETURN_NOT_OK(builder.Reserve(num_rows));
-        for (size_t row_idx = 0; row_idx < num_rows; ++row_idx) {
-          const auto& value = rows[row_idx][col];
-          if (std::holds_alternative<std::monostate>(value)) {
-            ARROW_RETURN_NOT_OK(builder.AppendNull());
-          } else if (std::holds_alternative<uint64_t>(value)) {
-            ARROW_RETURN_NOT_OK(builder.Append(std::get<uint64_t>(value)));
-          } else {
-            return arrow::Status::Invalid("Type mismatch for field " +
-                                          field_name);
-          }
-        }
-        ARROW_ASSIGN_OR_RAISE(array, builder.Finish());
-        break;
-      }
-      case Metall_Type::Double: {
-        arrow::DoubleBuilder builder;
-        ARROW_RETURN_NOT_OK(builder.Reserve(num_rows));
-        for (size_t row_idx = 0; row_idx < num_rows; ++row_idx) {
-          const auto& value = rows[row_idx][col];
-          if (std::holds_alternative<std::monostate>(value)) {
-            ARROW_RETURN_NOT_OK(builder.AppendNull());
-          } else if (std::holds_alternative<double>(value)) {
-            ARROW_RETURN_NOT_OK(builder.Append(std::get<double>(value)));
-          } else {
-            return arrow::Status::Invalid("Type mismatch for field " +
-                                          field_name);
-          }
-        }
-        ARROW_ASSIGN_OR_RAISE(array, builder.Finish());
-        break;
-      }
-      case Metall_Type::String: {
-        arrow::StringBuilder builder;
-        ARROW_RETURN_NOT_OK(builder.Reserve(num_rows));
-        for (size_t row_idx = 0; row_idx < num_rows; ++row_idx) {
-          const auto& value = rows[row_idx][col];
-          if (std::holds_alternative<std::monostate>(value)) {
-            ARROW_RETURN_NOT_OK(builder.AppendNull());
-          } else if (std::holds_alternative<std::string_view>(value)) {
-            auto sv = std::get<std::string_view>(value);
-            ARROW_RETURN_NOT_OK(builder.Append(sv.data(), sv.size()));
-          } else {
-            return arrow::Status::Invalid("Type mismatch for field " +
-                                          field_name);
-          }
-        }
-        ARROW_ASSIGN_OR_RAISE(array, builder.Finish());
-        break;
+    // Get the existing builder and reset it
+    auto* builder = type_builders_.at(expected_type).get();
+    builder->Reset();
+    ARROW_RETURN_NOT_OK(builder->Reserve(num_rows));
+
+    // Process all rows for this column using the same helper
+    for (size_t row_idx = 0; row_idx < num_rows; ++row_idx) {
+      auto status =
+          append_value_to_builder(builder, rows[row_idx][col], expected_type);
+      if (!status.ok()) {
+        return arrow::Status::Invalid("Error in field '" + field_name +
+                                      "' at row " + std::to_string(row_idx) +
+                                      ": " + status.message());
       }
     }
+
+    ARROW_ASSIGN_OR_RAISE(array, builder->Finish());
 
     arrays.push_back(array);
   }
@@ -479,31 +394,5 @@ arrow::Status ParquetWriter::close() {
   is_valid_ = false;
   return status;
 }
-
-// Utility function to write a dataframe using field specification strings
-// arrow::Status WriteDataFrameToParquet(
-//     const std::string&                                  filename,
-//     const std::vector<std::vector<metall_series_type>>& dataframe,
-//     const std::vector<std::string>& field_specs, char delimiter) {
-//   try {
-//     ParquetWriter writer(filename, field_specs, delimiter);
-
-//     if (!writer.is_valid()) {
-//       return arrow::Status::Invalid("Failed to create ParquetWriter");
-//     }
-
-//     for (const auto& row : dataframe) {
-//       auto status = writer.WriteParquet(row);
-//       if (!status.ok()) {
-//         return status;
-//       }
-//     }
-
-//     return arrow::Status::OK();
-//   } catch (const std::exception& e) {
-//     return arrow::Status::Invalid("Exception in WriteDataFrameToParquet: " +
-//                                   std::string(e.what()));
-//   }
-// }
 
 }  // namespace parquet_writer
