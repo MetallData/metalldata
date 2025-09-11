@@ -14,10 +14,10 @@ target_link_libraries(parquet_writer_example PUBLIC
                 Arrow::arrow_shared Parquet::parquet_shared)
 
 # Add test executable
-add_metalldata_executable(test_parquet_writer_simple test_parquet_writer_simple.cpp)
-setup_metall_target(test_parquet_writer_simple)
-setup_ygm_target(test_parquet_writer_simple)
-target_link_libraries(test_parquet_writer_simple PUBLIC
+add_metalldata_executable(test_parquet_writer test_parquet_writer.cpp)
+setup_metall_target(test_parquet_writer)
+setup_ygm_target(test_parquet_writer)
+target_link_libraries(test_parquet_writer PUBLIC
                 parquet_writer_lib
                 Arrow::arrow_shared Parquet::parquet_shared)
 
@@ -25,11 +25,11 @@ target_link_libraries(test_parquet_writer_simple PUBLIC
 enable_testing()
 
 # Main comprehensive test
-add_test(NAME ParquetWriter_Tests COMMAND test_parquet_writer_simple)
+add_test(NAME ParquetWriter_Tests COMMAND test_parquet_writer)
 
 # Set test properties
 set_tests_properties(ParquetWriter_Tests PROPERTIES
     TIMEOUT 30
-    LABELS "parquet;writer;unit;comprehensive"
+    LABELS "parquet;writer;unit;comprehensive;exceptions"
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )

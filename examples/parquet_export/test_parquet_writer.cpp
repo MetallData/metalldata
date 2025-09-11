@@ -13,6 +13,7 @@
  * 7. RAII & Move semantics: Resource management and move operations
  * 8. String parsing: Comma-separated field specifications with whitespace
  * handling
+ * 9. Exception handling: Parse errors with graceful failure (no exit(1))
  *
  * Tests validate both the type-based builder optimization and overall
  * robustness.
@@ -39,7 +40,7 @@ void test_field_specification() {
 
   try {
     ParquetWriter writer("test_field_specs.parquet", field_specs);
-    assert(writer.IsValid());
+    assert(writer.is_valid());
 
     // Write a test row
     auto status =
@@ -61,7 +62,7 @@ void test_write_parquet_vector() {
 
   try {
     ParquetWriter writer("test_vector.parquet", field_specs);
-    assert(writer.IsValid());
+    assert(writer.is_valid());
 
     std::vector<metall_series_type> row = {int64_t(123), 2.718, true};
 
@@ -83,7 +84,7 @@ void test_null_handling() {
 
   try {
     ParquetWriter writer("test_nulls.parquet", field_specs);
-    assert(writer.IsValid());
+    assert(writer.is_valid());
 
     // Test row with null (std::monostate)
     std::vector<metall_series_type> row_with_null = {int64_t(456),
@@ -373,7 +374,9 @@ void cleanup_test_files() {
       "test_mismatch.parquet",       "test_type_mismatch.parquet",
       "test_move1.parquet",          "test_move2.parquet",
       "test_move3.parquet",          "test_string_spec1.parquet",
-      "test_string_spec2.parquet",   "test_string_spec3.parquet"};
+      "test_string_spec2.parquet",   "test_string_spec3.parquet",
+      "test_no_delimiter.parquet",   "test_invalid_type.parquet",
+      "test_duplicate.parquet",      "test_valid.parquet"};
 
   for (const auto& file : test_files) {
     try {
@@ -384,6 +387,50 @@ void cleanup_test_files() {
       // Ignore cleanup errors
     }
   }
+}
+
+// Test function 12: Exception handling
+void test_exception_handling() {
+  std::cout << "Testing exception handling..." << std::endl;
+
+  // Test 1: Invalid field specification (too short)
+  {
+    std::vector<std::string> invalid_fields = {"id"};  // Too short
+    ParquetWriter            writer("test_invalid.parquet", invalid_fields);
+    assert(!writer.is_valid());  // Should be invalid due to parse error
+  }
+
+  // Test 2: Missing delimiter
+  {
+    std::vector<std::string> no_delimiter = {"id_i"};  // No colon delimiter
+    ParquetWriter            writer("test_no_delimiter.parquet", no_delimiter);
+    assert(!writer.is_valid());  // Should be invalid due to parse error
+  }
+
+  // Test 3: Invalid type character
+  {
+    std::vector<std::string> invalid_type = {
+        "id:x"};  // 'x' is not a valid type
+    ParquetWriter writer("test_invalid_type.parquet", invalid_type);
+    assert(!writer.is_valid());  // Should be invalid due to parse error
+  }
+
+  // Test 4: Duplicate field names
+  {
+    std::vector<std::string> duplicate_fields = {"id:i",
+                                                 "id:f"};  // Duplicate 'id'
+    ParquetWriter            writer("test_duplicate.parquet", duplicate_fields);
+    assert(!writer.is_valid());  // Should be invalid due to parse error
+  }
+
+  // Test 5: Valid field specifications should still work
+  {
+    std::vector<std::string> valid_fields = {"id:i", "value:f", "name:s"};
+    ParquetWriter            writer("test_valid.parquet", valid_fields);
+    assert(writer.is_valid());  // Should be valid
+  }
+
+  std::cout << "✓ Exception handling test passed" << std::endl;
 }
 
 int main() {
@@ -405,6 +452,7 @@ int main() {
     test_error_handling();
     test_raii_and_move();
     test_string_field_spec_parsing();
+    test_exception_handling();
 
     std::cout << "\n✓ All tests passed!" << std::endl;
 

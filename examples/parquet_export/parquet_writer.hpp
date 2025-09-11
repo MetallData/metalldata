@@ -2,6 +2,7 @@
 
 #include <arrow/status.h>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -26,6 +27,38 @@ class FileWriter;
 }  // namespace parquet
 
 namespace parquet_writer {
+
+// Exception classes for parsing errors
+class ParseError : public std::runtime_error {
+ public:
+  explicit ParseError(const std::string& message)
+      : std::runtime_error(message) {}
+};
+
+class InvalidFieldSpecError : public ParseError {
+ public:
+  explicit InvalidFieldSpecError(const std::string& field_spec)
+      : ParseError("Invalid field specification: " + field_spec) {}
+};
+
+class InvalidTypeError : public ParseError {
+ public:
+  explicit InvalidTypeError(char type_char)
+      : ParseError("Invalid type character: " + std::string(1, type_char)) {}
+};
+
+class DuplicateFieldError : public ParseError {
+ public:
+  explicit DuplicateFieldError(const std::string& field_name)
+      : ParseError("Duplicate field name: " + field_name) {}
+};
+
+class DelimiterNotFoundError : public ParseError {
+ public:
+  explicit DelimiterNotFoundError(const std::string& field_spec, char delimiter)
+      : ParseError("Delimiter '" + std::string(1, delimiter) +
+                   "' not found in: " + field_spec) {}
+};
 
 // Type definitions
 using metall_series_type = std::variant<std::monostate, bool, int64_t, uint64_t,
@@ -91,7 +124,7 @@ class ParquetWriter {
  private:
   std::string                                  filename_;
   std::vector<std::string>                     field_names_;
-  std::unordered_map<std::string, Metall_Type> name_to_type_;
+  std::vector<Metall_Type>                     field_types_;
   std::shared_ptr<arrow::Schema>               schema_;
   std::shared_ptr<arrow::io::FileOutputStream> outfile_;
   std::unique_ptr<parquet::arrow::FileWriter>  writer_;
