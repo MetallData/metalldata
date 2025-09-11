@@ -23,4 +23,13 @@ target_link_libraries(test_parquet_writer_simple PUBLIC
 
 # Enable testing and add test
 enable_testing()
+
+# Main comprehensive test
 add_test(NAME ParquetWriter_Tests COMMAND test_parquet_writer_simple)
+
+# Set test properties
+set_tests_properties(ParquetWriter_Tests PROPERTIES
+    TIMEOUT 30
+    LABELS "parquet;writer;unit;comprehensive"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
