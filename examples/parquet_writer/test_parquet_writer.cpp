@@ -257,7 +257,49 @@ void test_mixed_nulls() {
   }
 }
 
-// Test function 9: Error handling
+// Test function 9: Efficient write row with batching
+void test_write_row_batching() {
+  std::cout << "Testing write_row with batching..." << std::endl;
+
+  try {
+    std::vector<std::string> field_specs = {"id:i", "name:s", "value:f"};
+    const size_t             batch_size  = 3;
+    ParquetWriter writer("test_efficient_batch.parquet", field_specs, ':',
+                         batch_size);
+    assert(writer.is_valid());
+
+    // Write several rows using write_row with small batch size
+
+    // First batch (should not flush yet)
+    auto status1 = writer.write_row({int64_t(1), "row1", 1.1});
+    assert(status1.ok());
+
+    auto status2 = writer.write_row({int64_t(2), "row2", 2.2});
+    assert(status2.ok());
+
+    // Third row should trigger flush
+    auto status3 = writer.write_row({int64_t(3), "row3", 3.3});
+    assert(status3.ok());
+
+    // Add one more row that won't flush automatically
+    auto status4 = writer.write_row({int64_t(4), "row4", 4.4});
+    assert(status4.ok());
+
+    // Manual flush to get the remaining row
+    auto flush_status = writer.flush();
+    assert(flush_status.ok());
+
+    auto close_status = writer.close();
+    assert(close_status.ok());
+
+    std::cout << "✓ Write row batching test passed" << std::endl;
+  } catch (const std::exception& e) {
+    std::cerr << "✗ Efficient write row test failed: " << e.what() << std::endl;
+    assert(false);
+  }
+}
+
+// Test function 10: Error handling
 void test_error_handling() {
   std::cout << "Testing error handling..." << std::endl;
 
@@ -370,7 +412,8 @@ void cleanup_test_files() {
       "test_nulls.parquet",          "test_dataframe.parquet",
       "test_optional_nulls.parquet", "test_multiple_same_type.parquet",
       "test_all_types.parquet",      "test_bulk_write.parquet",
-      "test_mixed_nulls.parquet",    "test_invalid.parquet",
+      "test_mixed_nulls.parquet",    "test_efficient_batch.parquet",
+      "test_large_dataset.parquet",  "test_invalid.parquet",
       "test_mismatch.parquet",       "test_type_mismatch.parquet",
       "test_move1.parquet",          "test_move2.parquet",
       "test_move3.parquet",          "test_string_spec1.parquet",
@@ -433,6 +476,55 @@ void test_exception_handling() {
   std::cout << "✓ Exception handling test passed" << std::endl;
 }
 
+// Test function: Large dataset with multiple row groups
+void test_large_dataset_with_row_groups() {
+  std::cout << "Testing large dataset with multiple row groups..." << std::endl;
+
+  std::vector<std::string> field_specs = {
+      "id:i",     // int64_t
+      "score:f",  // double
+      "name:s",   // string
+      "active:b"  // bool
+  };
+
+  try {
+    // Create writer with batch size of 100 (will create multiple row groups)
+    ParquetWriter writer("test_large_dataset.parquet", field_specs, ':', 100);
+    assert(writer.is_valid());
+
+    // Generate 450 rows of test data (should create 5 row groups: 4 full + 1
+    // partial)
+    const int total_rows = 450;
+
+    for (int i = 0; i < total_rows; ++i) {
+      int64_t     id     = i + 1;
+      double      score  = 85.5 + (i % 15);  // Scores from 85.5 to 99.5
+      std::string name   = "User" + std::to_string(i + 1);
+      bool        active = (i % 3) != 0;  // ~67% active users
+
+      auto status = writer.write_row(id, score, name, active);
+      assert(status.ok());
+    }
+
+    // Ensure all data is written
+    auto close_status = writer.close();
+    assert(close_status.ok());
+
+    // Verify the file exists and has reasonable size
+    assert(std::filesystem::exists("test_large_dataset.parquet"));
+    auto file_size = std::filesystem::file_size("test_large_dataset.parquet");
+    assert(file_size > 1000);  // Should be at least 1KB for 450 rows
+
+    std::cout << "✓ Large dataset test passed (wrote " << total_rows
+              << " rows with batch size 100, file size: " << file_size
+              << " bytes)" << std::endl;
+
+  } catch (const std::exception& e) {
+    std::cerr << "✗ Large dataset test failed: " << e.what() << std::endl;
+    assert(false);
+  }
+}
+
 int main() {
   std::cout << "Running ParquetWriter tests..." << std::endl;
 
@@ -447,6 +539,8 @@ int main() {
     test_all_data_types();
     test_bulk_write();
     test_mixed_nulls();
+    test_write_row_batching();
+    test_large_dataset_with_row_groups();
 
     // Robustness tests
     test_error_handling();

@@ -1,9 +1,13 @@
 #pragma once
 
+#include "mframe_bench.hpp"
 #include "subcommand.hpp"
-#include <iostream>
+#include "ygm/container/set.hpp"
 
+#include <metall/metall.hpp>
+#include <metall/utility/metall_mpi_adaptor.hpp>
 #include <ygm/comm.hpp>
+#include <ygm/io/parquet_parser.hpp>
 
 class distinct_cmd : public base_subcommand {
  public:
@@ -98,7 +102,7 @@ class distinct_cmd : public base_subcommand {
         }
       }
       if (not col_found) {
-        comm.cerr("Unkown column name: ", series);
+        comm.cerr("Unknown column name: ", series);
         return 1;
       }
       ygm::container::set<std::string> distinct_strings(comm);

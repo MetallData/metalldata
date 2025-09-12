@@ -26,49 +26,54 @@ const std::unordered_map<Metall_Type, std::shared_ptr<arrow::DataType>>
                             {Metall_Type::Double, arrow::float64()},
                             {Metall_Type::String, arrow::utf8()}};
 
-// Simple helper to append a value to the appropriate builder type
-arrow::Status append_value_to_builder(arrow::ArrayBuilder*      builder,
-                                      const metall_series_type& value,
-                                      Metall_Type               expected_type) {
-  if (std::holds_alternative<std::monostate>(value)) {
-    return builder->AppendNull();
-  }
-
+// Helper to validate that variant type matches expected column type
+bool validate_variant_type(const metall_series_type& value,
+                           Metall_Type               expected_type) {
   switch (expected_type) {
     case Metall_Type::Bool:
-      if (std::holds_alternative<bool>(value)) {
-        return static_cast<arrow::BooleanBuilder*>(builder)->Append(
-            std::get<bool>(value));
-      }
-      break;
+      return std::holds_alternative<bool>(value) ||
+             std::holds_alternative<std::monostate>(value);
     case Metall_Type::Int64:
-      if (std::holds_alternative<int64_t>(value)) {
-        return static_cast<arrow::Int64Builder*>(builder)->Append(
-            std::get<int64_t>(value));
-      }
-      break;
+      return std::holds_alternative<int64_t>(value) ||
+             std::holds_alternative<std::monostate>(value);
     case Metall_Type::UInt64:
-      if (std::holds_alternative<uint64_t>(value)) {
-        return static_cast<arrow::UInt64Builder*>(builder)->Append(
-            std::get<uint64_t>(value));
-      }
-      break;
+      return std::holds_alternative<uint64_t>(value) ||
+             std::holds_alternative<std::monostate>(value);
     case Metall_Type::Double:
-      if (std::holds_alternative<double>(value)) {
-        return static_cast<arrow::DoubleBuilder*>(builder)->Append(
-            std::get<double>(value));
-      }
-      break;
+      return std::holds_alternative<double>(value) ||
+             std::holds_alternative<std::monostate>(value);
     case Metall_Type::String:
-      if (std::holds_alternative<std::string_view>(value)) {
-        auto sv = std::get<std::string_view>(value);
-        return static_cast<arrow::StringBuilder*>(builder)->Append(sv.data(),
-                                                                   sv.size());
-      }
-      break;
+      return std::holds_alternative<std::string_view>(value) ||
+             std::holds_alternative<std::monostate>(value);
   }
-  return arrow::Status::Invalid(
-      "Type mismatch - variant type doesn't match expected builder type");
+  return false;
+}
+
+// Simple helper to append a value to the appropriate builder type
+arrow::Status append_value_to_builder(arrow::ArrayBuilder*      builder,
+                                      const metall_series_type& value) {
+  return std::visit(
+      [builder](const auto& val) -> arrow::Status {
+        using T = std::decay_t<decltype(val)>;
+
+        if constexpr (std::is_same_v<T, std::monostate>) {
+          return builder->AppendNull();
+        } else if constexpr (std::is_same_v<T, bool>) {
+          return static_cast<arrow::BooleanBuilder*>(builder)->Append(val);
+        } else if constexpr (std::is_same_v<T, int64_t>) {
+          return static_cast<arrow::Int64Builder*>(builder)->Append(val);
+        } else if constexpr (std::is_same_v<T, uint64_t>) {
+          return static_cast<arrow::UInt64Builder*>(builder)->Append(val);
+        } else if constexpr (std::is_same_v<T, double>) {
+          return static_cast<arrow::DoubleBuilder*>(builder)->Append(val);
+        } else if constexpr (std::is_same_v<T, std::string_view>) {
+          return static_cast<arrow::StringBuilder*>(builder)->Append(
+              val.data(), val.size());
+        } else {
+          return arrow::Status::Invalid("Unsupported variant type");
+        }
+      },
+      value);
 }
 
 std::pair<std::vector<std::string>, name_to_type> parse_field_types(
@@ -152,8 +157,8 @@ static std::vector<std::string> parse_field_types_str(
 
 ParquetWriter::ParquetWriter(const std::string&              filename,
                              const std::vector<std::string>& fields_with_type,
-                             char                            delimiter)
-    : filename_(filename), is_valid_(false) {
+                             char delimiter, size_t batch_size)
+    : filename_(filename), batch_size_(batch_size), is_valid_(false) {
   try {
     // Parse the field names and types using the existing function
     auto [field_names, name_type_map] =
@@ -167,17 +172,33 @@ ParquetWriter::ParquetWriter(const std::string&              filename,
       field_types_.push_back(name_type_map[field_name]);
     }
 
-    // Initialize builders for all fields
-    type_builders_.emplace(Metall_Type::Bool,
-                           std::make_unique<arrow::BooleanBuilder>());
-    type_builders_.emplace(Metall_Type::Int64,
-                           std::make_unique<arrow::Int64Builder>());
-    type_builders_.emplace(Metall_Type::UInt64,
-                           std::make_unique<arrow::UInt64Builder>());
-    type_builders_.emplace(Metall_Type::Double,
-                           std::make_unique<arrow::DoubleBuilder>());
-    type_builders_.emplace(Metall_Type::String,
-                           std::make_unique<arrow::StringBuilder>());
+    // Initialize builders for each column
+    column_builders_.reserve(field_names_.size());
+    for (size_t i = 0; i < field_names_.size(); ++i) {
+      Metall_Type field_type = field_types_[i];
+      switch (field_type) {
+        case Metall_Type::Bool:
+          column_builders_.emplace_back(
+              std::make_unique<arrow::BooleanBuilder>());
+          break;
+        case Metall_Type::Int64:
+          column_builders_.emplace_back(
+              std::make_unique<arrow::Int64Builder>());
+          break;
+        case Metall_Type::UInt64:
+          column_builders_.emplace_back(
+              std::make_unique<arrow::UInt64Builder>());
+          break;
+        case Metall_Type::Double:
+          column_builders_.emplace_back(
+              std::make_unique<arrow::DoubleBuilder>());
+          break;
+        case Metall_Type::String:
+          column_builders_.emplace_back(
+              std::make_unique<arrow::StringBuilder>());
+          break;
+      }
+    }
 
     auto status = initialize();
     if (!status.ok()) {
@@ -192,9 +213,10 @@ ParquetWriter::ParquetWriter(const std::string&              filename,
 
 ParquetWriter::ParquetWriter(const std::string& filename,
                              const std::string& fields_with_type_str,
-                             char               delimeter)
-    : ParquetWriter::ParquetWriter(
-          filename, parse_field_types_str(fields_with_type_str), delimeter) {};
+                             char delimeter, size_t batch_size)
+    : ParquetWriter::ParquetWriter(filename,
+                                   parse_field_types_str(fields_with_type_str),
+                                   delimeter, batch_size) {};
 
 ParquetWriter::ParquetWriter(ParquetWriter&& other) noexcept
     : filename_(std::move(other.filename_)),
@@ -203,7 +225,8 @@ ParquetWriter::ParquetWriter(ParquetWriter&& other) noexcept
       schema_(std::move(other.schema_)),
       outfile_(std::move(other.outfile_)),
       writer_(std::move(other.writer_)),
-      type_builders_(std::move(other.type_builders_)),
+      column_builders_(std::move(other.column_builders_)),
+      batch_size_(other.batch_size_),
       is_valid_(other.is_valid_) {
   other.is_valid_ = false;
 }
@@ -215,14 +238,15 @@ ParquetWriter& ParquetWriter::operator=(ParquetWriter&& other) noexcept {
       (void)close();  // Ignore return value in destructor
     }
 
-    filename_     = std::move(other.filename_);
-    field_names_  = std::move(other.field_names_);
-    field_types_   = std::move(other.field_types_);
-    schema_       = std::move(other.schema_);
-    outfile_      = std::move(other.outfile_);
-    writer_       = std::move(other.writer_);
-    type_builders_ = std::move(other.type_builders_);
-    is_valid_     = other.is_valid_;
+    filename_        = std::move(other.filename_);
+    field_names_     = std::move(other.field_names_);
+    field_types_     = std::move(other.field_types_);
+    schema_          = std::move(other.schema_);
+    outfile_         = std::move(other.outfile_);
+    writer_          = std::move(other.writer_);
+    column_builders_ = std::move(other.column_builders_);
+    batch_size_      = other.batch_size_;
+    is_valid_        = other.is_valid_;
 
     other.is_valid_ = false;
   }
@@ -238,6 +262,8 @@ ParquetWriter::~ParquetWriter() {
 bool ParquetWriter::is_valid() const { return is_valid_; }
 
 const std::string& ParquetWriter::get_filename() const { return filename_; }
+
+size_t ParquetWriter::get_batch_size() const { return batch_size_; }
 
 arrow::Status ParquetWriter::initialize() {
   std::vector<std::shared_ptr<arrow::Field>> fields;
@@ -270,49 +296,6 @@ arrow::Status ParquetWriter::initialize() {
   return arrow::Status::OK();
 }
 
-arrow::Status ParquetWriter::write_row(
-    const std::vector<metall_series_type>& row) {
-  if (!is_valid_) {
-    return arrow::Status::Invalid("Writer is not valid");
-  }
-
-  if (row.size() != field_names_.size()) {
-    return arrow::Status::Invalid("Row size does not match number of fields");
-  }
-
-  std::vector<std::shared_ptr<arrow::Array>> arrays;
-  arrays.reserve(field_names_.size());
-
-  for (size_t i = 0; i < field_names_.size(); ++i) {
-    const auto& field_name = field_names_[i];
-    const auto& value      = row[i];
-
-    // Use pre-computed field type instead of map lookup
-    Metall_Type expected_type = field_types_[i];
-
-    // Get reusable builder and reset it
-    auto* builder = type_builders_.at(expected_type).get();
-    builder->Reset();
-
-    std::shared_ptr<arrow::Array> array;
-
-    // Use simple helper function
-    auto status = append_value_to_builder(builder, value, expected_type);
-    if (!status.ok()) {
-      return arrow::Status::Invalid("Error in field '" + field_name +
-                                    "': " + status.message());
-    }
-    ARROW_ASSIGN_OR_RAISE(array, builder->Finish());
-
-    arrays.push_back(array);
-  }
-
-  auto table = arrow::Table::Make(schema_, arrays, 1);
-  ARROW_RETURN_NOT_OK(writer_->WriteTable(*table));
-
-  return arrow::Status::OK();
-}
-
 arrow::Status ParquetWriter::write_rows(
     const std::vector<std::vector<metall_series_type>>& rows) {
   if (!is_valid_) {
@@ -323,50 +306,84 @@ arrow::Status ParquetWriter::write_rows(
     return arrow::Status::OK();
   }
 
-  const size_t num_rows = rows.size();
-  const size_t num_cols = field_names_.size();
-
-  // Validate all rows have the correct number of columns
+  // Write each row using the efficient write_row method
   for (const auto& row : rows) {
-    if (row.size() != num_cols) {
-      return arrow::Status::Invalid("Row size does not match number of fields");
+    ARROW_RETURN_NOT_OK(write_row(row));
+  }
+
+  return arrow::Status::OK();
+}
+
+arrow::Status ParquetWriter::write_row(
+    const std::vector<metall_series_type>& row) {
+  if (!is_valid_) {
+    return arrow::Status::Invalid("ParquetWriter is not valid");
+  }
+
+  if (row.size() != field_names_.size()) {
+    return arrow::Status::Invalid(
+        "Row size (" + std::to_string(row.size()) +
+        ") does not match expected number of fields (" +
+        std::to_string(field_names_.size()) + ")");
+  }
+
+  // Append each column value directly to its builder
+  for (size_t col = 0; col < row.size(); ++col) {
+    const auto& value         = row[col];
+    Metall_Type expected_type = field_types_[col];
+    auto*       builder       = column_builders_[col].get();
+
+    // Validate that variant type matches expected column type
+    if (!validate_variant_type(value, expected_type)) {
+      return arrow::Status::Invalid(
+          "Type mismatch in field '" + field_names_[col] +
+          "': variant type doesn't match expected column type");
+    }
+
+    auto status = append_value_to_builder(builder, value);
+    if (!status.ok()) {
+      return arrow::Status::Invalid("Error in field '" + field_names_[col] +
+                                    "': " + status.message());
     }
   }
 
+  // Check if the first builder has reached the batch size and flush if so
+  if (column_builders_[0]->length() >= static_cast<int64_t>(batch_size_)) {
+    return flush();
+  }
+
+  return arrow::Status::OK();
+}
+
+arrow::Status ParquetWriter::flush() {
+  if (!is_valid_) {
+    return arrow::Status::Invalid("ParquetWriter is not valid");
+  }
+
+  // Check if there's anything to flush
+  if (column_builders_.empty() || column_builders_[0]->length() == 0) {
+    return arrow::Status::OK();
+  }
+
+  // Build arrays from the current builder state
   std::vector<std::shared_ptr<arrow::Array>> arrays;
-  arrays.reserve(num_cols);
+  arrays.reserve(column_builders_.size());
 
-  // Process each column
-  for (size_t col = 0; col < num_cols; ++col) {
-    const auto& field_name = field_names_[col];
-
-    Metall_Type expected_type = field_types_[col];
-
+  for (auto& builder : column_builders_) {
     std::shared_ptr<arrow::Array> array;
-
-    // Get the existing builder and reset it
-    auto* builder = type_builders_.at(expected_type).get();
-    builder->Reset();
-    ARROW_RETURN_NOT_OK(builder->Reserve(num_rows));
-
-    // Process all rows for this column using the same helper
-    for (size_t row_idx = 0; row_idx < num_rows; ++row_idx) {
-      auto status =
-          append_value_to_builder(builder, rows[row_idx][col], expected_type);
-      if (!status.ok()) {
-        return arrow::Status::Invalid("Error in field '" + field_name +
-                                      "' at row " + std::to_string(row_idx) +
-                                      ": " + status.message());
-      }
-    }
-
     ARROW_ASSIGN_OR_RAISE(array, builder->Finish());
-
     arrays.push_back(array);
   }
 
-  auto table = arrow::Table::Make(schema_, arrays, num_rows);
+  // Create table and write it as a row group to the Parquet file
+  int64_t num_rows = arrays.empty() ? 0 : arrays[0]->length();
+  auto    table    = arrow::Table::Make(schema_, arrays, num_rows);
   ARROW_RETURN_NOT_OK(writer_->WriteTable(*table));
+
+  // Reset all builders for the next batch
+  for (auto& builder : column_builders_) {
+    builder->Reset();
+  }
 
   return arrow::Status::OK();
 }
@@ -374,6 +391,12 @@ arrow::Status ParquetWriter::write_rows(
 arrow::Status ParquetWriter::close() {
   if (!is_valid_) {
     return arrow::Status::OK();
+  }
+
+  // Flush any remaining rows in the batch
+  auto flush_status = flush();
+  if (!flush_status.ok()) {
+    return flush_status;
   }
 
   arrow::Status status = arrow::Status::OK();

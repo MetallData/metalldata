@@ -84,10 +84,11 @@ class ParquetWriter {
   // 's'=string
   ParquetWriter(const std::string&              filename,
                 const std::vector<std::string>& fields_with_type,
-                char                            delimiter = ':');
+                char delimiter = ':', size_t batch_size = 1000000);
 
   ParquetWriter(const std::string& filename,
-                const std::string& fields_with_type_str, char delimeter = ':');
+                const std::string& fields_with_type_str, char delimeter = ':',
+                size_t batch_size = 1000000);
   // Disable copy constructor and copy assignment to prevent resource
   // duplication
   ParquetWriter(const ParquetWriter&)            = delete;
@@ -101,6 +102,7 @@ class ParquetWriter {
 
   bool               is_valid() const;
   const std::string& get_filename() const;
+  size_t             get_batch_size() const;
 
   arrow::Status write_row(const std::vector<metall_series_type>& row);
 
@@ -117,8 +119,12 @@ class ParquetWriter {
     (row.emplace_back(std::forward<Args>(rest)), ...);
     return write_row(row);
   }
+
   arrow::Status write_rows(
       const std::vector<std::vector<metall_series_type>>& rows);
+
+  arrow::Status flush();
+
   arrow::Status close();
 
  private:
@@ -128,8 +134,9 @@ class ParquetWriter {
   std::shared_ptr<arrow::Schema>               schema_;
   std::shared_ptr<arrow::io::FileOutputStream> outfile_;
   std::unique_ptr<parquet::arrow::FileWriter>  writer_;
-  std::unordered_map<Metall_Type, std::unique_ptr<arrow::ArrayBuilder>>
-       type_builders_;
+  std::vector<std::unique_ptr<arrow::ArrayBuilder>> column_builders_;
+  size_t                                            batch_size_;
+
   bool is_valid_;
 
   arrow::Status initialize();
