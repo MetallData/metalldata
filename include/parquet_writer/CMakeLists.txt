@@ -1,5 +1,5 @@
 # Create a library for the parquet writer
-add_library(parquet_writer_lib parquet_writer.cpp)
+add_library(parquet_writer_lib parquet_writer.cpp parquet_writer.hpp)
 target_link_libraries(parquet_writer_lib PUBLIC
                 Arrow::arrow_shared Parquet::parquet_shared)
 setup_metall_target(parquet_writer_lib)

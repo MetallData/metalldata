@@ -4,6 +4,7 @@
 #include "mframe_bench.hpp"
 #include "parquet_writer/parquet_writer.hpp"
 #include "subcommand.hpp"
+#include "ygm/utility/world.hpp"
 
 #include <boost/json.hpp>
 #include <boost/json/src.hpp>
@@ -12,16 +13,17 @@
 #include <ygm/comm.hpp>
 #include <string>
 #include <set>
-
+#include <format>
 #include <iostream>
+#include <optional>
 
 namespace bjsn = boost::json;
-namespace {
+namespace f2p {
 static const char* JL_PATH      = "jl_file";
 static const char* METALL_PATH  = "metall_path";
 static const char* PARQUET_PATH = "parquet_file";
 
-}  // namespace
+}  // namespace f2p
 class filter_to_parquet_cmd : public base_subcommand {
  public:
   std::string name() override { return "filter_to_parquet"; }
@@ -35,44 +37,55 @@ class filter_to_parquet_cmd : public base_subcommand {
   boost::program_options::options_description get_options() override {
     namespace po = boost::program_options;
     po::options_description od;
-    od.add_options()(METALL_PATH, po::value<std::string>(),
+    od.add_options()(f2p::METALL_PATH, po::value<std::string>(),
                      "Path to Metall storage");
-    od.add_options()(PARQUET_PATH, po::value<std::string>(),
+    od.add_options()(f2p::PARQUET_PATH, po::value<std::string>(),
                      "Name of parquet file to be created");
 
-    od.add_options()(JL_PATH, po::value<std::string>(),
+    od.add_options()(f2p::JL_PATH, po::value<std::string>(),
                      "Path to JSONLogic file (if not specified, use stdin)");
 
-    od.add_options()("parquet_schema_str", po::value<std::string>(),
+    od.add_options()("schema", po::value<std::string>(),
                      "Schema for parquet file (name:type,name:type)");
+    od.add_options()("delimiter", po::value<char>()->default_value(':'),
+                     "Delimiter for type information");
+
+    od.add_options()("batch_size",
+                     po::value<size_t>()->default_value(1'000'000),
+                     "Parquet batch size");
 
     return od;
   }
 
   std::string parse(const boost::program_options::variables_map& vm) override {
-    if (!vm.contains(METALL_PATH) || !vm.contains(PARQUET_PATH) ||
-        !vm.contains("parquet_schema_str")) {
+    if (!vm.contains(f2p::METALL_PATH) || !vm.contains(f2p::PARQUET_PATH) ||
+        !vm.contains("schema")) {
       return "Error: missing required options for subcommand";
     }
 
-    metall_path = vm[METALL_PATH].as<std::string>();
+    metall_path = vm[f2p::METALL_PATH].as<std::string>();
     if (!std::filesystem::exists(metall_path)) {
       return std::string("Not found: ") + metall_path;
     }
 
-    parquet_path = vm[PARQUET_PATH].as<std::string>();
+    parquet_path = std::format(
+        "{}_{}.parquet", vm[f2p::PARQUET_PATH].as<std::string>(), ygm::wrank());
     if (std::filesystem::exists(parquet_path)) {
       return std::string("Parquet file ") + parquet_path + "already exists";
     }
 
-    std::string parquet_schema = vm["parquet_schema"].as<std::string>();
+    std::string parquet_schema = vm["schema"].as<std::string>();
+
+    auto delim = vm["delimiter"].as<char>();
+
+    auto batch_size = vm["batch_size"].as<size_t>();
 
     bjsn::value jl;
 
-    if (!vm.contains(JL_PATH)) {
+    if (!vm.contains(f2p::JL_PATH)) {
       jl = jl::parseStream(std::cin);
     } else {
-      auto jl_file = vm["jl_file"].as<std::string>();
+      auto jl_file = vm[f2p::JL_PATH].as<std::string>();
       if (!std::filesystem::exists(jl_file)) {
         return std::string("Not found: ") + jl_file;
       }
@@ -80,8 +93,9 @@ class filter_to_parquet_cmd : public base_subcommand {
     }
     bjsn::object& alljl = jl.as_object();
     jl_rule             = alljl["rule"];
-    // STOPPED HERE 12 SEP
-    pwriter = parquet_writer::ParquetWriter() return {};
+
+    pwriter.emplace(parquet_path, parquet_schema, delim, batch_size);
+    return {};
   }
 
   int run(ygm::comm& comm) override {
@@ -98,7 +112,7 @@ class filter_to_parquet_cmd : public base_subcommand {
     std::vector<bjsn::string> vars;
     jsonlogic::any_expr       expression_rule;
 
-    pwriter = ParquetWriter() std::tie(expression_rule, vars, std::ignore) =
+    std::tie(expression_rule, vars, std::ignore) =
         jsonlogic::create_logic(jl_rule);
 
     // jsonlogic::expr*                 rawexpr = expression_rule_.release();
@@ -110,18 +124,16 @@ class filter_to_parquet_cmd : public base_subcommand {
     }
     auto series = record_store->get_series_names();
 
-    apply_jl(
-        jl_rule, *record_store,
-        [&records_to_erase](record_store_type::record_id_type index,
-                            const auto) { records_to_erase.push_back(index); });
+    auto   pwr = &pwriter.value();
+    size_t i   = 0;
+    // TODO: what should we do if there's an arrow error in write_row?
+    apply_jl(jl_rule, *record_store,
+             [pwr, &i](record_store_type::record_id_type index, const auto) {
+               auto _ = pwr->write_row(record_store->get(index));
+               i++;
+             });
 
-    comm.cout0(ygm::sum(records_to_erase.size(), comm),
-               " entries to be removed.");
-    for (size_t index : records_to_erase) {
-      record_store->remove_record(index);
-    }
-
-    records_to_erase.clear();
+    comm.cout0(i, " entries written.");
     return 0;
   }
 
@@ -129,5 +141,5 @@ class filter_to_parquet_cmd : public base_subcommand {
   std::string                   metall_path;
   std::string                   parquet_path;
   bjsn::value                   jl_rule;
-  parquet_writer::ParquetWriter pwriter;
+  std::optional<parquet_writer::ParquetWriter> pwriter;
 };

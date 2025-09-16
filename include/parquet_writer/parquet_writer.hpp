@@ -84,11 +84,11 @@ class ParquetWriter {
   // 's'=string
   ParquetWriter(const std::string&              filename,
                 const std::vector<std::string>& fields_with_type,
-                char delimiter = ':', size_t batch_size = 1000000);
+                char delimiter = ':', size_t batch_size = 1'000'000);
 
   ParquetWriter(const std::string& filename,
                 const std::string& fields_with_type_str, char delimeter = ':',
-                size_t batch_size = 1000000);
+                size_t batch_size = 1'000'000);
   // Disable copy constructor and copy assignment to prevent resource
   // duplication
   ParquetWriter(const ParquetWriter&)            = delete;
