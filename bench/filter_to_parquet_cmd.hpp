@@ -128,8 +128,11 @@ class filter_to_parquet_cmd : public base_subcommand {
     size_t i   = 0;
     // TODO: what should we do if there's an arrow error in write_row?
     apply_jl(jl_rule, *record_store,
-             [pwr, &i](record_store_type::record_id_type index, const auto) {
-               auto _ = pwr->write_row(record_store->get(index));
+             [pwr, &i](record_store_type::record_id_type index) {
+               auto st = pwr->write_row(record_store->get(index));
+               if (!st.ok()) {
+                 std::cerr << "status is bad! " << st << "\n";
+               }
                i++;
              });
 
