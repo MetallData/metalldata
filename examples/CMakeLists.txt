@@ -5,4 +5,3 @@
 #setup_metall_target(json_bento_bench)
 
 add_subdirectory(multiseries)
-add_subdirectory(parquet_writer)
