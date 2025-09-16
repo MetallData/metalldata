@@ -1,6 +1,9 @@
 #pragma once
 
+#include "metall/utility/metall_mpi_adaptor.hpp"
+#include "mframe_bench.hpp"
 #include "subcommand.hpp"
+#include "ygm/io/parquet_parser.hpp"
 #include <iostream>
 
 #include <ygm/comm.hpp>

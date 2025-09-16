@@ -7,7 +7,10 @@ function(add_gtest_executable name source)
     gtest_discover_tests(${name})
 endfunction()
 
-#add_subdirectory(json_bento)
 add_subdirectory(string_table)
 add_subdirectory(multiseries)
+
 add_subdirectory(parquet_writer)
+
+add_subdirectory(metall_graph)
+

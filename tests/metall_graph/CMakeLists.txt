@@ -1,23 +1,6 @@
-# Copyright 2020 Lawrence Livermore National Security, LLC and other CLIPPy
-# Project Developers. See the top-level COPYRIGHT file for details.
-#
-# SPDX-License-Identifier: MIT
-
-if (NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
-endif()
-
-#set(CMAKE_CXX_FLAGS_DEBUG "-Wall -Wextra -pedantic -Wno-unused-parameter -O0 -g")
-#set(CMAKE_CXX_FLAGS_RELEASE "-Wall -Wextra -O3 -march=native")
-
-# include_directories(${Boost_INCLUDE_DIRS})
-
 include_directories(${PROJECT_SOURCE_DIR}/src/MetallGraph/)
 
-
-add_library(MetallGraphLib STATIC metall_graph.cpp) 
-
-function(add_metallgraph_executable name source)
+function(add_metallgraph_test name source)
   add_executable(${name} ${source})
   add_common_compile_options(${name})
   target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include ${BOOST_INCLUDE_DIRS} ${jsonlogic_INCLUDE_DIR})
@@ -30,10 +13,8 @@ function(add_metallgraph_executable name source)
   setup_clippy_target(${name})
   setup_ygm_target(${name})
   setup_metall_target(${name})
+  # add this back in later when ready
+  #add_test(NAME ${name} COMMAND ${name}) 
 endfunction()
 
-
-
-add_metallgraph_executable(__init__ __init__.cpp)
-add_metallgraph_executable(read_edges read_edges.cpp)
-
+add_metallgraph_test(test_metall_graph test_metall_graph.cpp)
