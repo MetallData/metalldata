@@ -12,5 +12,5 @@ Commands for mframe_bench:
 ./mframe_bench gen-multiseries --metall_path data/m4 -n 10000 -s name:name -s age:
 int_percentage -s score:percentage -s uuid:uuid4
 
-./mframe_bench filter_to_parquet --metall_path=data/m4 --parquet_file=pqage --jl_file=age_filter.json --schema "name:s,age:u,score:f,uuid:s"
+./mframe_bench filter_to_parquet --metall_path=data/m4 --parquet_file=pqage --jl_file=age_filter.json
 ```

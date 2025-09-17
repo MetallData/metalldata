@@ -23,6 +23,22 @@ static const char* JL_PATH      = "jl_file";
 static const char* METALL_PATH  = "metall_path";
 static const char* PARQUET_PATH = "parquet_file";
 
+template <typename T>
+constexpr std::optional<char> get_type_char() {
+  if constexpr (std::is_same_v<T, int64_t>)
+    return 'i';
+  else if constexpr (std::is_same_v<T, uint64_t>)
+    return 'u';
+  else if constexpr (std::is_same_v<T, std::string_view>)
+    return 's';
+  else if constexpr (std::is_same_v<T, double>)
+    return 'f';
+  else if constexpr (std::is_same_v<T, bool>)
+    return 'b';
+  else
+    return std::nullopt;  // this includes monostate
+}
+
 }  // namespace f2p
 class filter_to_parquet_cmd : public base_subcommand {
  public:
@@ -45,21 +61,21 @@ class filter_to_parquet_cmd : public base_subcommand {
     od.add_options()(f2p::JL_PATH, po::value<std::string>(),
                      "Path to JSONLogic file (if not specified, use stdin)");
 
-    od.add_options()("schema", po::value<std::string>(),
-                     "Schema for parquet file (name:type,name:type)");
-    od.add_options()("delimiter", po::value<char>()->default_value(':'),
-                     "Delimiter for type information");
+    // od.add_options()("schema", po::value<std::string>(),
+    //                  "Schema for parquet file (name:type,name:type)");
+    // od.add_options()("delimiter", po::value<char>()->default_value(':'),
+    //                  "Delimiter for type information");
 
     od.add_options()("batch_size",
                      po::value<size_t>()->default_value(1'000'000),
                      "Parquet batch size");
 
+    std::cerr << "exiting get_options\n";
     return od;
   }
 
   std::string parse(const boost::program_options::variables_map& vm) override {
-    if (!vm.contains(f2p::METALL_PATH) || !vm.contains(f2p::PARQUET_PATH) ||
-        !vm.contains("schema")) {
+    if (!vm.contains(f2p::METALL_PATH) || !vm.contains(f2p::PARQUET_PATH)) {
       return "Error: missing required options for subcommand";
     }
 
@@ -68,18 +84,19 @@ class filter_to_parquet_cmd : public base_subcommand {
       return std::string("Not found: ") + metall_path;
     }
 
+    std::cerr << "past metall_path\n";
     parquet_path = std::format(
         "{}_{}.parquet", vm[f2p::PARQUET_PATH].as<std::string>(), ygm::wrank());
     if (std::filesystem::exists(parquet_path)) {
       return std::string("Parquet file ") + parquet_path + "already exists";
     }
+    std::cerr << "past parquet_path\n";
+    // std::string parquet_schema = vm["schema"].as<std::string>();
 
-    std::string parquet_schema = vm["schema"].as<std::string>();
+    // auto delim = vm["delimiter"].as<char>();
 
-    auto delim = vm["delimiter"].as<char>();
-
-    auto batch_size = vm["batch_size"].as<size_t>();
-
+    batch_size = vm["batch_size"].as<size_t>();
+    std::cerr << "past batch_size\n";
     bjsn::value jl;
 
     if (!vm.contains(f2p::JL_PATH)) {
@@ -94,7 +111,7 @@ class filter_to_parquet_cmd : public base_subcommand {
     bjsn::object& alljl = jl.as_object();
     jl_rule             = alljl["rule"];
 
-    pwriter.emplace(parquet_path, parquet_schema, delim, batch_size);
+    std::cerr << "exiting parse\n";
     return {};
   }
 
@@ -105,6 +122,49 @@ class filter_to_parquet_cmd : public base_subcommand {
 
     static auto* record_store =
         manager.find<record_store_type>(metall::unique_instance).first;
+    if (!pwriter) {
+      std::vector<std::string> series_names = record_store->get_series_names();
+      std::vector<char>        series_types;
+      series_types.reserve(series_names.size());
+
+      if (record_store->num_records() <= 0) {
+        return 0;  // TODO: this should probably be an error
+      }
+      if (!record_store->contains_record(0)) {
+        comm.cerr0("No record found; aborting\n");
+        return 0;  // TODO: this should definitely be more robust
+      }
+
+      for (const auto& name : series_names) {
+        record_store->visit_field(name, 0, [&series_types](const auto& value) {
+          using T = std::decay_t<decltype(value)>;
+          if (auto series_type = f2p::get_type_char<T>()) {
+            // series_type is not nullopt at this point
+            series_types.push_back(*series_type);
+          }
+        });
+      }
+      if (series_types.size() != series_names.size()) {  // we're missing types.
+        comm.cerr0("Missing types; aborting\n");
+        return 0;
+      }
+      std::vector<std::string> parquet_schema;
+      for (size_t i = 0; i < series_types.size(); ++i) {
+        parquet_schema.push_back(
+            std::format("{}:{}", series_names[i], series_types[i]));
+      }
+
+      std::string parquet_schema_str;
+      for (size_t i = 0; i < parquet_schema.size(); ++i) {
+        if (i > 0) parquet_schema_str += ", ";
+        parquet_schema_str += parquet_schema[i];
+      }
+
+      comm.cout0("parquet_schema: ", parquet_schema_str);
+
+      pwriter.emplace(parquet_path, parquet_schema, ':', batch_size);
+    }
+
     comm.cf_barrier();
 
     // std::vector<size_t> records_to_erase;
@@ -146,4 +206,5 @@ class filter_to_parquet_cmd : public base_subcommand {
   std::string                   parquet_path;
   bjsn::value                   jl_rule;
   std::optional<parquet_writer::ParquetWriter> pwriter;
+  size_t                                       batch_size;
 };
