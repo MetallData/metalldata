@@ -12,16 +12,16 @@
 #include <jsonlogic/src.hpp>
 #include <ygm/comm.hpp>
 #include <string>
-#include <set>
+#include <unordered_map>
 #include <format>
 #include <iostream>
 #include <optional>
 
 namespace bjsn = boost::json;
 namespace f2p {
-static const char* JL_PATH      = "jl_file";
 static const char* METALL_PATH  = "metall_path";
 static const char* PARQUET_PATH = "parquet_file";
+static const char* JL_PATH      = "jl_file";
 
 template <typename T>
 constexpr std::optional<char> get_type_char() {
@@ -70,7 +70,6 @@ class filter_to_parquet_cmd : public base_subcommand {
                      po::value<size_t>()->default_value(1'000'000),
                      "Parquet batch size");
 
-    std::cerr << "exiting get_options\n";
     return od;
   }
 
@@ -81,22 +80,17 @@ class filter_to_parquet_cmd : public base_subcommand {
 
     metall_path = vm[f2p::METALL_PATH].as<std::string>();
     if (!std::filesystem::exists(metall_path)) {
-      return std::string("Not found: ") + metall_path;
+      return std::format("Not found: {}", metall_path);
     }
 
-    std::cerr << "past metall_path\n";
     parquet_path = std::format(
         "{}_{}.parquet", vm[f2p::PARQUET_PATH].as<std::string>(), ygm::wrank());
     if (std::filesystem::exists(parquet_path)) {
-      return std::string("Parquet file ") + parquet_path + "already exists";
+      return std::format("Parquet file {} already exists", parquet_path);
     }
-    std::cerr << "past parquet_path\n";
-    // std::string parquet_schema = vm["schema"].as<std::string>();
-
-    // auto delim = vm["delimiter"].as<char>();
 
     batch_size = vm["batch_size"].as<size_t>();
-    std::cerr << "past batch_size\n";
+
     bjsn::value jl;
 
     if (!vm.contains(f2p::JL_PATH)) {
@@ -104,14 +98,13 @@ class filter_to_parquet_cmd : public base_subcommand {
     } else {
       auto jl_file = vm[f2p::JL_PATH].as<std::string>();
       if (!std::filesystem::exists(jl_file)) {
-        return std::string("Not found: ") + jl_file;
+        return std::format("Not found: {}", jl_file);
       }
       jl = jl::parseFile(jl_file);
     }
     bjsn::object& alljl = jl.as_object();
     jl_rule             = alljl["rule"];
 
-    std::cerr << "exiting parse\n";
     return {};
   }
 
@@ -122,52 +115,64 @@ class filter_to_parquet_cmd : public base_subcommand {
 
     static auto* record_store =
         manager.find<record_store_type>(metall::unique_instance).first;
-    if (!pwriter) {
+    if (!pwriter) {  // lazily compute the schema.
       std::vector<std::string> series_names = record_store->get_series_names();
       std::vector<char>        series_types;
       series_types.reserve(series_names.size());
 
-      if (record_store->num_records() <= 0) {
+      if (record_store->num_records() <= 0) {  // no records!
         return 0;  // TODO: this should probably be an error
       }
-      if (!record_store->contains_record(0)) {
-        comm.cerr0("No record found; aborting\n");
-        return 0;  // TODO: this should definitely be more robust
-      }
 
-      for (const auto& name : series_names) {
-        record_store->visit_field(name, 0, [&series_types](const auto& value) {
-          using T = std::decay_t<decltype(value)>;
-          if (auto series_type = f2p::get_type_char<T>()) {
-            // series_type is not nullopt at this point
-            series_types.push_back(*series_type);
-          }
-        });
-      }
-      if (series_types.size() != series_names.size()) {  // we're missing types.
-        comm.cerr0("Missing types; aborting\n");
+      std::unordered_map<std::string, char> name_to_type{};
+      record_store->for_all_dynamic(
+          // for each row, we check each series value. If we can
+          // determine its type (that is, it's not monostate/null), then
+          // we add it to the name_to_type map. Once we have all the series
+          // types, we exit early. If we exit without getting all the types,
+          // we exit. (TODO: This should be an error, probably.)
+          [&name_to_type, &series_names](size_t index, auto) {
+            for (const auto& name : series_names) {
+              // try to get the type of the series value.
+              record_store->visit_field(
+                  name, index,
+                  [&name_to_type, &series_names, &name](const auto& value) {
+                    using T = std::decay_t<decltype(value)>;
+                    if (auto series_type = f2p::get_type_char<T>()) {
+                      // series_type is not nullopt - we have a type.
+                      name_to_type[name] = *series_type;
+                      if (name_to_type.size() == series_names.size()) {
+                        // we've got all the types. Let's exit early.
+                        return;
+                      }
+                    }
+                  });
+            }
+          });
+      if (name_to_type.size() != series_names.size()) {
+        comm.cerr0("Missing types; aborting");
         return 0;
       }
       std::vector<std::string> parquet_schema;
-      for (size_t i = 0; i < series_types.size(); ++i) {
+      for (const auto& name : series_names) {
         parquet_schema.push_back(
-            std::format("{}:{}", series_names[i], series_types[i]));
+            std::format("{}:{}", name, name_to_type[name]));
       }
 
+      //////////////////////////////////////////////////////////
+      // This is just for diagnostics; we can get rid of it.
       std::string parquet_schema_str;
       for (size_t i = 0; i < parquet_schema.size(); ++i) {
         if (i > 0) parquet_schema_str += ", ";
         parquet_schema_str += parquet_schema[i];
       }
-
       comm.cout0("parquet_schema: ", parquet_schema_str);
+      //////////////////////////////////////////////////////////
 
       pwriter.emplace(parquet_path, parquet_schema, ':', batch_size);
     }
 
     comm.cf_barrier();
-
-    // std::vector<size_t> records_to_erase;
 
     std::vector<bjsn::string> vars;
     jsonlogic::any_expr       expression_rule;
@@ -188,11 +193,11 @@ class filter_to_parquet_cmd : public base_subcommand {
     size_t i   = 0;
     // TODO: what should we do if there's an arrow error in write_row?
     apply_jl(jl_rule, *record_store,
-             [pwr, &i](record_store_type::record_id_type index,
-                       const auto&                       series_values) {
+             [pwr, &i, &comm](record_store_type::record_id_type index,
+                              const auto&                       series_values) {
                auto st = pwr->write_row(series_values);
                if (!st.ok()) {
-                 std::cerr << "status is bad! " << st << "\n";
+                 comm.cerr0("status is bad: ", st);
                }
                i++;
              });
