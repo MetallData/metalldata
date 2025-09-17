@@ -211,6 +211,7 @@ function(setup_metall_target exe_name)
 endfunction()
 
 add_subdirectory(src)
+add_subdirectory(include)
 add_subdirectory(examples)
 add_subdirectory(bench)
 
