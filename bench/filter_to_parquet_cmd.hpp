@@ -24,6 +24,17 @@ static const char* PARQUET_PATH = "parquet_file";
 static const char* JL_PATH      = "jl_file";
 
 template <typename T>
+std::string join(const std::vector<T>& v, std::string_view sep = ", ") {
+  std::string out;
+  for (size_t i = 0; i < v.size(); ++i) {
+    if (i > 0) out += sep;
+    std::format_to(std::back_inserter(out), "{}",
+                   v[i]);  // No intermediate string
+  }
+  return out;
+}
+
+template <typename T>
 constexpr std::optional<char> get_type_char() {
   if constexpr (std::is_same_v<T, int64_t>)
     return 'i';
@@ -117,8 +128,6 @@ class filter_to_parquet_cmd : public base_subcommand {
         manager.find<record_store_type>(metall::unique_instance).first;
     if (!pwriter) {  // lazily compute the schema.
       std::vector<std::string> series_names = record_store->get_series_names();
-      std::vector<char>        series_types;
-      series_types.reserve(series_names.size());
 
       if (record_store->num_records() <= 0) {  // no records!
         return 0;  // TODO: this should probably be an error
@@ -150,7 +159,16 @@ class filter_to_parquet_cmd : public base_subcommand {
             }
           });
       if (name_to_type.size() != series_names.size()) {
-        comm.cerr0("Missing types; aborting");
+        std::vector<std::string> missing_types_for;
+        for (const auto& name : series_names) {
+          if (!name_to_type.contains(name)) {
+            missing_types_for.push_back(name);
+          }
+        }
+
+        comm.cerr0(
+            std::format("Missing type information for fields {}; aborting",
+                        f2p::join(missing_types_for)));
         return 0;
       }
       std::vector<std::string> parquet_schema;
@@ -159,15 +177,7 @@ class filter_to_parquet_cmd : public base_subcommand {
             std::format("{}:{}", name, name_to_type[name]));
       }
 
-      //////////////////////////////////////////////////////////
-      // This is just for diagnostics; we can get rid of it.
-      std::string parquet_schema_str;
-      for (size_t i = 0; i < parquet_schema.size(); ++i) {
-        if (i > 0) parquet_schema_str += ", ";
-        parquet_schema_str += parquet_schema[i];
-      }
-      comm.cout0("parquet_schema: ", parquet_schema_str);
-      //////////////////////////////////////////////////////////
+      comm.cout0("parquet_schema: ", f2p::join(parquet_schema));
 
       pwriter.emplace(parquet_path, parquet_schema, ':', batch_size);
     }
