@@ -10,11 +10,13 @@
 #include <string_view>
 #include <filesystem>
 #include <cassert>
+#include <cstdint>
 
 #include <ygm/comm.hpp>
 #include <ygm/io/parquet_parser.hpp>
 
 #include "metall_graph.hpp"
+#include <fcntl.h>
 
 #include "multiseries/multiseries_record.hpp"
 
@@ -169,7 +171,7 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
                  pcol_type.equal(parquet::Type::DOUBLE)) {
         add_series_err = !add_series<double>(mapped_name);
       } else if (pcol_type.equal(parquet::Type::BYTE_ARRAY)) {
-        add_series_err = !add_series<std::string>(mapped_name);
+        add_series_err = !add_series<std::string_view>(mapped_name);
       } else {
         std::stringstream ss;
         ss << "Unsupported column type: " << schema[i].type;
@@ -193,15 +195,27 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
           for (size_t i = 0; i < meta.size(); ++i) {
             auto parquet_ser = meta[i];
             auto parquet_val = row[i];
-            if (!std::holds_alternative<std::monostate>(parquet_val)) {
-              auto metall_ser = parquet_to_metall[parquet_ser];
-              std::visit(
-                  [&metall_edges, &metall_ser, rec](const auto& parquet_val) {
-                    metall_edges->set(metall_ser, rec, parquet_val);
-                  },
-                  parquet_val);
-            }  // for loop
-          }  // if holds_alternative
+
+            auto metall_ser = parquet_to_metall[parquet_ser];
+            auto add_val    = [&](const auto& val) {
+              using T = std::decay_t<decltype(val)>;
+
+              if constexpr (std::is_same_v<T, std::monostate>) {
+                // do nothing
+              } else if constexpr (std::is_same_v<T, int>) {
+                metall_edges->set(metall_ser, rec, static_cast<int64_t>(val));
+              } else if constexpr (std::is_same_v<T, long>) {
+                metall_edges->set(metall_ser, rec, static_cast<int64_t>(val));
+              } else if constexpr (std::is_same_v<T, float>) {
+                metall_edges->set(metall_ser, rec, static_cast<double>(val));
+              } else if constexpr (std::is_same_v<T, std::string>) {
+                metall_edges->set(metall_ser, rec, std::string_view(val));
+              } else {
+                metall_edges->set(metall_ser, rec, val);
+              };
+            };
+            std::visit(add_val, parquet_val);
+          }  // for loop
         });  // for_all
 
   }  // for schema
