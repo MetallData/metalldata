@@ -36,6 +36,8 @@ class metall_graph {
  public:
   using data_types =
       std::variant<size_t, double, bool, std::string, std::monostate>;
+  const char* U_COL = "edge.__u";
+  const char* V_COL = "edge.__v";
 
   /**
    * @brief Return code struct for methods
@@ -81,8 +83,17 @@ class metall_graph {
 
   bool drop_series(std::string_view name);
 
-  bool has_series(std::string_view name);
+  bool has_node_series(std::string_view name) const {
+    return m_pnodes->contains_series(name);
+  };
 
+  bool has_edge_series(std::string_view name) const {
+    return m_pdirected_edges->contains_series(name);
+  };
+
+  bool has_series(std::string_view name) const {
+    return has_node_series(name) || has_edge_series(name);
+  };
   /**
    * @brief Determines if the metall_graph is in good condition
    *
@@ -179,6 +190,9 @@ class metall_graph {
   using record_store_type = multiseries::basic_record_store<
       metall::manager::allocator_type<std::byte>>;
   using string_store_type = record_store_type::string_store_type;
+
+  using string_type =
+      bc::basic_string<char, std::char_traits<char>, other_allocator<char>>;
 
   /// Dataframe for vertex metadata
   record_store_type* m_pnodes = nullptr;
