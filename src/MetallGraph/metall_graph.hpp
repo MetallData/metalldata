@@ -191,9 +191,6 @@ class metall_graph {
       metall::manager::allocator_type<std::byte>>;
   using string_store_type = record_store_type::string_store_type;
 
-  using string_type =
-      bc::basic_string<char, std::char_traits<char>, other_allocator<char>>;
-
   /// Dataframe for vertex metadata
   record_store_type* m_pnodes = nullptr;
   /// Dataframe for directed edges
