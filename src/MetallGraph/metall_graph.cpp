@@ -28,32 +28,42 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
   //
   // Check if metall store already exists and overwrite if requested
   bool path_exists = std::filesystem::exists(path);
-  if (path_exists) {
+  if (!path_exists || overwrite) {
     if (overwrite) {
       std::filesystem::remove_all(path);
     }
     comm.barrier();
     m_pmetall_mpi = new metall::utility::metall_mpi_adaptor(
-        metall::create_only, m_metall_path, m_comm.get_mpi_comm());
+      metall::create_only, m_metall_path, m_comm.get_mpi_comm());
     auto& manager = m_pmetall_mpi->get_local_manager();
 
     auto* string_store = manager.construct<string_store_type>(
-        metall::unique_instance)(manager.get_allocator());
+      metall::unique_instance)(manager.get_allocator());
     m_pnodes = manager.construct<record_store_type>("nodes")(
-        string_store, manager.get_allocator());
+      string_store, manager.get_allocator());
     m_pdirected_edges = manager.construct<record_store_type>("dedges")(
-        string_store, manager.get_allocator());
+      string_store, manager.get_allocator());
     m_pundirected_edges = manager.construct<record_store_type>("uedges")(
-        string_store, manager.get_allocator());
+      string_store, manager.get_allocator());
   } else {  // open existing
     comm.barrier();
     m_pmetall_mpi = new metall::utility::metall_mpi_adaptor(
-        metall::create_only, m_metall_path, m_comm.get_mpi_comm());
+      metall::open_read_only, m_metall_path, m_comm.get_mpi_comm());
     auto& manager = m_pmetall_mpi->get_local_manager();
 
     m_pnodes            = manager.find<record_store_type>("nodes").first;
     m_pdirected_edges   = manager.find<record_store_type>("dedges").first;
     m_pundirected_edges = manager.find<record_store_type>("uedges").first;
+
+    if (!m_pnodes || !m_pdirected_edges || !m_pundirected_edges) {
+      m_comm.cerr0(
+        "Error: Failed to find required data structures in metall store");
+      delete m_pmetall_mpi;
+      m_pmetall_mpi       = nullptr;
+      m_pnodes            = nullptr;
+      m_pdirected_edges   = nullptr;
+      m_pundirected_edges = nullptr;
+    }
   }
 
   //
@@ -110,9 +120,8 @@ bool metall_graph::drop_series(std::string_view name) {
 }
 
 metall_graph::return_code metall_graph::ingest_parquet_edges(
-    std::string_view path, bool recursive, std::string_view col_u,
-    std::string_view col_v, bool directed,
-    const std::vector<std::string>& meta) {
+  std::string_view path, bool recursive, std::string_view col_u,
+  std::string_view col_v, bool directed, const std::vector<std::string>& meta) {
   return_code to_return;
 
   //
@@ -122,10 +131,10 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
   ygm::io::parquet_parser parquetp(m_comm, paths, recursive);
   const auto&             schema = parquetp.get_schema();
 
-  int                        ucol = -1;
-  int                        vcol = -1;
-  std::set<std::string>      metaset(meta.begin(), meta.end());
-  std::map<int, std::string> metacols;
+  int                                ucol = -1;
+  int                                vcol = -1;
+  std::set<std::string>              metaset(meta.begin(), meta.end());
+  std::map<int, std::string>         metacols;
   std::map<std::string, std::string> parquet_to_metall;
 
   std::vector<std::string> parquet_cols;
@@ -182,43 +191,42 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
         to_return.error = "Failed to add source column: " + pcol_name;
       }
     }
-
-    auto metall_edges = m_pdirected_edges;
-
-    // for each row, set the metall data.
-    parquetp.for_all(
-        meta,
-        [&meta, &parquet_to_metall, &metall_edges](
-            const std::vector<ygm::io::parquet_parser::parquet_type_variant>&
-                row) {
-          auto rec = metall_edges->add_record();
-          for (size_t i = 0; i < meta.size(); ++i) {
-            auto parquet_ser = meta[i];
-            auto parquet_val = row[i];
-
-            auto metall_ser = parquet_to_metall[parquet_ser];
-            auto add_val    = [&](const auto& val) {
-              using T = std::decay_t<decltype(val)>;
-
-              if constexpr (std::is_same_v<T, std::monostate>) {
-                // do nothing
-              } else if constexpr (std::is_same_v<T, int>) {
-                metall_edges->set(metall_ser, rec, static_cast<int64_t>(val));
-              } else if constexpr (std::is_same_v<T, long>) {
-                metall_edges->set(metall_ser, rec, static_cast<int64_t>(val));
-              } else if constexpr (std::is_same_v<T, float>) {
-                metall_edges->set(metall_ser, rec, static_cast<double>(val));
-              } else if constexpr (std::is_same_v<T, std::string>) {
-                metall_edges->set(metall_ser, rec, std::string_view(val));
-              } else {
-                metall_edges->set(metall_ser, rec, val);
-              };
-            };
-            std::visit(add_val, parquet_val);
-          }  // for loop
-        });  // for_all
-
   }  // for schema
+
+  auto metall_edges = m_pdirected_edges;
+
+  // for each row, set the metall data.
+  parquetp.for_all(
+    meta,
+    [&meta, &parquet_to_metall, &metall_edges](
+      const std::vector<ygm::io::parquet_parser::parquet_type_variant>& row) {
+      auto rec = metall_edges->add_record();
+      for (size_t i = 0; i < meta.size(); ++i) {
+        auto parquet_ser = meta[i];
+        auto parquet_val = row[i];
+
+        auto metall_ser = parquet_to_metall[parquet_ser];
+        auto add_val    = [&](const auto& val) {
+          using T = std::decay_t<decltype(val)>;
+
+          if constexpr (std::is_same_v<T, std::monostate>) {
+            // do nothing
+          } else if constexpr (std::is_same_v<T, int>) {
+            metall_edges->set(metall_ser, rec, static_cast<int64_t>(val));
+          } else if constexpr (std::is_same_v<T, long>) {
+            metall_edges->set(metall_ser, rec, static_cast<int64_t>(val));
+          } else if constexpr (std::is_same_v<T, float>) {
+            metall_edges->set(metall_ser, rec, static_cast<double>(val));
+          } else if constexpr (std::is_same_v<T, std::string>) {
+            metall_edges->set(metall_ser, rec, std::string_view(val));
+          } else {
+            metall_edges->set(metall_ser, rec, val);
+          };
+        };
+        std::visit(add_val, parquet_val);
+      }  // for loop
+    });  // for_all
+
   return to_return;
 }
 
