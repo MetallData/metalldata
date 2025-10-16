@@ -95,7 +95,8 @@ class remove_if2_cmd : public base_subcommand {
         [&records_to_erase](record_store_type::record_id_type index,
                             const auto) { records_to_erase.push_back(index); });
 
-    comm.cout0(records_to_erase.size(), " entries to be removed.");
+    comm.cout0(ygm::sum(records_to_erase.size(), comm),
+               " entries to be removed.");
     for (size_t index : records_to_erase) {
       record_store->remove_record(index);
     }

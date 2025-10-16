@@ -1,8 +1,12 @@
+#include <boost/unordered/unordered_flat_set.hpp>
+#include <boost/static_string/static_string.hpp>
 #include "metall/utility/metall_mpi_adaptor.hpp"
 #include "mframe_bench.hpp"
 #include "subcommand.hpp"
 #include "ygm/io/line_parser.hpp"
+#include "ygm/utility/timer.hpp"
 #include "ygm/utility/world.hpp"
+#include <fstream>
 #include <optional>
 #include <ygm/comm.hpp>
 
@@ -52,6 +56,7 @@ class erase_keys_cmd : public base_subcommand {
 
   int run(ygm::comm& comm) override {
     comm.cout0("Erase keys in: ", metall_path);
+    ygm::utility::timer                 erase_time;
     metall::utility::metall_mpi_adaptor mpi_adaptor(
         metall::open_only, metall_path, comm.get_mpi_comm());
     auto& manager = mpi_adaptor.get_local_manager();
@@ -75,20 +80,26 @@ class erase_keys_cmd : public base_subcommand {
       hash_key_unwrapped = {pm_hash_key->cbegin(), pm_hash_key->cend()};
     }
 
-    static std::set<std::string> keys_to_erase;
+    // static std::set<std::string> keys_to_erase;
+    using string40 = boost::static_strings::static_string<40>;
+    static boost::unordered::unordered_flat_set<string40> keys_to_erase;
     comm.cf_barrier();
-    ygm::io::line_parser lp(comm, {keys_path});
-    lp.for_all([&comm, local_partition](const std::string& line) {
-      // partition based on primary key
-      if (!local_partition) {
+    if (local_partition) {
+      std::ifstream ifs(keys_path.c_str());
+      std::string   line;
+      while (std::getline(ifs, line)) {
+        keys_to_erase.insert(string40(line));
+      }
+    } else {
+      ygm::io::line_parser lp(comm, {keys_path});
+      lp.for_all([&comm, local_partition](const std::string& line) {
+        // partition based on primary key
         int owner = make_hash(line) % comm.size();
         comm.async(
-            owner, [](std::string key) { keys_to_erase.insert(key); }, line);
-      } else {
-        comm.async_bcast([](std::string key) { keys_to_erase.insert(key); },
-                         line);
-      }
-    });
+            owner, [](std::string key) { keys_to_erase.insert(string40(key)); },
+            line);
+      });
+    }
 
     comm.barrier();
 
@@ -99,7 +110,7 @@ class erase_keys_cmd : public base_subcommand {
                 const auto                              value) {
           using T = std::decay_t<decltype(value)>;
           if constexpr (std::is_same_v<T, std::string_view>) {
-            if (keys_to_erase.contains(std::string(value))) {
+            if (keys_to_erase.contains(string40(value))) {
               records_to_erase.push_back(index);
             }
           } else {
@@ -109,17 +120,21 @@ class erase_keys_cmd : public base_subcommand {
           }
         });
 
-    comm.cout0(records_to_erase.size(), " entries to be removed.");
+    comm.barrier();
+    comm.cout0(ygm::sum(records_to_erase.size(), comm),
+               " entries to be removed.");
     for (size_t index : records_to_erase) {
       record_store->remove_record(index);
     }
     keys_to_erase.clear();
     records_to_erase.clear();
+    comm.barrier();
+    comm.cout0("Elapsed time = ", erase_time.elapsed());
     return 0;
   }
 
  private:
   std::string                metall_path;
-  std::string keys_path;
+  std::string                keys_path;
   std::optional<std::string> hash_key = std::nullopt;
 };
