@@ -110,6 +110,20 @@ inline GeneratorRegistry create_registry() {
       });
 
   registry.register_generator(
+      "int_percentage", [](record_store_type& store, size_t series_idx,
+                           record_store::record_id_type record_id) {
+        store.set<uint64_t>(series_idx, record_id,
+                            faker::number::integer<uint64_t>(100));
+      });
+
+  registry.register_generator(
+      "two_char_string",
+      [](record_store_type& store, size_t series_idx,
+         record_store::record_id_type record_id) -> void {
+        store.set<std::string_view>(series_idx, record_id,
+                                    faker::string::alpha(2));
+      });
+  registry.register_generator(
       "bool", [](record_store_type& store, size_t series_idx,
                  record_store::record_id_type record_id) {
         store.set<bool>(series_idx, record_id,
@@ -158,11 +172,11 @@ struct SeriesConfig {
 
   size_t add_to_store(record_store_type& store) const {
     if (type == "uuid4" || type == "name" || type == "email" ||
-        type == "username") {
+        type == "username" || type == "two_char_string") {
       return store.add_series<std::string_view>(name);
     } else if (type == "integer" || type == "timestamp") {
       return store.add_series<int64_t>(name);
-    } else if (type == "uint") {
+    } else if (type == "uint" || type == "int_percentage") {
       return store.add_series<uint64_t>(name);
     } else if (type == "double" || type == "percentage") {
       return store.add_series<double>(name);

@@ -6,7 +6,7 @@ project(MetallData
         DESCRIPTION "Metall Containers"
         LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 
 include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
@@ -211,6 +211,7 @@ function(setup_metall_target exe_name)
 endfunction()
 
 add_subdirectory(src)
+add_subdirectory(include)
 add_subdirectory(examples)
 add_subdirectory(bench)
 
