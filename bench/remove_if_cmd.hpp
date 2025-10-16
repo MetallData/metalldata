@@ -19,7 +19,6 @@ inline bjsn::value parseStream(std::istream& inps) {
   bjsn::stream_parser p;
   std::string         line;
 
-  std::cerr << "in parseStream\n";
   // \todo skips ws in strings
   while (inps >> line) {
     std::error_code ec;
@@ -33,7 +32,6 @@ inline bjsn::value parseStream(std::istream& inps) {
   p.finish(ec);
   if (ec) return nullptr;
 
-  std::cerr << "leaving parseStream";
   return p.release();
 }
 
