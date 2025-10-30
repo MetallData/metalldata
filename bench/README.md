@@ -13,3 +13,11 @@ Commands for mframe_bench:
 
 ./mframe_bench filter_to_parquet --metall_path=data/m4 --parquet_file=pqage --jl_file=age_filter.json
 ```
+
+
+For a graph,
+```
+for i in $(seq 5); do ./mframe_bench gen-multiseries --metall_path data/graph$i -n 1000 -s from:two_char_string -s to:two_char_string -s conn_id:uuid4 -s age:int_percentage -s score:percentage; done
+
+for i in $(seq 5); do ./mframe_bench filter_to_parquet --metall_path=data/graph$i --parquet_file=pqgraph$i --jl_file=filter_all.json; done
+```

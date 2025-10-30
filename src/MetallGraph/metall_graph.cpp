@@ -41,9 +41,7 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
       metall::unique_instance)(manager.get_allocator());
     m_pnodes = manager.construct<record_store_type>("nodes")(
       string_store, manager.get_allocator());
-    m_pdirected_edges = manager.construct<record_store_type>("dedges")(
-      string_store, manager.get_allocator());
-    m_pundirected_edges = manager.construct<record_store_type>("uedges")(
+    m_pedges = manager.construct<record_store_type>("edges")(
       string_store, manager.get_allocator());
   } else {  // open existing
     comm.barrier();
@@ -52,17 +50,15 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
     auto& manager = m_pmetall_mpi->get_local_manager();
 
     m_pnodes            = manager.find<record_store_type>("nodes").first;
-    m_pdirected_edges   = manager.find<record_store_type>("dedges").first;
-    m_pundirected_edges = manager.find<record_store_type>("uedges").first;
+    m_pedges            = manager.find<record_store_type>("edges").first;
 
-    if (!m_pnodes || !m_pdirected_edges || !m_pundirected_edges) {
+    if (!m_pnodes || !m_pedges) {
       m_comm.cerr0(
         "Error: Failed to find required data structures in metall store");
       delete m_pmetall_mpi;
       m_pmetall_mpi       = nullptr;
       m_pnodes            = nullptr;
-      m_pdirected_edges   = nullptr;
-      m_pundirected_edges = nullptr;
+      m_pedges            = nullptr;
     }
   }
 
@@ -76,8 +72,7 @@ metall_graph::~metall_graph() {
 
   // We don't free these because they are persistent in the metall store
   m_pnodes            = nullptr;
-  m_pdirected_edges   = nullptr;
-  m_pundirected_edges = nullptr;
+  m_pedges            = nullptr;
 
   // Destroy the metall manager
   delete m_pmetall_mpi;
@@ -99,24 +94,22 @@ bool metall_graph::add_series(std::string_view name) {
       return false;
     }
     m_comm.cout0("Adding Series: ", name);
-    m_pdirected_edges->add_series<T>(name);
-    m_pundirected_edges->add_series<T>(name);
+    m_pedges->add_series<T>(name);
     return true;
   }
   return false;
 }
 
-bool metall_graph::drop_series(std::string_view name) {
+bool metall_graph::drop_series(const std::string& name) {
   // TODO: does this need to check the prefix?
-  if (name == U_COL || name == V_COL) {
-    m_comm.cerr0("Cannot remove index series ", name);
+  if (RESERVED_COLUMN_NAMES.contains(name)) {
+    m_comm.cerr0("Cannot remove reserved column ", name);
     return false;
   }
   if (name.starts_with("node.")) {
     return m_pnodes->remove_series(name);
   }
-  bool ures = m_pdirected_edges->remove_series(name);
-  return m_pundirected_edges->remove_series(name) && ures;
+  return m_pedges->remove_series(name);
 }
 
 metall_graph::return_code metall_graph::ingest_parquet_edges(
@@ -216,7 +209,7 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
     return to_return;
   }
 
-  auto metall_edges = m_pdirected_edges;
+  auto metall_edges = m_pedges;
 
   auto _DIR_COL = DIR_COL;
   // for each row, set the metall data.

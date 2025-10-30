@@ -6,7 +6,7 @@ A utility program to display statistics about a metall_graph.
 
 This program opens an existing metall_graph and displays comprehensive statistics including:
 - Number of node records and node series
-- Number of edge records (directed and undirected) and edge series  
+- Number of edge records and edge series  
 - Complete list of all node series names
 - Complete list of all edge series names
 

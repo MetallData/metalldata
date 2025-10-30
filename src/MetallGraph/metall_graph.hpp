@@ -20,7 +20,7 @@
 
 /* ASSUMPTIONS
 Everything is a multigraph
-3 multi_series (vertices, directed edges, undirected edges)
+2 multi_series (vertices, edges)
 
 internally hardcode u,v has primary col names in edge tables
 
@@ -40,22 +40,6 @@ class metall_graph {
   const char*                 V_COL                 = "edge.v";
   const char*                 DIR_COL               = "edge.directed";
   const std::set<std::string> RESERVED_COLUMN_NAMES = {DIR_COL, U_COL, V_COL};
-
-  enum class EdgeType : uint8_t { DIRECTED = 1, UNDIRECTED = 2 };
-
-  friend constexpr EdgeType operator|(EdgeType lhs, EdgeType rhs) {
-    return static_cast<EdgeType>(static_cast<uint8_t>(lhs) |
-                                 static_cast<uint8_t>(rhs));
-  }
-
-  friend constexpr EdgeType operator&(EdgeType lhs, EdgeType rhs) {
-    return static_cast<EdgeType>(static_cast<uint8_t>(lhs) &
-                                 static_cast<uint8_t>(rhs));
-  }
-
-  friend constexpr bool includes(EdgeType value, EdgeType flag) {
-    return (value & flag) == flag;
-  }
 
   /**
    * @brief Return code struct for methods
@@ -99,14 +83,14 @@ class metall_graph {
   template <typename T>
   bool add_series(std::string_view name);  // "node.color" or "edge.time"
 
-  bool drop_series(std::string_view name);
+  bool drop_series(const std::string& name);
 
   bool has_node_series(std::string_view name) const {
     return m_pnodes->contains_series(name);
   };
 
   bool has_edge_series(std::string_view name) const {
-    return m_pdirected_edges->contains_series(name);
+    return m_pedges->contains_series(name);
   };
 
   bool has_series(std::string_view name) const {
@@ -117,28 +101,12 @@ class metall_graph {
     return m_pnodes->get_series_names();
   };
 
-  std::vector<std::string> get_directed_edge_series_names() const {
-    return m_pdirected_edges->get_series_names();
-  };
-
-  std::vector<std::string> get_undirected_edge_series_names() const {
-    return m_pundirected_edges->get_series_names();
-  };
-
   std::vector<std::string> get_edge_series_names() const {
-    return m_pdirected_edges->get_series_names();
+    return m_pedges->get_series_names();
   };
 
-  size_t size(EdgeType edges_to_include = EdgeType::DIRECTED |
-                                          EdgeType::UNDIRECTED) const {
-    size_t local_size = 0;
-
-    if (includes(edges_to_include, EdgeType::DIRECTED)) {
-      local_size += local_num_directed_edges();
-    }
-    if (includes(edges_to_include, EdgeType::UNDIRECTED)) {
-      local_size += local_num_undirected_edges();
-    }
+  size_t size() const {
+    size_t local_size = local_num_edges();
 
     return ygm::sum(local_size, m_comm);
   }
@@ -150,13 +118,7 @@ class metall_graph {
 
   size_t num_node_series() const { return m_pnodes->num_series(); };
 
-  size_t num_directed_edge_series() const {
-    return m_pdirected_edges->num_series();
-  };
-
-  size_t num_undirected_edge_series() const {
-    return m_pundirected_edges->num_series();
-  };
+  size_t num_edge_series() const { return m_pedges->num_series(); };
 
   /**
    * @brief Determines if the metall_graph is in good condition
@@ -258,18 +220,9 @@ class metall_graph {
   /// Dataframe for vertex metadata
   record_store_type* m_pnodes = nullptr;
   /// Dataframe for directed edges
-  record_store_type* m_pdirected_edges = nullptr;
-  /// Dataframe for undirected edges
-  record_store_type* m_pundirected_edges = nullptr;
+  record_store_type* m_pedges = nullptr;
 
   size_t local_num_nodes() const { return m_pnodes->num_records(); };
-
-  size_t local_num_directed_edges() const {
-    return m_pdirected_edges->num_records();
-  };
-
-  size_t local_num_undirected_edges() const {
-    return m_pundirected_edges->num_records();
-  };
+  size_t local_num_edges() const { return m_pedges->num_records(); };
 };
 }  // namespace metalldata
