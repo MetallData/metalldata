@@ -153,7 +153,7 @@ class basic_record_store {
     priv_series_type_check<series_type>();
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found");
+      throw std::runtime_error("Series not found: " + std::string(series_name));
     }
     return priv_get_series_data<series_type>(itr->container, record_id);
   }
@@ -236,7 +236,7 @@ class basic_record_store {
     priv_series_type_check<series_type>();
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found");
+      throw std::runtime_error("Series not found: " + std::string(series_name));
     }
 
     priv_set_series_data<series_type>(*itr, record_id, value);
@@ -275,7 +275,7 @@ class basic_record_store {
   size_t size(const std::string_view series_name) const {
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found");
+      throw std::runtime_error("Series not found: " + std::string(series_name));
     }
 
     return std::visit(
@@ -290,7 +290,7 @@ class basic_record_store {
                series_func_t          series_func) const {
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found");
+      throw std::runtime_error("Series not found: " + std::string(series_name));
     }
 
     const auto &container =
@@ -325,7 +325,7 @@ class basic_record_store {
                    series_func_t          series_func) const {
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found");
+      throw std::runtime_error("Series not found: " + std::string(series_name));
     }
     if (!is_record_valid(record_id)) {
       throw std::runtime_error("Invalid record");
@@ -353,7 +353,7 @@ class basic_record_store {
                        series_func_t          series_func) const {
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found");
+      throw std::runtime_error("Series not found: " + std::string(series_name));
     }
 
     const auto &series_item = *itr;
@@ -506,7 +506,7 @@ class basic_record_store {
   void convert(const std::string_view series_name, container_kind new_kind) {
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found");
+      throw std::runtime_error("Series not found: " + std::string(series_name));
     }
 
     std::visit([new_kind](auto &container) { container.convert(new_kind); },

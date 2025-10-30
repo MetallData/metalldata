@@ -123,9 +123,10 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
   std::string_view path, bool recursive, std::string_view col_u,
   std::string_view col_v, bool directed, const std::vector<std::string>& meta) {
   return_code to_return;
-
+  // Note: meta is exclusive of col_u and col_v.
   //
   // Setup parquet reader
+
   std::vector<std::string> paths;
   paths.push_back(path.data());
   ygm::io::parquet_parser parquetp(m_comm, paths, recursive);
@@ -134,6 +135,16 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
   int                                ucol = -1;
   int                                vcol = -1;
   std::set<std::string>              metaset(meta.begin(), meta.end());
+
+  for (const auto& name : RESERVED_COLUMN_NAMES) {
+    if (metaset.contains(name)) {
+      to_return.error = "Error: reserved name " + name + " found in meta data.";
+      return to_return;
+    }
+  }
+
+  metaset.emplace(col_u);
+  metaset.emplace(col_v);
   std::map<int, std::string>         metacols;
   std::map<std::string, std::string> parquet_to_metall;
 
@@ -141,11 +152,6 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
   std::vector<std::string> metall_series;
   std::set<std::string>    schemaset;
 
-  if (metaset.size() != meta.size()) {
-    m_comm.cerr0("Duplicate parquet columns specified");
-    to_return.error = "Duplicate parquet columns specified";
-    return to_return;
-  }
   for (const auto& el : schema) {
     schemaset.emplace(el.name);
   }
@@ -164,10 +170,12 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
         mapped_name = U_COL;
         got_u       = true;
+        m_comm.cerr0("got u with ", col_u, ".");
       } else if (pcol_name == col_v) {
         YGM_ASSERT_RELEASE(pcol_type.equal(parquet::Type::BYTE_ARRAY));
         mapped_name = V_COL;
         got_v       = true;
+        m_comm.cerr0("got v with ", col_v, ".");
       }
       parquet_to_metall[pcol_name] = mapped_name;
 
@@ -193,14 +201,32 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
     }
   }  // for schema
 
+  if (!got_u) {
+    to_return.error = "did not find u column: " + std::string(col_u);
+    return to_return;
+  }
+
+  if (!got_v) {
+    to_return.error = "did not find v column: " + std::string(col_v);
+    return to_return;
+  }
+
+  if (!add_series<bool>(DIR_COL)) {
+    to_return.error = "could not add directed column";
+    return to_return;
+  }
+
   auto metall_edges = m_pdirected_edges;
 
+  auto _DIR_COL = DIR_COL;
   // for each row, set the metall data.
   parquetp.for_all(
     meta,
-    [&meta, &parquet_to_metall, &metall_edges](
+    [&meta, &parquet_to_metall, &metall_edges, directed, _DIR_COL](
       const std::vector<ygm::io::parquet_parser::parquet_type_variant>& row) {
       auto rec = metall_edges->add_record();
+      // first, set the directedness.
+      metall_edges->set(_DIR_COL, rec, directed);
       for (size_t i = 0; i < meta.size(); ++i) {
         auto parquet_ser = meta[i];
         auto parquet_val = row[i];

@@ -36,8 +36,10 @@ class metall_graph {
  public:
   using data_types =
     std::variant<size_t, double, bool, std::string, std::monostate>;
-  const char* U_COL = "edge.__u";
-  const char* V_COL = "edge.__v";
+  const char*                 U_COL                 = "edge.u";
+  const char*                 V_COL                 = "edge.v";
+  const char*                 DIR_COL               = "edge.directed";
+  const std::set<std::string> RESERVED_COLUMN_NAMES = {DIR_COL, U_COL, V_COL};
 
   enum class EdgeType : uint8_t { DIRECTED = 1, UNDIRECTED = 2 };
 
