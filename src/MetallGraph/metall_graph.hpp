@@ -36,9 +36,10 @@ class metall_graph {
  public:
   using data_types =
     std::variant<size_t, double, bool, std::string, std::monostate>;
-  const char*                 U_COL                 = "edge.u";
-  const char*                 V_COL                 = "edge.v";
-  const char*                 DIR_COL               = "edge.directed";
+  const std::string           U_COL                 = "edge.u";
+  const std::string           V_COL                 = "edge.v";
+  const std::string           DIR_COL               = "edge.directed";
+  const std::string           NODE_COL              = "node.id";
   const std::set<std::string> RESERVED_COLUMN_NAMES = {DIR_COL, U_COL, V_COL};
 
   /**

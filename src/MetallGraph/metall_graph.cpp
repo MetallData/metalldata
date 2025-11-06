@@ -19,6 +19,7 @@
 #include <fcntl.h>
 
 #include "multiseries/multiseries_record.hpp"
+#include "ygm/container/set.hpp"
 
 namespace metalldata {
 
@@ -43,6 +44,12 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
       string_store, manager.get_allocator());
     m_pedges = manager.construct<record_store_type>("edges")(
       string_store, manager.get_allocator());
+
+    // add the default series for the indices.
+    add_series<std::string_view>(NODE_COL);
+    add_series<std::string_view>(U_COL);
+    add_series<std::string_view>(V_COL);
+
   } else {  // open existing
     comm.barrier();
     m_pmetall_mpi = new metall::utility::metall_mpi_adaptor(
@@ -61,6 +68,10 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
       m_pedges            = nullptr;
     }
   }
+
+  YGM_ASSERT_RELEASE(has_node_series(NODE_COL));
+  YGM_ASSERT_RELEASE(has_edge_series(U_COL));
+  YGM_ASSERT_RELEASE(has_edge_series(V_COL));
 
   //
   // Open metall store
@@ -125,9 +136,10 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
   ygm::io::parquet_parser parquetp(m_comm, paths, recursive);
   const auto&             schema = parquetp.get_schema();
 
-  int                                ucol = -1;
-  int                                vcol = -1;
   std::set<std::string>              metaset(meta.begin(), meta.end());
+
+  ygm::container::set<std::string> nodeset(m_comm);
+  std::unordered_set<std::string>  localnodes{};
 
   for (const auto& name : RESERVED_COLUMN_NAMES) {
     if (metaset.contains(name)) {
@@ -138,37 +150,30 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
   metaset.emplace(col_u);
   metaset.emplace(col_v);
-  std::map<int, std::string>         metacols;
   std::map<std::string, std::string> parquet_to_metall;
 
   std::vector<std::string> parquet_cols;
-  std::vector<std::string> metall_series;
-  std::set<std::string>    schemaset;
-
-  for (const auto& el : schema) {
-    schemaset.emplace(el.name);
-  }
+  parquet_cols.reserve(schema.size());
 
   bool got_u = false;
   bool got_v = false;
 
   for (size_t i = 0; i < schema.size(); ++i) {
+    parquet_cols.emplace_back(schema[i].name);
+
     std::string pcol_name = schema[i].name;
     auto        pcol_type = schema[i].type;
     if (metaset.contains(pcol_name)) {
-      metacols[i]             = pcol_name;
       std::string mapped_name = "edge." + pcol_name;
       if (pcol_name == col_u) {
         YGM_ASSERT_RELEASE(pcol_type.equal(parquet::Type::BYTE_ARRAY));
 
         mapped_name = U_COL;
         got_u       = true;
-        m_comm.cerr0("got u with ", col_u, ".");
       } else if (pcol_name == col_v) {
         YGM_ASSERT_RELEASE(pcol_type.equal(parquet::Type::BYTE_ARRAY));
         mapped_name = V_COL;
         got_v       = true;
-        m_comm.cerr0("got v with ", col_v, ".");
       }
       parquet_to_metall[pcol_name] = mapped_name;
 
@@ -211,23 +216,29 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
   auto metall_edges = m_pedges;
 
+  auto _U_COL   = U_COL;
+  auto _V_COL   = V_COL;
   auto _DIR_COL = DIR_COL;
   // for each row, set the metall data.
+
   parquetp.for_all(
-    meta,
-    [&meta, &parquet_to_metall, &metall_edges, directed, _DIR_COL](
+    parquet_cols,
+    [&parquet_cols, &parquet_to_metall, &metall_edges, directed, _DIR_COL,
+     _U_COL, _V_COL, &nodeset](
       const std::vector<ygm::io::parquet_parser::parquet_type_variant>& row) {
       auto rec = metall_edges->add_record();
       // first, set the directedness.
       metall_edges->set(_DIR_COL, rec, directed);
-      for (size_t i = 0; i < meta.size(); ++i) {
-        auto parquet_ser = meta[i];
+      for (size_t i = 0; i < parquet_cols.size(); ++i) {
+        auto parquet_ser = parquet_cols[i];
         auto parquet_val = row[i];
 
         auto metall_ser = parquet_to_metall[parquet_ser];
+
         auto add_val    = [&](const auto& val) {
           using T = std::decay_t<decltype(val)>;
 
+          // these are overrides for static_cast
           if constexpr (std::is_same_v<T, std::monostate>) {
             // do nothing
           } else if constexpr (std::is_same_v<T, int>) {
@@ -238,6 +249,10 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
             metall_edges->set(metall_ser, rec, static_cast<double>(val));
           } else if constexpr (std::is_same_v<T, std::string>) {
             metall_edges->set(metall_ser, rec, std::string_view(val));
+            // if this is u or v, add to the distributed nodeset.
+            if (metall_ser == _U_COL || metall_ser == _V_COL) {
+              nodeset.async_insert(val);
+            }
           } else {
             metall_edges->set(metall_ser, rec, val);
           };
@@ -246,6 +261,26 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
       }  // for loop
     });  // for_all
 
+  // do a barrier here to make sure the nodeset is synched.
+  // create a local std::set containing the m_pnodes vertices.
+
+  // m_pnodes->for_all<std::string>(NODE_COL, [&](int _, const auto& el) {
+  // using T = std::decay_t<decltype(el)>;
+  // if constexpr (std::is_same_v<T, std::string_view>) {
+  //   localnodes.emplace(el);
+  // }
+  // });
+
+  // go through the local possible nodes to add and if we don't
+  // have them, then add to the graph's m_pnodes. This starts with
+  // a barrier so we don't need an explicit one beforehand.
+  for (const auto& v : nodeset) {
+    if (!localnodes.contains(v)) {
+      auto rec = m_pnodes->add_record();
+      m_pnodes->set(NODE_COL, rec, std::string_view(v));
+      localnodes.emplace(v);
+    }
+  };
   return to_return;
 }
 
