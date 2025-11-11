@@ -45,7 +45,7 @@ class basic_record_store {
  private:
   template <typename T>
   using other_allocator =
-      typename std::allocator_traits<Alloc>::template rebind_alloc<T>;
+    typename std::allocator_traits<Alloc>::template rebind_alloc<T>;
 
   template <typename T>
   using scp_allocator = std::scoped_allocator_adaptor<other_allocator<T>>;
@@ -54,7 +54,7 @@ class basic_record_store {
 
   template <typename T>
   using other_pointer_type =
-      typename std::pointer_traits<pointer_type>::template rebind<T>;
+    typename std::pointer_traits<pointer_type>::template rebind<T>;
 
  public:
   using series_index_type         = size_t;
@@ -70,35 +70,34 @@ class basic_record_store {
   using vector_type = bc::vector<T, scp_allocator<T>>;
 
   using deque_block_option_t =
-      bc::deque_options<bc::block_bytes<METALLDATA_MSR_DEQUE_BLOCK_SIZE>>::type;
+    bc::deque_options<bc::block_bytes<METALLDATA_MSR_DEQUE_BLOCK_SIZE>>::type;
   template <typename T>
   using deque_type = bc::deque<T, scp_allocator<T>, deque_block_option_t>;
 
   template <typename T>
   using sparce_map_type =
-      boost::unordered_flat_map<size_t, T, std::hash<size_t>,
-                                std::equal_to<size_t>,
-                                scp_allocator<std::pair<const size_t, T>>>;
+    boost::unordered_flat_map<size_t, T, std::hash<size_t>,
+                              std::equal_to<size_t>,
+                              scp_allocator<std::pair<const size_t, T>>>;
 
   // If T is std::string_view, use cstr::string_accessor
   // Otherwise, use T
   template <typename T>
   using series_stored_type =
-      std::conditional_t<std::is_same_v<T, std::string_view>,
-                         cstr::string_accessor, T>;
+    std::conditional_t<std::is_same_v<T, std::string_view>,
+                       cstr::string_accessor, T>;
 
   // Container to store a single series
   template <typename T>
   using series_container_type = series_container<series_stored_type<T>, Alloc>;
 
   using container_variant =
-      std::variant<series_container_type<bool>, series_container_type<int64_t>,
-                   series_container_type<uint64_t>,
-                   series_container_type<double>,
-                   series_container_type<std::string_view>>;
+    std::variant<series_container_type<bool>, series_container_type<int64_t>,
+                 series_container_type<uint64_t>, series_container_type<double>,
+                 series_container_type<std::string_view>>;
 
   using string_type =
-      bc::basic_string<char, std::char_traits<char>, other_allocator<char>>;
+    bc::basic_string<char, std::char_traits<char>, other_allocator<char>>;
 
   struct series_header {
     string_type       name;
@@ -135,10 +134,10 @@ class basic_record_store {
     }
 
     m_series.push_back(
-        {.name      = string_type(series_name.data(), series_name.size(),
-                                  m_record_status.get_allocator()),
-         .container = series_container_type<series_type>(
-             kind, m_record_status.get_allocator())});
+      {.name      = string_type(series_name.data(), series_name.size(),
+                                m_record_status.get_allocator()),
+       .container = series_container_type<series_type>(
+         kind, m_record_status.get_allocator())});
 
     return m_series.size() - 1;
   }
@@ -154,7 +153,7 @@ class basic_record_store {
     priv_series_type_check<series_type>();
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found");
+      throw std::runtime_error("Series not found: " + std::string(series_name));
     }
     return priv_get_series_data<series_type>(itr->container, record_id);
   }
@@ -187,17 +186,17 @@ class basic_record_store {
                                               std::monostate{});
     for (size_t si = 0; si < m_series.size(); ++si) {
       std::visit(
-          [&to_return_record, record_id, si](const auto &container) {
-            if (!container.contains(record_id)) return;
-            using T = std::decay_t<decltype(container)>;
-            if constexpr (std::is_same_v<
-                              T, series_container_type<std::string_view>>) {
-              to_return_record[si] = container.at(record_id).to_view();
-            } else {
-              to_return_record[si] = container.at(record_id);
-            }
-          },
-          m_series[si].container);
+        [&to_return_record, record_id, si](const auto &container) {
+          if (!container.contains(record_id)) return;
+          using T = std::decay_t<decltype(container)>;
+          if constexpr (std::is_same_v<
+                          T, series_container_type<std::string_view>>) {
+            to_return_record[si] = container.at(record_id).to_view();
+          } else {
+            to_return_record[si] = container.at(record_id);
+          }
+        },
+        m_series[si].container);
     }
     return to_return_record;
   }
@@ -211,10 +210,10 @@ class basic_record_store {
     }
 
     return !std::visit(
-        [&record_id](const auto &container) {
-          return container.contains(record_id);
-        },
-        itr->container);
+      [&record_id](const auto &container) {
+        return container.contains(record_id);
+      },
+      itr->container);
   }
 
   /// \brief Returns if a series data of a record is None (does not exist)
@@ -224,10 +223,10 @@ class basic_record_store {
       return true;
     }
     return !std::visit(
-        [&record_id](const auto &container) {
-          return container.contains(record_id);
-        },
-        m_series[series_index].container);
+      [&record_id](const auto &container) {
+        return container.contains(record_id);
+      },
+      m_series[series_index].container);
   }
 
   /// \brief Set a series data of a record (row)
@@ -237,7 +236,7 @@ class basic_record_store {
     priv_series_type_check<series_type>();
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found");
+      throw std::runtime_error("Series not found: " + std::string(series_name));
     }
 
     priv_set_series_data<series_type>(*itr, record_id, value);
@@ -276,12 +275,12 @@ class basic_record_store {
   size_t size(const std::string_view series_name) const {
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found");
+      throw std::runtime_error("Series not found: " + std::string(series_name));
     }
 
     return std::visit(
-        [this](const auto &container) { return container.size(); },
-        itr->container);
+      [this](const auto &container) { return container.size(); },
+      itr->container);
   }
 
   /// \brief Loop over all records of a series, skipping None values.
@@ -291,11 +290,11 @@ class basic_record_store {
                series_func_t          series_func) const {
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found");
+      throw std::runtime_error("Series not found: " + std::string(series_name));
     }
 
     const auto &container =
-        priv_get_series_container<series_type>(itr->container);
+      priv_get_series_container<series_type>(itr->container);
     for (size_t i = 0; i < m_record_status.size(); ++i) {
       if (m_record_status[i] && container.contains(i)) {
         series_func(i, container.at(i));
@@ -311,7 +310,7 @@ class basic_record_store {
     }
 
     const auto &container =
-        priv_get_series_container<series_type>(m_series[series_index]);
+      priv_get_series_container<series_type>(m_series[series_index]);
     for (size_t i = 0; i < m_record_status.size(); ++i) {
       if (m_record_status[i] && container.contains(i)) {
         series_func(i, container.at(i));
@@ -326,7 +325,7 @@ class basic_record_store {
                    series_func_t          series_func) const {
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found");
+      throw std::runtime_error("Series not found: " + std::string(series_name));
     }
     if (!is_record_valid(record_id)) {
       throw std::runtime_error("Invalid record");
@@ -335,17 +334,17 @@ class basic_record_store {
     const auto &series_item = *itr;
 
     std::visit(
-        [&series_func, record_id](const auto &container) {
-          if (!container.contains(record_id)) return;
-          using T = std::decay_t<decltype(container)>;
-          if constexpr (std::is_same_v<
-                            T, series_container_type<std::string_view>>) {
-            series_func(container.at(record_id).to_view());
-          } else {
-            series_func(container.at(record_id));
-          }
-        },
-        series_item.container);
+      [&series_func, record_id](const auto &container) {
+        if (!container.contains(record_id)) return;
+        using T = std::decay_t<decltype(container)>;
+        if constexpr (std::is_same_v<T,
+                                     series_container_type<std::string_view>>) {
+          series_func(container.at(record_id).to_view());
+        } else {
+          series_func(container.at(record_id));
+        }
+      },
+      series_item.container);
   }
 
   /// \brief for_all() without series_type
@@ -354,7 +353,7 @@ class basic_record_store {
                        series_func_t          series_func) const {
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found");
+      throw std::runtime_error("Series not found: " + std::string(series_name));
     }
 
     const auto &series_item = *itr;
@@ -363,17 +362,17 @@ class basic_record_store {
         continue;
       }
       std::visit(
-          [&series_func, i](const auto &container) {
-            if (!container.contains(i)) return;
-            using T = std::decay_t<decltype(container)>;
-            if constexpr (std::is_same_v<
-                              T, series_container_type<std::string_view>>) {
-              series_func(i, container.at(i).to_view());
-            } else {
-              series_func(i, container.at(i));
-            }
-          },
-          series_item.container);
+        [&series_func, i](const auto &container) {
+          if (!container.contains(i)) return;
+          using T = std::decay_t<decltype(container)>;
+          if constexpr (std::is_same_v<
+                          T, series_container_type<std::string_view>>) {
+            series_func(i, container.at(i).to_view());
+          } else {
+            series_func(i, container.at(i));
+          }
+        },
+        series_item.container);
     }
   }
 
@@ -420,12 +419,12 @@ class basic_record_store {
 
     bool to_return = false;
     std::visit(
-        [&record_id, &to_return](auto &container) {
-          if (container.contains(record_id)) {
-            to_return = container.erase(record_id);
-          }
-        },
-        itr->container);
+      [&record_id, &to_return](auto &container) {
+        if (container.contains(record_id)) {
+          to_return = container.erase(record_id);
+        }
+      },
+      itr->container);
     return to_return;
   }
 
@@ -438,12 +437,12 @@ class basic_record_store {
 
     bool to_return = false;
     std::visit(
-        [&record_id, &to_return](auto &container) {
-          if (container.contains(record_id)) {
-            to_return = container.erase(record_id);
-          }
-        },
-        m_series[series_index].container);
+      [&record_id, &to_return](auto &container) {
+        if (container.contains(record_id)) {
+          to_return = container.erase(record_id);
+        }
+      },
+      m_series[series_index].container);
     return to_return;
   }
 
@@ -486,7 +485,7 @@ class basic_record_store {
       return false;
     }
     return std::holds_alternative<series_container_type<series_type>>(
-        itr->container);
+      itr->container);
   }
 
   template <typename series_type>
@@ -495,7 +494,7 @@ class basic_record_store {
       return false;
     }
     return std::holds_alternative<series_container_type<series_type>>(
-        m_series[series_index].container);
+      m_series[series_index].container);
   }
 
   /// \Note: this function is deprecated and replaced by contains_record()
@@ -507,7 +506,7 @@ class basic_record_store {
   void convert(const std::string_view series_name, container_kind new_kind) {
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found");
+      throw std::runtime_error("Series not found: " + std::string(series_name));
     }
 
     std::visit([new_kind](auto &container) { container.convert(new_kind); },
@@ -534,15 +533,15 @@ class basic_record_store {
   template <class series_type>
   static constexpr void priv_series_type_check() {
     static_assert(std::is_same_v<series_type, bool> ||
-                      std::is_same_v<series_type, int64_t> ||
-                      std::is_same_v<series_type, uint64_t> ||
-                      std::is_same_v<series_type, double> ||
-                      std::is_same_v<series_type, std::string_view>,
+                    std::is_same_v<series_type, int64_t> ||
+                    std::is_same_v<series_type, uint64_t> ||
+                    std::is_same_v<series_type, double> ||
+                    std::is_same_v<series_type, std::string_view>,
                   "Unsupported series type");
   }
 
   multiseries_main_container_type::iterator priv_find_series(
-      const std::string_view series_name) {
+    const std::string_view series_name) {
     for (auto itr = m_series.begin(); itr != m_series.end(); ++itr) {
       if (itr->name == series_name) {
         return itr;
@@ -552,7 +551,7 @@ class basic_record_store {
   }
 
   multiseries_main_container_type::const_iterator priv_find_series(
-      const std::string_view series_name) const {
+    const std::string_view series_name) const {
     for (auto itr = m_series.cbegin(); itr != m_series.cend(); ++itr) {
       if (itr->name == series_name) {
         return itr;
@@ -563,7 +562,7 @@ class basic_record_store {
 
   template <typename series_type>
   const auto &priv_get_series_container(
-      const container_variant &series_store) const {
+    const container_variant &series_store) const {
     return std::get<series_container_type<series_type>>(series_store);
   }
 
@@ -577,13 +576,13 @@ class basic_record_store {
                                   const record_id_type     record_id) const {
     if constexpr (std::is_same_v<series_type, std::string_view>) {
       if (!priv_get_series_container<series_type>(series_store)
-               .contains(record_id)) {
+             .contains(record_id)) {
         throw std::runtime_error("Series data not found");
       }
       // Returns a string_view (not reference)
       return priv_get_series_container<series_type>(series_store)
-          .at(record_id)
-          .to_view();
+        .at(record_id)
+        .to_view();
     } else {
       return priv_get_series_container<series_type>(series_store).at(record_id);
     }
@@ -595,12 +594,12 @@ class basic_record_store {
                             const series_type   &value) {
     if constexpr (std::is_same_v<series_type, std::string_view>) {
       auto accessor =
-          cstr::add_string(value.data(), value.size(), *m_string_store);
+        cstr::add_string(value.data(), value.size(), *m_string_store);
       priv_get_series_container<series_type>(series.container)[record_id] =
-          accessor;
+        accessor;
     } else {
       priv_get_series_container<series_type>(series.container)[record_id] =
-          value;
+        value;
     }
   }
 

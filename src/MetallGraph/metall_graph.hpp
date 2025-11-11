@@ -20,7 +20,7 @@
 
 /* ASSUMPTIONS
 Everything is a multigraph
-3 multi_series (vertices, directed edges, undirected edges)
+2 multi_series (vertices, edges)
 
 internally hardcode u,v has primary col names in edge tables
 
@@ -35,7 +35,12 @@ namespace metalldata {
 class metall_graph {
  public:
   using data_types =
-      std::variant<size_t, double, bool, std::string, std::monostate>;
+    std::variant<size_t, double, bool, std::string, std::monostate>;
+  const std::string           U_COL                 = "edge.u";
+  const std::string           V_COL                 = "edge.v";
+  const std::string           DIR_COL               = "edge.directed";
+  const std::string           NODE_COL              = "node.id";
+  const std::set<std::string> RESERVED_COLUMN_NAMES = {DIR_COL, U_COL, V_COL};
 
   /**
    * @brief Return code struct for methods
@@ -79,9 +84,42 @@ class metall_graph {
   template <typename T>
   bool add_series(std::string_view name);  // "node.color" or "edge.time"
 
-  bool drop_series(std::string_view name);
+  bool drop_series(const std::string& name);
 
-  bool has_series(std::string_view name);
+  bool has_node_series(std::string_view name) const {
+    return m_pnodes->contains_series(name);
+  };
+
+  bool has_edge_series(std::string_view name) const {
+    return m_pedges->contains_series(name);
+  };
+
+  bool has_series(std::string_view name) const {
+    return has_node_series(name) || has_edge_series(name);
+  };
+
+  std::vector<std::string> get_node_series_names() const {
+    return m_pnodes->get_series_names();
+  };
+
+  std::vector<std::string> get_edge_series_names() const {
+    return m_pedges->get_series_names();
+  };
+
+  size_t size() const {
+    size_t local_size = local_num_edges();
+
+    return ygm::sum(local_size, m_comm);
+  }
+
+  size_t order() const {
+    size_t local_order = local_num_nodes();
+    return ygm::sum(local_order, m_comm);
+  }
+
+  size_t num_node_series() const { return m_pnodes->num_series(); };
+
+  size_t num_edge_series() const { return m_pedges->num_series(); };
 
   /**
    * @brief Determines if the metall_graph is in good condition
@@ -176,15 +214,16 @@ class metall_graph {
 
   metall::utility::metall_mpi_adaptor* m_pmetall_mpi = nullptr;
 
-  using record_store_type = multiseries::basic_record_store<
-      metall::manager::allocator_type<std::byte>>;
+  using record_store_type =
+    multiseries::basic_record_store<metall::manager::allocator_type<std::byte>>;
   using string_store_type = record_store_type::string_store_type;
 
   /// Dataframe for vertex metadata
   record_store_type* m_pnodes = nullptr;
   /// Dataframe for directed edges
-  record_store_type* m_pdirected_edges = nullptr;
-  /// Dataframe for undirected edges
-  record_store_type* m_pundirected_edges = nullptr;
+  record_store_type* m_pedges = nullptr;
+
+  size_t local_num_nodes() const { return m_pnodes->num_records(); };
+  size_t local_num_edges() const { return m_pedges->num_records(); };
 };
 }  // namespace metalldata

@@ -19,7 +19,6 @@ inline bjsn::value parseStream(std::istream& inps) {
   bjsn::stream_parser p;
   std::string         line;
 
-  std::cerr << "in parseStream\n";
   // \todo skips ws in strings
   while (inps >> line) {
     std::error_code ec;
@@ -33,7 +32,6 @@ inline bjsn::value parseStream(std::istream& inps) {
   p.finish(ec);
   if (ec) return nullptr;
 
-  std::cerr << "leaving parseStream";
   return p.release();
 }
 
@@ -158,7 +156,8 @@ class remove_if_cmd : public base_subcommand {
           }
         });
 
-    comm.cout0(records_to_erase.size(), " entries to be removed.");
+    comm.cout0(ygm::sum(records_to_erase.size(), comm),
+               " entries to be removed.");
     for (size_t index : records_to_erase) {
       record_store->remove_record(index);
     }
