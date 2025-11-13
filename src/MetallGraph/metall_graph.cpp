@@ -16,12 +16,88 @@
 #include <ygm/io/parquet_parser.hpp>
 
 #include "metall_graph.hpp"
+#include "metall_jl/metall_jl.hpp"
 #include <fcntl.h>
 
+#include "boost/graph/graph_traits.hpp"
 #include "multiseries/multiseries_record.hpp"
 #include "ygm/container/set.hpp"
 
 namespace metalldata {
+
+/**
+ * @brief Converts a JSONLogic rule into a lambda for use within a where clause.
+ *
+ * @param jl_rule A boost::json::value containing the JSONLogic rule
+ * @return A tuple containing the compiled lambda function and a vector of
+ * variable names
+ */
+static auto compile_jl_rule(bjsn::value jl_rule) {
+  auto [expression_rule, vars_b, _] = jsonlogic::create_logic(jl_rule);
+
+  std::vector<std::string> vars{vars_b.begin(), vars_b.end()};
+
+  // Store the unique_ptr in a shared_ptr to make it copyable and shareable
+  auto shared_expr =
+    std::make_shared<jsonlogic::any_expr>(std::move(expression_rule));
+
+  auto compiled =
+    [shared_expr](std::vector<metall_graph::data_types> row) -> bool {
+    // Convert data_types to value_variant
+    std::vector<jsonlogic::value_variant> jl_row;
+    jl_row.reserve(row.size());
+
+    for (const auto& val : row) {
+      std::visit(
+        [&jl_row](auto&& arg) {
+          using T = std::decay_t<decltype(arg)>;
+          if constexpr (std::is_same_v<T, std::monostate>) {
+            jl_row.push_back(std::monostate{});
+          } else if constexpr (std::is_same_v<T, bool>) {
+            jl_row.push_back(arg);
+          } else if constexpr (std::is_same_v<T, size_t>) {
+            jl_row.push_back(static_cast<std::uint64_t>(arg));
+          } else if constexpr (std::is_same_v<T, double>) {
+            jl_row.push_back(arg);
+          } else if constexpr (std::is_same_v<T, std::string>) {
+            jl_row.push_back(std::string_view{arg});
+          }
+        },
+        val);
+    }
+
+    auto res_j = jsonlogic::apply(*shared_expr, jl_row);
+    return jsonlogic::unpack_value<bool>(res_j);
+  };
+
+  return std::make_tuple(compiled, vars);
+}
+
+metall_graph::where_clause::where_clause(bjsn::value jlrule) {
+  auto [compiled, vars] = compile_jl_rule(jlrule);
+
+  // Determine if this is a node or edge clause by checking the variable names
+  bool has_node = false;
+  bool has_edge = false;
+
+  for (const auto& var : vars) {
+    std::string var_str(var.c_str());
+    if (is_node_selector(var_str)) {
+      has_node = true;
+    } else if (is_edge_selector(var_str)) {
+      has_edge = true;
+    }
+    if (!(has_node ^ has_edge)) {
+      throw std::runtime_error(
+        "Expression must have exactly one type of selector (node or edge)");
+    }
+  }
+
+  is_node = has_node;
+
+  predicate    = compiled;
+  series_names = vars;
+}
 
 metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
                            bool overwrite)

@@ -7,6 +7,7 @@
 
 #include <any>
 #include <functional>
+#include <stdexcept>
 #include <variant>
 #include <map>
 #include <optional>
@@ -17,6 +18,9 @@
 #include <multiseries/multiseries_record.hpp>
 #include <ygm/comm.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
+#include <boost/json.hpp>
+
+namespace bjsn = boost::json;
 
 /* ASSUMPTIONS
 Everything is a multigraph
@@ -32,6 +36,15 @@ Vertices are partitioned by has of id
 */
 
 namespace metalldata {
+
+inline bool is_node_selector(std::string_view sel) {
+  return sel.starts_with("node.");
+}
+
+inline bool is_edge_selector(std::string_view sel) {
+  return sel.starts_with("edge.");
+}
+
 class metall_graph {
  public:
   using data_types =
@@ -137,10 +150,27 @@ class metall_graph {
     where_clause() = default;  // everything = [](std::vector <
                                // std::variants<TYPE>) -> bool { return ...; };
 
-    where_clause(std::vector<std::string>,
-                 std::function<bool(std::vector<data_types>)> pred) {}
+    where_clause(std::vector<std::string>                     s_names,
+                 std::function<bool(std::vector<data_types>)> pred)
+        : series_names(s_names), predicate(pred) {
+      bool has_node = false;
+      bool has_edge = false;
+      for (const auto& name : s_names) {
+        if (is_node_selector(name)) {
+          has_node = true;
+        } else if (is_edge_selector(name)) {
+          has_edge = true;
+        }
+        if (!(has_node ^ has_edge)) {
+          throw std::runtime_error(
+            "Expression must have exactly one type of selector (node or edge)");
+        }
+      }
 
-    // where_clause(jsonlogic::any_expr jlrule) { /*decode*/ }
+      is_node = has_node;
+    }
+
+    where_clause(bjsn::value jlrule);
 
     bool is_node_clause() const { return is_node; }
     bool is_edge_clause() const { return !is_node_clause(); }
@@ -184,9 +214,8 @@ class metall_graph {
   return_code nhops(std::vector<std::string> sources, int hops, bool half_hop,
                     ego_net_options, const where_clause& = where_clause());
 
-  // also allow val a function
-  template <typename T>
-  return_code assign(std::string series_name, T val,
+  // TODO: also allow val a function
+  return_code assign(std::string series_name, data_types val,
                      const where_clause& = where_clause());
 
   return_code erase(const where_clause& = where_clause());
