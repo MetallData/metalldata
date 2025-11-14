@@ -42,7 +42,7 @@ static auto compile_jl_rule(bjsn::value jl_rule) {
     std::make_shared<jsonlogic::any_expr>(std::move(expression_rule));
 
   auto compiled =
-    [shared_expr](std::vector<metall_graph::data_types> row) -> bool {
+    [shared_expr](const std::vector<metall_graph::data_types>& row) -> bool {
     // Convert data_types to value_variant
     std::vector<jsonlogic::value_variant> jl_row;
     jl_row.reserve(row.size());
@@ -73,30 +73,30 @@ static auto compile_jl_rule(bjsn::value jl_rule) {
   return std::make_tuple(compiled, vars);
 }
 
-metall_graph::where_clause::where_clause(bjsn::value jlrule) {
+metall_graph::where_clause::where_clause(const bjsn::value& jlrule) {
   auto [compiled, vars] = compile_jl_rule(jlrule);
 
-  // Determine if this is a node or edge clause by checking the variable names
-  bool has_node = false;
-  bool has_edge = false;
+  m_predicate    = compiled;
+  m_series_names = vars;
+}
 
-  for (const auto& var : vars) {
-    std::string var_str(var.c_str());
-    if (is_node_selector(var_str)) {
-      has_node = true;
-    } else if (is_edge_selector(var_str)) {
-      has_edge = true;
-    }
-    if (!(has_node ^ has_edge)) {
-      throw std::runtime_error(
-        "Expression must have exactly one type of selector (node or edge)");
-    }
-  }
+metall_graph::where_clause::where_clause(
+  const std::string& jsonlogic_file_path) {
+  bjsn::value jl   = jl::parseFile(jsonlogic_file_path);
+  bjsn::value rule = jl.as_object()["rule"];
 
-  is_node = has_node;
+  auto [compiled, vars] = compile_jl_rule(rule);
+  m_predicate           = compiled;
+  m_series_names        = vars;
+}
 
-  predicate    = compiled;
-  series_names = vars;
+metall_graph::where_clause::where_clause(std::istream& jsonlogic_stream) {
+  bjsn::value jl   = jl::parseStream(jsonlogic_stream);
+  bjsn::value rule = jl.as_object()["rule"];
+
+  auto [compiled, vars] = compile_jl_rule(rule);
+  m_predicate           = compiled;
+  m_series_names        = vars;
 }
 
 metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
@@ -129,7 +129,7 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
   } else {  // open existing
     comm.barrier();
     m_pmetall_mpi = new metall::utility::metall_mpi_adaptor(
-      metall::open_read_only, m_metall_path, m_comm.get_mpi_comm());
+      metall::open_only, m_metall_path, m_comm.get_mpi_comm());
     auto& manager = m_pmetall_mpi->get_local_manager();
 
     m_pnodes            = manager.find<record_store_type>("nodes").first;

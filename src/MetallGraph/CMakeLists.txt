@@ -15,7 +15,7 @@ endif()
 include_directories(${PROJECT_SOURCE_DIR}/src/MetallGraph/)
 
 
-add_library(MetallGraphLib STATIC metall_graph.cpp) 
+add_library(MetallGraphLib STATIC metall_graph.cpp assign.cpp) 
 setup_metall_target(MetallGraphLib)
 setup_ygm_target(MetallGraphLib)
 #these could be made public if we used the PIMPL technique

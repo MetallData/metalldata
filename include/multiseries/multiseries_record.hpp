@@ -174,6 +174,34 @@ class basic_record_store {
     return priv_get_series_data<series_type>(container, record_id);
   }
 
+  /// \brief Returns the series data of a record as a variant.
+  /// \param series_index The index of the series
+  /// \param record_id The record ID
+  /// \return The series data as a variant.
+  /// If the series name doesn't exist, throw a runtime_error.
+  /// If the series data does not exist, return std::monostate.
+  const auto get_dynamic(const series_index_type series_index,
+                         const record_id_type    record_id) const {
+    if (series_index >= m_series.size()) {
+      throw std::runtime_error("Series not found");
+    }
+    series_type to_return = std::monostate{};
+    const auto &container = m_series[series_index].container;
+    std::visit(
+      [&to_return, record_id, series_index](const auto &container) {
+        if (!container.contains(record_id)) return;
+        using T = std::decay_t<decltype(container)>;
+        if constexpr (std::is_same_v<T,
+                                     series_container_type<std::string_view>>) {
+          to_return = container.at(record_id).to_view();
+        } else {
+          to_return = container.at(record_id);
+        }
+      },
+      m_series[series_index].container);
+
+    return to_return;
+  }
   /// \brief Returns all series data of a single record
   ///\param record_id Record ID
   ///\return A vector of std::variant containing all series data
@@ -230,32 +258,37 @@ class basic_record_store {
   }
 
   /// \brief Set a series data of a record (row)
-  template <typename series_type>
+  /// TODO: explore the use of templated variadic variants. (See Roger)
+  /// template <typename... Types>
+  ///   void foo(std::variant<Types...>) {}
+
+  template <typename T>
   void set(const std::string_view series_name, const record_id_type record_id,
-           series_type value) {
-    priv_series_type_check<series_type>();
+           T value) {
+    priv_series_type_check<T>();
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
       throw std::runtime_error("Series not found: " + std::string(series_name));
     }
 
-    priv_set_series_data<series_type>(*itr, record_id, value);
+    priv_set_series_data<T>(*itr, record_id, value);
   }
 
-  template <typename series_type>
+  template <typename T>
   void set(const series_index_type series_index, const record_id_type record_id,
-           series_type value) {
-    priv_series_type_check<series_type>();
+           T value) {
+    priv_series_type_check<T>();
     if (series_index >= m_series.size()) {
       throw std::runtime_error("Series not found");
     }
 
-    priv_set_series_data<series_type>(m_series[series_index], record_id, value);
+    priv_set_series_data<T>(m_series[series_index], record_id, value);
   }
 
-  template <typename series_type>
+  // template <typename series_type>
+  // TODO: make this return an optional instead of max() if not found.
   series_index_type find_series(const std::string_view series_name) const {
-    priv_series_type_check<series_type>();
+    // priv_series_type_check<series_type>();
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
       return std::numeric_limits<size_t>::max();
@@ -263,6 +296,21 @@ class basic_record_store {
     return std::abs(std::distance(m_series.begin(), itr));
   }
 
+  std::optional<std::vector<series_index_type>> find_series(
+    const std::vector<std::string> &series_names) const {
+    std::vector<size_t> to_return{};
+    to_return.reserve(series_names.size());
+
+    for (const auto &name : series_names) {
+      auto idx = find_series(name);
+      if (idx == std::numeric_limits<size_t>::max()) {
+        return std::nullopt;  // not found
+      }
+      to_return.emplace_back(idx);
+    }
+
+    return to_return;
+  }
   //// Returns the number of records (rows)
   size_t num_records() const {
     return std::count(m_record_status.begin(), m_record_status.end(), true);
@@ -382,10 +430,28 @@ class basic_record_store {
   template <typename Fn>
   void for_all_dynamic(Fn func) const {
     for (record_id_type i = 0; i < m_record_status.size(); ++i) {
+      if (!m_record_status[i]) {  // Just for performance optimization
+        continue;
+      }
       auto row = get(i);
       func(i, row);
     }
   }
+
+  /// \brief for_all() across the entire container, for non-tombstoned rows.
+  /// Fn takes the row index.
+  /// There are no guarantees with respect to the values within the row. They
+  /// could be nil for a given column.
+  template <typename Fn>
+  void for_all_rows(Fn func) const {
+    for (size_t i = 0; i < m_record_status.size(); ++i) {
+      if (!m_record_status[i]) {  // Just for performance optimization
+        continue;
+      }
+      func(i);
+    }
+  }
+
   /// \brief Returns if a series exists associated with the name
   bool contains_series(const std::string_view series_name) const {
     return priv_find_series(series_name) != m_series.end();
