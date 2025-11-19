@@ -180,8 +180,8 @@ class basic_record_store {
   /// \return The series data as a variant.
   /// If the series name doesn't exist, throw a runtime_error.
   /// If the series data does not exist, return std::monostate.
-  const auto get_dynamic(const series_index_type series_index,
-                         const record_id_type    record_id) const {
+  const series_type get_dynamic(const series_index_type series_index,
+                                const record_id_type    record_id) const {
     if (series_index >= m_series.size()) {
       throw std::runtime_error("Series not found");
     }
