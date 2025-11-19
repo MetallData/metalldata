@@ -1,13 +1,12 @@
 #pragma once
 
 #include <boost/json.hpp>
-#include <boost/json/src.hpp>
 #include <jsonlogic/logic.hpp>
 #include <jsonlogic/src.hpp>
 #include <iostream>
 #include <fstream>
+#include <metall/metall.hpp>
 #include "multiseries/multiseries_record.hpp"
-#include "metall/utility/metall_mpi_adaptor.hpp"
 
 namespace bjsn = boost::json;
 
@@ -49,6 +48,7 @@ inline bjsn::value parseFile(const std::string& filename) {
   return parseStream(is);
 }
 }  // namespace jl
+
 template <typename Fn>
 size_t apply_jl(bjsn::value jl_rule, record_store_type& record_store, Fn fn) {
   std::vector<bjsn::string> vars;

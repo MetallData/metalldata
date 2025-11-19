@@ -2,6 +2,8 @@
 #include <metall/metall.hpp>
 #include <multiseries/multiseries_record.hpp>
 #include <boost/program_options.hpp>
+#include <boost/json/src.hpp>
+#include "metall_jl/metall_jl.hpp"
 
 using record_store_type =
     multiseries::basic_record_store<metall::manager::allocator_type<std::byte>>;

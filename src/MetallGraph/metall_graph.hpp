@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 
+// TODO: metall_graph variants should more closely mirror multiseries variants.
 #pragma once
 
 #include <any>
@@ -17,6 +18,9 @@
 #include <multiseries/multiseries_record.hpp>
 #include <ygm/comm.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
+#include <boost/json.hpp>
+
+namespace bjsn = boost::json;
 
 /* ASSUMPTIONS
 Everything is a multigraph
@@ -32,6 +36,15 @@ Vertices are partitioned by has of id
 */
 
 namespace metalldata {
+
+inline bool is_node_selector(std::string_view sel) {
+  return sel.starts_with("node.");
+}
+
+inline bool is_edge_selector(std::string_view sel) {
+  return sel.starts_with("edge.");
+}
+
 class metall_graph {
  public:
   using data_types =
@@ -121,6 +134,18 @@ class metall_graph {
 
   size_t num_edge_series() const { return m_pedges->num_series(); };
 
+  template <typename Fn>
+  void visit_node_field(std::string_view series_name, size_t record_id,
+                        Fn func) const {
+    m_pnodes->visit_field(series_name, record_id, func);
+  }
+
+  template <typename Fn>
+  void visit_edge_field(std::string_view series_name, size_t record_id,
+                        Fn func) const {
+    m_pedges->visit_field(series_name, record_id, func);
+  }
+
   /**
    * @brief Determines if the metall_graph is in good condition
    *
@@ -133,22 +158,39 @@ class metall_graph {
 
   void compute_in_degree(std::string_view out_name);
 
+  /// if the where_clause is default constructed, m_has_predicate is false,
+  /// which means:
+  // 1) is_node_clause and is_edge_clause are both true
+  // 2) evaluate() will always return true
+  // TODO: get rid of node and edge differentiation.
+  // TODO: get rid of initialized
   struct where_clause {
-    where_clause() = default;  // everything = [](std::vector <
-                               // std::variants<TYPE>) -> bool { return ...; };
+    where_clause() {
+      m_predicate = [](const std::vector<data_types>&) { return true; };
+    }
 
-    where_clause(std::vector<std::string>,
-                 std::function<bool(std::vector<data_types>)> pred) {}
+    where_clause(const std::vector<std::string>&                     s_names,
+                 std::function<bool(const std::vector<data_types>&)> pred)
+        : m_series_names(s_names), m_predicate(pred) {}
 
-    // where_clause(jsonlogic::any_expr jlrule) { /*decode*/ }
+    where_clause(const bjsn::value& jlrule);
 
-    bool is_node_clause() const { return is_node; }
-    bool is_edge_clause() const { return !is_node_clause(); }
+    where_clause(const std::string& jsonlogic_file_path);
+
+    where_clause(std::istream& jsonlogic_stream);
+
+    const std::vector<std::string>& series_names() const {
+      return m_series_names;
+    }
+    const auto& predicate() const { return m_predicate; }
+
+    bool evaluate(const std::vector<data_types>& data) const {
+      return m_predicate(data);
+    }
 
    private:
-    std::vector<std::string>                     series_names;
-    std::function<bool(std::vector<data_types>)> predicate;
-    bool                                         is_node;
+    std::vector<std::string>                            m_series_names;
+    std::function<bool(const std::vector<data_types>&)> m_predicate;
   };
 
   /*
@@ -162,6 +204,82 @@ class metall_graph {
 
 
   */
+
+  // The following for_all functions take a function that
+  // is passed the index as a parameter:
+  // Fn: [](int record_id) {}
+  template <typename Fn>
+  void for_all_edges(Fn func, const where_clause& where = where_clause()) {
+    // take the where clause. Convert the where clause variables to
+    // a vector of series indices. If it's missing, throw runtime.
+    //
+
+    auto var_idxs_o = m_pedges->find_series(where.series_names());
+    if (!var_idxs_o.has_value()) {
+      return;
+    }
+
+    auto var_idxs = var_idxs_o.value();
+    auto wrapper  = [&](size_t row_index) {
+      std::vector<data_types> var_data;
+      var_data.reserve(var_idxs.size());
+      for (auto series_idx : var_idxs) {
+        auto val = m_pedges->get_dynamic(series_idx, row_index);
+        std::visit(
+          [&var_data](const auto& v) {
+            using T = std::decay_t<decltype(v)>;
+            if constexpr (std::is_same_v<T, int64_t>) {
+              var_data.push_back(size_t(v));
+            } else if constexpr (std::is_same_v<T, std::string_view>) {
+              var_data.push_back(std::string(v));
+            } else {
+              var_data.push_back(v);
+            }
+          },
+          val);
+      }
+
+      if (where.evaluate(var_data)) {
+        func(row_index);
+      }
+    };
+    m_pedges->for_all_rows(wrapper);
+  };
+
+  template <typename Fn>
+  void for_all_nodes(Fn func, const where_clause& where) {
+    auto var_idxs_o = m_pnodes->find_series(where.series_names());
+    if (!var_idxs_o.has_value()) {
+      return;
+    }
+    auto var_idxs = var_idxs_o.value();
+
+    auto wrapper = [&](size_t row_index) {
+      std::vector<data_types> var_data;
+      var_data.reserve(var_idxs.size());
+      for (auto series_idx : var_idxs) {
+        auto val = m_pnodes->get_dynamic(series_idx, row_index);
+        std::visit(
+          [&var_data](const auto& v) {
+            using T = std::decay_t<decltype(v)>;
+            if constexpr (std::is_same_v<T, int64_t>) {
+              var_data.push_back(size_t(v));
+            } else if constexpr (std::is_same_v<T, std::string_view>) {
+              var_data.push_back(std::string(v));
+            } else {
+              var_data.push_back(v);
+            }
+          },
+          val);
+      }
+
+      if (where.evaluate(var_data)) {
+        func(row_index);
+      }
+    };
+
+    m_pnodes->for_all_rows(wrapper);
+  };
 
   return_code in_degree(std::string_view out_name,
                         const where_clause& = where_clause());
@@ -184,9 +302,8 @@ class metall_graph {
   return_code nhops(std::vector<std::string> sources, int hops, bool half_hop,
                     ego_net_options, const where_clause& = where_clause());
 
-  // also allow val a function
-  template <typename T>
-  return_code assign(std::string series_name, T val,
+  // TODO: also allow val a function
+  return_code assign(std::string_view series_name, const data_types& val,
                      const where_clause& = where_clause());
 
   return_code erase(const where_clause& = where_clause());

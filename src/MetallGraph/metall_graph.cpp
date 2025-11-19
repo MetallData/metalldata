@@ -16,12 +16,88 @@
 #include <ygm/io/parquet_parser.hpp>
 
 #include "metall_graph.hpp"
+#include "metall_jl/metall_jl.hpp"
 #include <fcntl.h>
 
+#include "boost/graph/graph_traits.hpp"
 #include "multiseries/multiseries_record.hpp"
 #include "ygm/container/set.hpp"
 
 namespace metalldata {
+
+/**
+ * @brief Converts a JSONLogic rule into a lambda for use within a where clause.
+ *
+ * @param jl_rule A boost::json::value containing the JSONLogic rule
+ * @return A tuple containing the compiled lambda function and a vector of
+ * variable names
+ */
+static auto compile_jl_rule(bjsn::value jl_rule) {
+  auto [expression_rule, vars_b, _] = jsonlogic::create_logic(jl_rule);
+
+  std::vector<std::string> vars{vars_b.begin(), vars_b.end()};
+
+  // Store the unique_ptr in a shared_ptr to make it copyable and shareable
+  auto shared_expr =
+    std::make_shared<jsonlogic::any_expr>(std::move(expression_rule));
+
+  auto compiled =
+    [shared_expr](const std::vector<metall_graph::data_types>& row) -> bool {
+    // Convert data_types to value_variant
+    std::vector<jsonlogic::value_variant> jl_row;
+    jl_row.reserve(row.size());
+
+    for (const auto& val : row) {
+      std::visit(
+        [&jl_row](auto&& arg) {
+          using T = std::decay_t<decltype(arg)>;
+          if constexpr (std::is_same_v<T, std::monostate>) {
+            jl_row.push_back(std::monostate{});
+          } else if constexpr (std::is_same_v<T, bool>) {
+            jl_row.push_back(arg);
+          } else if constexpr (std::is_same_v<T, size_t>) {
+            jl_row.push_back(static_cast<std::uint64_t>(arg));
+          } else if constexpr (std::is_same_v<T, double>) {
+            jl_row.push_back(arg);
+          } else if constexpr (std::is_same_v<T, std::string>) {
+            jl_row.push_back(std::string_view{arg});
+          }
+        },
+        val);
+    }
+
+    auto res_j = jsonlogic::apply(*shared_expr, jl_row);
+    return jsonlogic::unpack_value<bool>(res_j);
+  };
+
+  return std::make_tuple(compiled, vars);
+}
+
+metall_graph::where_clause::where_clause(const bjsn::value& jlrule) {
+  auto [compiled, vars] = compile_jl_rule(jlrule);
+
+  m_predicate    = compiled;
+  m_series_names = vars;
+}
+
+metall_graph::where_clause::where_clause(
+  const std::string& jsonlogic_file_path) {
+  bjsn::value jl   = jl::parseFile(jsonlogic_file_path);
+  bjsn::value rule = jl.as_object()["rule"];
+
+  auto [compiled, vars] = compile_jl_rule(rule);
+  m_predicate           = compiled;
+  m_series_names        = vars;
+}
+
+metall_graph::where_clause::where_clause(std::istream& jsonlogic_stream) {
+  bjsn::value jl   = jl::parseStream(jsonlogic_stream);
+  bjsn::value rule = jl.as_object()["rule"];
+
+  auto [compiled, vars] = compile_jl_rule(rule);
+  m_predicate           = compiled;
+  m_series_names        = vars;
+}
 
 metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
                            bool overwrite)
@@ -53,7 +129,7 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
   } else {  // open existing
     comm.barrier();
     m_pmetall_mpi = new metall::utility::metall_mpi_adaptor(
-      metall::open_read_only, m_metall_path, m_comm.get_mpi_comm());
+      metall::open_only, m_metall_path, m_comm.get_mpi_comm());
     auto& manager = m_pmetall_mpi->get_local_manager();
 
     m_pnodes            = manager.find<record_store_type>("nodes").first;
