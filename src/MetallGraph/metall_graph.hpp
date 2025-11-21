@@ -244,6 +244,7 @@ class metall_graph {
     m_pedges->for_all_rows(wrapper);
   };
 
+  // for_all_nodes lambda takes a row index.
   template <typename Fn>
   void for_all_nodes(Fn func, const where_clause& where) {
     auto var_idxs_o = m_pnodes->find_series(where.series_names());
@@ -284,6 +285,9 @@ class metall_graph {
 
   return_code out_degree(std::string_view out_name,
                          const where_clause& = where_clause());
+
+  return_code degrees(std::string_view in_name, std::string_view out_name,
+                      const where_clause& = where_clause());
 
   return_code connected_components(std::string_view out_name,
                                    const where_clause& = where_clause());
@@ -340,5 +344,8 @@ class metall_graph {
 
   size_t local_num_nodes() const { return m_pnodes->num_records(); };
   size_t local_num_edges() const { return m_pedges->num_records(); };
+
+  return_code in_out_degree(std::string_view series_name, const where_clause&,
+                            bool             outdeg);
 };
 }  // namespace metalldata

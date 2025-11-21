@@ -377,16 +377,47 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
 metall_graph::return_code metall_graph::out_degree(
   std::string_view out_name, const metall_graph::where_clause& where) {
+  return in_out_degree(out_name, where, true);
+}
+
+metall_graph::return_code metall_graph::in_degree(
+  std::string_view in_name, const metall_graph::where_clause& where) {
+  return in_out_degree(in_name, where, false);
+}
+
+/**
+ * @brief Private helper function for computing in-degree or out-degree.
+ *
+ * This is an internal helper used by in_degree() and out_degree() to
+ * calculate degree values for nodes matching a where clause.
+ *
+ * @param series_name Name of the series to store degree values
+ * @param where Where clause to filter nodes
+ * @param outdeg If true, compute out-degree; if false, compute in-degree
+ * @return return_code indicating success or failure
+ */
+metall_graph::return_code metall_graph::in_out_degree(
+  std::string_view series_name, const metall_graph::where_clause& where,
+  bool outdeg) {
   using record_id_type = record_store_type::record_id_type;
 
   metall_graph::return_code to_return;
-  if (!out_name.starts_with("node.")) {
-    to_return.error = std::format("Invalid series name: {}", out_name);
+  std::string               degcol, otherdegcol;
+  if (outdeg) {
+    degcol      = U_COL;
+    otherdegcol = V_COL;
+  } else {
+    degcol      = V_COL;
+    otherdegcol = U_COL;
+  }
+
+  if (!series_name.starts_with("node.")) {
+    to_return.error = std::format("Invalid series name: {}", series_name);
     return to_return;
   }
 
-  if (m_pnodes->contains_series(out_name)) {
-    to_return.error = std::format("Series {} already exists", out_name);
+  if (m_pnodes->contains_series(series_name)) {
+    to_return.error = std::format("Series {} already exists", series_name);
     return to_return;
   }
 
@@ -396,8 +427,16 @@ metall_graph::return_code metall_graph::out_degree(
     [&](record_id_type id) {
       // Note: clangd may report a false positive error on the next line
       // The code compiles and runs correctly
-      std::string_view edge_u = m_pedges->get<std::string_view>(U_COL, id);
-      degrees.async_insert(std::string(edge_u));
+      std::string_view edge_name = m_pedges->get<std::string_view>(degcol, id);
+      degrees.async_insert(std::string(edge_name));
+
+      // for undirected edges, add the reverse.
+      bool is_directed = m_pedges->get<bool>(DIR_COL, id);
+      if (!is_directed) {
+        auto reverseedge_name =
+          m_pedges->get<std::string_view>(otherdegcol, id);
+        degrees.async_insert(std::string(reverseedge_name));
+      }
     },
     where);
 
@@ -417,7 +456,7 @@ metall_graph::return_code metall_graph::out_degree(
   });
 
   // create series and store index so we don't have to keep looking it up.
-  auto deg_idx = m_pnodes->add_series<size_t>(out_name);
+  auto deg_idx = m_pnodes->add_series<size_t>(series_name);
 
   // add the values to the degrees series. We are taking advantage of the fact
   // that the node information is local from the degrees shared counting set
@@ -426,6 +465,90 @@ metall_graph::return_code metall_graph::out_degree(
   for (const auto& [k, v] : degrees) {
     auto rec_idx = node_to_id.at(k);
     m_pnodes->set(deg_idx, rec_idx, v);
+  }
+
+  return to_return;
+}
+
+metall_graph::return_code metall_graph::degrees(
+  std::string_view in_name, std::string_view out_name,
+  const metall_graph::where_clause& where) {
+  using record_id_type = record_store_type::record_id_type;
+
+  metall_graph::return_code to_return;
+
+  if (!in_name.starts_with("node.")) {
+    to_return.error = std::format("Invalid series name: {}", in_name);
+    return to_return;
+  }
+
+  if (!out_name.starts_with("node.")) {
+    to_return.error = std::format("Invalid series name: {}", out_name);
+    return to_return;
+  }
+
+  if (m_pnodes->contains_series(in_name)) {
+    to_return.error = std::format("Series {} already exists", in_name);
+    return to_return;
+  }
+  if (m_pnodes->contains_series(out_name)) {
+    to_return.error = std::format("Series {} already exists", out_name);
+    return to_return;
+  }
+
+  auto                                      edges_ = m_pedges;
+  ygm::container::counting_set<std::string> indegrees(m_comm);
+  ygm::container::counting_set<std::string> outdegrees(m_comm);
+  for_all_edges(
+    [&](record_id_type id) {
+      // Note: clangd may report a false positive error on the next line
+      // The code compiles and runs correctly
+      auto in_edge_name =
+        std::string(m_pedges->get<std::string_view>(V_COL, id));
+      auto out_edge_name =
+        std::string(m_pedges->get<std::string_view>(U_COL, id));
+      indegrees.async_insert(in_edge_name);
+      outdegrees.async_insert(out_edge_name);
+
+      bool is_directed = m_pedges->get<bool>(DIR_COL, id);
+      if (!is_directed) {
+        indegrees.async_insert(out_edge_name);
+        outdegrees.async_insert(in_edge_name);
+      }
+    },
+    where);
+
+  // not strictly required because the subsequent loop over degrees begins
+  // with a barrier. But that's spooky action at a distance, so we will be
+  // explicit here.
+  m_comm.barrier();
+
+  // TODO: we want to abstract this to set_node_column because this is a
+  // common operation. Make this a private function inside metall_graph.
+
+  // create a node_local map of record id to node value.
+  std::map<std::string, record_id_type> node_to_id{};
+  m_pnodes->for_all_rows([&](record_id_type id) {
+    std::string_view node = m_pnodes->get<std::string_view>(NODE_COL, id);
+    node_to_id[std::string(node)] = id;
+  });
+
+  // create series and store index so we don't have to keep looking it up.
+  auto in_deg_idx  = m_pnodes->add_series<size_t>(in_name);
+  auto out_deg_idx = m_pnodes->add_series<size_t>(out_name);
+
+  // add the values to the degrees series. We are taking advantage of the fact
+  // that the node information is local from the degrees shared counting set
+  // because it uses the same partitioning scheme as we used when we added the
+  // nodes in ingest.
+  for (const auto& [k, v] : indegrees) {
+    auto rec_idx = node_to_id.at(k);
+    m_pnodes->set(in_deg_idx, rec_idx, v);
+  }
+
+  for (const auto& [k, v] : outdegrees) {
+    auto rec_idx = node_to_id.at(k);
+    m_pnodes->set(out_deg_idx, rec_idx, v);
   }
 
   return to_return;
