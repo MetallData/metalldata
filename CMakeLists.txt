@@ -214,6 +214,7 @@ add_subdirectory(src)
 add_subdirectory(include)
 add_subdirectory(examples)
 add_subdirectory(bench)
+add_subdirectory(utils)
 
 if (METALLDATA_BUILD_TESTS)
     enable_testing()

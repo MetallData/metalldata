@@ -156,8 +156,6 @@ class metall_graph {
 
   operator bool() const { return good(); }
 
-  void compute_in_degree(std::string_view out_name);
-
   /// if the where_clause is default constructed, m_has_predicate is false,
   /// which means:
   // 1) is_node_clause and is_edge_clause are both true
