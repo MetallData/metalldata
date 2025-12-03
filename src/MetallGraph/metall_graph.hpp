@@ -359,20 +359,11 @@ class metall_graph {
   return_code in_out_degree(std::string_view series_name, const where_clause&,
                             bool             outdeg);
 
-  // Sets a node metadata column based on the value from a given edge column.
-  // Node names are extracted from u and/or v based on booleans. A function may
-  // be specified to transform the values before they are assigned; otherwise,
-  // the column value is copied verbatim. This function requires that the node
-  // metadata column NOT exist.
-  // The function takes the edge row index: void fn(record_id_type id).
-  // It is the caller's responsibility to extract whatever is needed out of the
-  // edge row.
-  // The where_clause is an edge clause.
+  // Sets a node metadata column based on a lookup from an associative data
+  // structure.
+  // Node names are extracted from the key.
 
-  // TODO: is std::identity ok to use here? it returns a reference to the input,
-  // not a copy.
-
-  // collection is some sort of associated data structure that can has
+  // collection is some sort of associative data structure that has
   // key->value mappings. the key is the node name. Keys that do not correspond
   // to nodes are ignored, but if the number is greater than zero, a warning
   // message will be added to the return code.
