@@ -65,6 +65,14 @@ class metall_graph {
     std::string                     error;
     bool                            good() const { return error.empty(); }
     operator bool() const { return good(); }
+
+    // merges warnings from another return code. If the keys match, the
+    // numbers are incremented.
+    void merge_warnings(return_code other) {
+      for (const auto& [msg, count] : other.warnings) {
+        warnings[msg] += count;
+      }
+    }
   };
 
   metall_graph(ygm::comm& comm, std::string_view path, bool overwrite = false);
@@ -289,6 +297,9 @@ class metall_graph {
   return_code degrees(std::string_view in_name, std::string_view out_name,
                       const where_clause& = where_clause());
 
+  return_code degrees2(std::string_view in_name, std::string_view out_name,
+                       const where_clause& = where_clause());
+
   return_code connected_components(std::string_view out_name,
                                    const where_clause& = where_clause());
 
@@ -347,5 +358,56 @@ class metall_graph {
 
   return_code in_out_degree(std::string_view series_name, const where_clause&,
                             bool             outdeg);
-};
+
+  // Sets a node metadata column based on the value from a given edge column.
+  // Node names are extracted from u and/or v based on booleans. A function may
+  // be specified to transform the values before they are assigned; otherwise,
+  // the column value is copied verbatim. This function requires that the node
+  // metadata column NOT exist.
+  // The function takes the edge row index: void fn(record_id_type id).
+  // It is the caller's responsibility to extract whatever is needed out of the
+  // edge row.
+  // The where_clause is an edge clause.
+
+  // TODO: is std::identity ok to use here? it returns a reference to the input,
+  // not a copy.
+
+  // collection is some sort of associated data structure that can has
+  // key->value mappings. the key is the node name. Keys that do not correspond
+  // to nodes are ignored, but if the number is greater than zero, a warning
+  // message will be added to the return code.
+  //
+  template <typename T>
+  return_code set_node_column(std::string_view nodecol_name, T collection) {
+    return_code to_return;
+
+    using record_id_type = record_store_type::record_id_type;
+
+    // create a node_local map of record id to node value.
+    std::map<std::string, record_id_type> node_to_id{};
+    m_pnodes->for_all_rows([&](record_id_type id) {
+      std::string_view node = m_pnodes->get<std::string_view>(NODE_COL, id);
+      node_to_id[std::string(node)] = id;
+    });
+
+    // create series and store index so we don't have to keep looking it up.
+    auto nodecol_idx = m_pnodes->add_series<size_t>(nodecol_name);
+
+    size_t invalid_nodes = 0;
+    for (const auto& [k, v] : collection) {
+      if (!node_to_id.contains(k)) {
+        ++invalid_nodes;
+        continue;
+      }
+      auto node_idx      = node_to_id.at(k);
+      m_pnodes[node_idx] = v;
+    }
+
+    if (invalid_nodes > 0) {
+      to_return.warnings["invalid nodes"] = invalid_nodes;
+    }
+
+    return to_return;
+  }
+};  // class metall_graph
 }  // namespace metalldata

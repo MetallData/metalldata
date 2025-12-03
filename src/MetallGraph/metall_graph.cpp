@@ -554,4 +554,64 @@ metall_graph::return_code metall_graph::degrees(
   return to_return;
 }
 
+metall_graph::return_code metall_graph::degrees2(
+  std::string_view in_name, std::string_view out_name,
+  const metall_graph::where_clause& where) {
+  using record_id_type = record_store_type::record_id_type;
+
+  metall_graph::return_code to_return;
+
+  if (!in_name.starts_with("node.")) {
+    to_return.error = std::format("Invalid series name: {}", in_name);
+    return to_return;
+  }
+
+  if (!out_name.starts_with("node.")) {
+    to_return.error = std::format("Invalid series name: {}", out_name);
+    return to_return;
+  }
+
+  if (m_pnodes->contains_series(in_name)) {
+    to_return.error = std::format("Series {} already exists", in_name);
+    return to_return;
+  }
+  if (m_pnodes->contains_series(out_name)) {
+    to_return.error = std::format("Series {} already exists", out_name);
+    return to_return;
+  }
+
+  auto                                      edges_ = m_pedges;
+  ygm::container::counting_set<std::string> indegrees(m_comm);
+  ygm::container::counting_set<std::string> outdegrees(m_comm);
+  for_all_edges(
+    [&](record_id_type id) {
+      // Note: clangd may report a false positive error on the next line
+      // The code compiles and runs correctly
+      auto in_edge_name =
+        std::string(m_pedges->get<std::string_view>(V_COL, id));
+      auto out_edge_name =
+        std::string(m_pedges->get<std::string_view>(U_COL, id));
+      indegrees.async_insert(in_edge_name);
+      outdegrees.async_insert(out_edge_name);
+
+      bool is_directed = m_pedges->get<bool>(DIR_COL, id);
+      if (!is_directed) {
+        indegrees.async_insert(out_edge_name);
+        outdegrees.async_insert(in_edge_name);
+      }
+    },
+    where);
+
+  // not strictly required because the subsequent loop over degrees begins
+  // with a barrier. But that's spooky action at a distance, so we will be
+  // explicit here.
+  m_comm.barrier();
+
+  to_return       = set_node_column(in_name, indegrees);
+  auto to_return2 = set_node_column(out_name, outdegrees);
+  to_return.merge_warnings(to_return2);
+
+  return to_return;
+}
+
 }  // namespace metalldata
