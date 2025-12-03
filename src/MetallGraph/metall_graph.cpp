@@ -221,7 +221,7 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
   std::set<std::string>              metaset(meta.begin(), meta.end());
 
   ygm::container::set<std::string> nodeset(m_comm);
-  std::unordered_set<std::string>  localnodes{};
+  std::unordered_set<std::string>  existing_localnodes{};
 
   for (const auto& name : RESERVED_COLUMN_NAMES) {
     if (metaset.contains(name)) {
@@ -306,11 +306,10 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
   auto _DIR_COL = DIR_COL;
   // for each row, set the metall data.
 
+  size_t local_num_edges = 0;
   parquetp.for_all(
     parquet_cols,
-    [&parquet_cols, &parquet_to_metall, &metall_edges, directed, _DIR_COL,
-     _U_COL, _V_COL, &nodeset](
-      const std::vector<ygm::io::parquet_parser::parquet_type_variant>& row) {
+    [&](const std::vector<ygm::io::parquet_parser::parquet_type_variant>& row) {
       auto rec = metall_edges->add_record();
       // first, set the directedness.
       metall_edges->set(_DIR_COL, rec, directed);
@@ -347,31 +346,30 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
           } else {
             metall_edges->set(metall_ser, rec, val);
           };
+          ++local_num_edges;
         };
         std::visit(add_val, parquet_val);
       }  // for loop
     });  // for_all
 
-  // do a barrier here to make sure the nodeset is synched.
-  // create a local std::set containing the m_pnodes vertices.
-
-  // m_pnodes->for_all<std::string>(NODE_COL, [&](int _, const auto& el) {
-  // using T = std::decay_t<decltype(el)>;
-  // if constexpr (std::is_same_v<T, std::string_view>) {
-  //   localnodes.emplace(el);
-  // }
-  // });
-
   // go through the local possible nodes to add and if we don't
   // have them, then add to the graph's m_pnodes. This starts with
   // a barrier so we don't need an explicit one beforehand.
+
+  size_t local_num_nodes = existing_localnodes.size();
   for (const auto& v : nodeset) {
-    if (!localnodes.contains(v)) {
+    if (!existing_localnodes.contains(v)) {
       auto rec = m_pnodes->add_record();
       m_pnodes->set(NODE_COL, rec, std::string_view(v));
-      localnodes.emplace(v);
+      existing_localnodes.emplace(v);
     }
   };
+  local_num_nodes = existing_localnodes.size() - local_num_nodes;
+
+  to_return.return_info["num_edges_ingested"] =
+    ygm::sum(local_num_edges, m_comm);
+  to_return.return_info["num_new_nodes_ingested"] =
+    ygm::sum(local_num_nodes, m_comm);
   return to_return;
 }
 

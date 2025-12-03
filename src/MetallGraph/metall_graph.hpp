@@ -127,13 +127,13 @@ class metall_graph {
     return m_pedges->get_series_names();
   };
 
-  size_t size() const {
+  size_t num_edges() const {
     size_t local_size = local_num_edges();
 
     return ygm::sum(local_size, m_comm);
   }
 
-  size_t order() const {
+  size_t num_nodes() const {
     size_t local_order = local_num_nodes();
     return ygm::sum(local_order, m_comm);
   }
@@ -368,11 +368,15 @@ class metall_graph {
   // to nodes are ignored, but if the number is greater than zero, a warning
   // message will be added to the return code.
   //
+  // TODO: memoize / persist the node_to_id map so that we're not building it
+  // every time.
   template <typename T>
-  return_code set_node_column(std::string_view nodecol_name, T collection) {
+  return_code set_node_column(std::string_view nodecol_name,
+                              const T&         collection) {
     return_code to_return;
 
     using record_id_type = record_store_type::record_id_type;
+    using val_type       = typename T::mapped_type;
 
     // create a node_local map of record id to node value.
     std::map<std::string, record_id_type> node_to_id{};
@@ -382,7 +386,7 @@ class metall_graph {
     });
 
     // create series and store index so we don't have to keep looking it up.
-    auto nodecol_idx = m_pnodes->add_series<size_t>(nodecol_name);
+    auto nodecol_idx = m_pnodes->add_series<val_type>(nodecol_name);
 
     size_t invalid_nodes = 0;
     for (const auto& [k, v] : collection) {
@@ -391,7 +395,7 @@ class metall_graph {
         continue;
       }
       auto node_idx      = node_to_id.at(k);
-      m_pnodes[node_idx] = v;
+      m_pnodes->set(nodecol_idx, node_idx, v);
     }
 
     if (invalid_nodes > 0) {

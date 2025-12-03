@@ -165,8 +165,8 @@ int main(int argc, char** argv) {
 
     world.cout0("Ingestion complete!");
     world.cout0("Graph statistics:");
-    world.cout0("  Total nodes: ", graph.order());
-    world.cout0("  Total edges: ", graph.size());
+    world.cout0("  Total nodes: ", graph.num_nodes());
+    world.cout0("  Total edges: ", graph.num_edges());
     world.cout0("  Node series: ", graph.num_node_series());
     world.cout0("  Edge series: ", graph.num_edge_series());
 

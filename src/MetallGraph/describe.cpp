@@ -8,25 +8,30 @@
 #include <ygm/comm.hpp>
 #include "metall_graph.hpp"
 
-static const std::string method_name    = "__init__";
+static const std::string method_name    = "describe";
 static const std::string state_name     = "INTERNAL";
 static const std::string sel_state_name = "selectors";
 
 int main(int argc, char **argv) {
   ygm::comm comm(&argc, &argv);
 
-  clippy::clippy clip{method_name, "Initializes a MetallGraph"};
-  clip.add_required<std::string>("path", "Storage path for MetallGraph");
+  clippy::clippy clip{method_name, "Provides basic graph statistics"};
+  clip.add_required_state<std::string>("path", "Storage path for MetallGraph");
 
   // no object-state requirements in constructor
   if (clip.parse(argc, argv, comm)) {
     return 0;
   }
 
-  std::string path = clip.get<std::string>("path");
-  clip.set_state("path", path);
+  auto path       = clip.get_state<std::string>("path");
 
   metalldata::metall_graph mg(comm, path, false);
 
+  size_t nv = mg.num_nodes();
+  size_t ne = mg.num_edges();
+  
+  clip.to_return(std::make_pair(nv, ne));
+
   return 0;
+
 }
