@@ -13,14 +13,21 @@ void print_usage(ygm::comm& world, const char* prog_name) {
   world.cerr0("\nRequired:\n");
   world.cerr0("  --graph <path>           Path to metall_graph storage\n");
   world.cerr0("\nDegree computation:\n");
-  world.cerr0("  --in-degree <col>        Compute in-degree, store in column <col>\n");
-  world.cerr0("  --out-degree <col>       Compute out-degree, store in column <col>\n");
-  world.cerr0("  (If both --in-degree and --out-degree are specified, uses degree() function)\n");
+  world.cerr0(
+    "  --in-degree <col>        Compute in-degree, store in column <col>\n");
+  world.cerr0(
+    "  --out-degree <col>       Compute out-degree, store in column <col>\n");
+  world.cerr0(
+    "  (If both --in-degree and --out-degree are specified, uses degree() "
+    "function)\n");
   world.cerr0("\nOptional:\n");
-  world.cerr0("  --where <jsonlogic>      JSONLogic file for filtering nodes\n");
+  world.cerr0(
+    "  --where <jsonlogic>      JSONLogic file for filtering nodes\n");
   world.cerr0("\nExamples:\n");
-  world.cerr0("  ", prog_name, " --graph my_graph --in-degree in_deg --out-degree out_deg\n");
-  world.cerr0("  ", prog_name, " --graph my_graph --in-degree in_deg --where filter.json\n");
+  world.cerr0("  ", prog_name,
+              " --graph my_graph --in-degree in_deg --out-degree out_deg\n");
+  world.cerr0("  ", prog_name,
+              " --graph my_graph --in-degree in_deg --where filter.json\n");
 }
 
 int main(int argc, char** argv) {
@@ -66,7 +73,8 @@ int main(int argc, char** argv) {
   }
 
   if (in_col.empty() && out_col.empty()) {
-    world.cerr0("Error: At least one of --in-degree or --out-degree is required");
+    world.cerr0(
+      "Error: At least one of --in-degree or --out-degree is required");
     print_usage(world, argv[0]);
     return 1;
   }
@@ -88,8 +96,8 @@ int main(int argc, char** argv) {
     }
 
     world.cout0("Successfully opened metall_graph");
-    world.cout0("Total nodes: ", graph.order());
-    world.cout0("Total edges: ", graph.size());
+    world.cout0("Total nodes: ", graph.num_nodes());
+    world.cout0("Total edges: ", graph.num_edges());
 
     // Create where clause
     metalldata::metall_graph::where_clause where;

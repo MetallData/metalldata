@@ -44,8 +44,8 @@ int main(int argc, char** argv) {
     }
 
     world.cout0("Successfully opened metall_graph");
-    world.cout0("Total nodes: ", graph.order());
-    world.cout0("Total edges: ", graph.size());
+    world.cout0("Total nodes: ", graph.num_nodes());
+    world.cout0("Total edges: ", graph.num_edges());
 
     // Remove the "edge.color" series if it exists
     std::string series_name = "edge.color";

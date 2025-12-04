@@ -15,14 +15,14 @@
 #include <ygm/comm.hpp>
 #include <ygm/io/parquet_parser.hpp>
 
-#include "metall_graph.hpp"
-#include "metall_jl/metall_jl.hpp"
+#include <metall_graph.hpp>
+#include <metall_jl/metall_jl.hpp>
 #include <fcntl.h>
 
-#include "boost/graph/graph_traits.hpp"
-#include "multiseries/multiseries_record.hpp"
-#include "ygm/container/set.hpp"
-#include "ygm/container/counting_set.hpp"
+#include <boost/graph/graph_traits.hpp>
+#include <multiseries/multiseries_record.hpp>
+#include <ygm/container/set.hpp>
+#include <ygm/container/counting_set.hpp>
 
 namespace metalldata {
 
@@ -138,16 +138,16 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
       metall::open_only, m_metall_path, m_comm.get_mpi_comm());
     auto& manager = m_pmetall_mpi->get_local_manager();
 
-    m_pnodes            = manager.find<record_store_type>("nodes").first;
-    m_pedges            = manager.find<record_store_type>("edges").first;
+    m_pnodes = manager.find<record_store_type>("nodes").first;
+    m_pedges = manager.find<record_store_type>("edges").first;
 
     if (!m_pnodes || !m_pedges) {
       m_comm.cerr0(
         "Error: Failed to find required data structures in metall store");
       delete m_pmetall_mpi;
-      m_pmetall_mpi       = nullptr;
-      m_pnodes            = nullptr;
-      m_pedges            = nullptr;
+      m_pmetall_mpi = nullptr;
+      m_pnodes      = nullptr;
+      m_pedges      = nullptr;
     }
   }
 
@@ -164,8 +164,8 @@ metall_graph::~metall_graph() {
   m_comm.barrier();
 
   // We don't free these because they are persistent in the metall store
-  m_pnodes            = nullptr;
-  m_pedges            = nullptr;
+  m_pnodes = nullptr;
+  m_pedges = nullptr;
 
   // Destroy the metall manager
   delete m_pmetall_mpi;
@@ -178,7 +178,7 @@ bool metall_graph::add_series(std::string_view name) {
     if (has_node_series(name)) {
       return false;
     }
-    m_comm.cout0("Adding Series: ", name);
+    // m_comm.cerr0("Adding Series: ", name);
     m_pnodes->add_series<T>(name);
     return true;
   }
@@ -186,7 +186,7 @@ bool metall_graph::add_series(std::string_view name) {
     if (has_edge_series(name)) {
       return false;
     }
-    m_comm.cout0("Adding Series: ", name);
+    m_comm.cerr0("Adding Series: ", name);
     m_pedges->add_series<T>(name);
     return true;
   }
@@ -218,7 +218,7 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
   ygm::io::parquet_parser parquetp(m_comm, paths, recursive);
   const auto&             schema = parquetp.get_schema();
 
-  std::set<std::string>              metaset(meta.begin(), meta.end());
+  std::set<std::string> metaset(meta.begin(), meta.end());
 
   ygm::container::set<std::string> nodeset(m_comm);
   std::unordered_set<std::string>  existing_localnodes{};
@@ -325,7 +325,7 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
         auto metall_ser = parquet_to_metall[parquet_ser];
 
-        auto add_val    = [&](const auto& val) {
+        auto add_val = [&](const auto& val) {
           using T = std::decay_t<decltype(val)>;
 
           // these are overrides for static_cast
