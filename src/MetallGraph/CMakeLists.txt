@@ -39,4 +39,5 @@ endfunction()
 add_metallgraph_executable(__init__ __init__.cpp)
 add_metallgraph_executable(ingest_parquet_edges ingest_parquet_edges.cpp)
 add_metallgraph_executable(describe describe.cpp)
+add_metallgraph_executable(debug debug.cpp)
 
