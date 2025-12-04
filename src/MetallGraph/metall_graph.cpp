@@ -172,27 +172,6 @@ metall_graph::~metall_graph() {
   m_pmetall_mpi = nullptr;
 }
 
-template <typename T>
-bool metall_graph::add_series(std::string_view name) {
-  if (name.starts_with("node.")) {
-    if (has_node_series(name)) {
-      return false;
-    }
-    // m_comm.cerr0("Adding Series: ", name);
-    m_pnodes->add_series<T>(name);
-    return true;
-  }
-  if (name.starts_with("edge.")) {
-    if (has_edge_series(name)) {
-      return false;
-    }
-    m_comm.cerr0("Adding Series: ", name);
-    m_pedges->add_series<T>(name);
-    return true;
-  }
-  return false;
-}
-
 bool metall_graph::drop_series(const std::string& name) {
   // TODO: does this need to check the prefix?
   if (RESERVED_COLUMN_NAMES.contains(name)) {

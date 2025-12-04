@@ -103,7 +103,23 @@ class metall_graph {
                                   bool overwrite = true);
 
   template <typename T>
-  bool add_series(std::string_view name);  // "node.color" or "edge.time"
+  bool add_series(std::string_view name) {  // "node.color" or "edge.time"
+    if (name.starts_with("node.")) {
+      if (has_node_series(name)) {
+        return false;
+      }
+      m_pnodes->add_series<T>(name);
+      return true;
+    }
+    if (name.starts_with("edge.")) {
+      if (has_edge_series(name)) {
+        return false;
+      }
+      m_pedges->add_series<T>(name);
+      return true;
+    }
+    return false;
+  }
 
   bool drop_series(const std::string& name);
 
@@ -394,7 +410,7 @@ class metall_graph {
         ++invalid_nodes;
         continue;
       }
-      auto node_idx      = node_to_id.at(k);
+      auto node_idx = node_to_id.at(k);
       m_pnodes->set(nodecol_idx, node_idx, v);
     }
 
