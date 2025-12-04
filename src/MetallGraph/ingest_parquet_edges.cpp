@@ -20,7 +20,6 @@ int main(int argc, char **argv) {
   clip.add_required<std::string>("input_path", "Path to parquet input");
   clip.add_required<std::string>("col_u", "Edge U column name");
   clip.add_required<std::string>("col_v", "Edge V column name");
-  clip.add_required<std::string>("col_v", "Edge V column name");
   clip.add_optional<bool>("directed",
                           "True if edges are directed (default true)", true);
   clip.add_optional<std::vector<std::string>>(
