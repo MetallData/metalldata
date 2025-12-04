@@ -73,7 +73,7 @@ FetchContent_MakeAvailable(faker)
 #
 FetchContent_Declare(CLIPPy
         GIT_REPOSITORY https://github.com/LLNL/clippy-cpp.git
-        GIT_TAG master
+        GIT_TAG v0.4
         )
         FetchContent_MakeAvailable(CLIPPy)
 set(CLIPPy_INCLUDE_DIR "${clippy_SOURCE_DIR}/include")
