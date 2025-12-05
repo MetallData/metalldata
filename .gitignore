@@ -1,6 +1,5 @@
 .swp
-**/build/
-**/build.old/
+**/build*/
 .cache/
 .cobaltlog
 .error
