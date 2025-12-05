@@ -74,6 +74,15 @@ static auto compile_jl_rule(bjsn::value jl_rule) {
   return std::make_tuple(compiled, vars);
 }
 
+metall_graph::where_clause::where_clause() {
+  m_predicate = [](const std::vector<data_types>&) { return true; };
+}
+
+metall_graph::where_clause::where_clause(
+  const std::vector<std::string>&                     s_names,
+  std::function<bool(const std::vector<data_types>&)> pred)
+    : m_series_names(s_names), m_predicate(pred) {}
+
 metall_graph::where_clause::where_clause(const bjsn::value& jlrule) {
   auto [compiled, vars] = compile_jl_rule(jlrule);
 

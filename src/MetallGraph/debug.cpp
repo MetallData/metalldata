@@ -60,5 +60,6 @@ int main(int argc, char** argv) {
     comm.cerr0("  - ", name);
   }
 
+  clip.to_return(0);
   return 0;
 }

@@ -6,7 +6,8 @@
 #define WITH_YGM 1
 #include <clippy/clippy.hpp>
 #include <ygm/comm.hpp>
-#include "metall_graph.hpp"
+#include <metall_graph.hpp>
+#include <format>
 
 static const std::string method_name    = "ingest_parquet_edges";
 static const std::string state_name     = "INTERNAL";
@@ -50,6 +51,8 @@ int main(int argc, char **argv) {
   for (const auto &[warn, count] : rc.warnings) {
     comm.cerr0(std::format("{} : {}", warn, count));
   }
+
+  clip.update_selectors(mg.get_selector_info());
 
   // TODO: the return_info dict vals are std::any. This needs explicit JSON
   // serialization if we want to return info from it.

@@ -27,6 +27,6 @@ int main(int argc, char **argv) {
   clip.set_state("path", path);
 
   metalldata::metall_graph mg(comm, path, false);
-
+  clip.update_selectors(mg.get_selector_info());
   return 0;
 }

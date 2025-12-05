@@ -41,3 +41,8 @@ add_metallgraph_executable(ingest_parquet_edges ingest_parquet_edges.cpp)
 add_metallgraph_executable(describe describe.cpp)
 add_metallgraph_executable(debug debug.cpp)
 
+add_custom_command(
+        TARGET __init__ POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+                ${CMAKE_CURRENT_SOURCE_DIR}/meta.json
+                ${CMAKE_CURRENT_BINARY_DIR}/meta.json)

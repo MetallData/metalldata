@@ -19,6 +19,7 @@
 #include <ygm/comm.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
 #include <boost/json.hpp>
+#include "ygm/container/set.hpp"
 
 namespace bjsn = boost::json;
 
@@ -46,6 +47,13 @@ inline bool is_edge_selector(std::string_view sel) {
 }
 
 class metall_graph {
+ private:
+  using record_store_type =
+    multiseries::basic_record_store<metall::manager::allocator_type<std::byte>>;
+  using string_store_type = record_store_type::string_store_type;
+
+  using record_id_type = record_store_type::record_id_type;
+
  public:
   using data_types =
     std::variant<size_t, double, bool, std::string, std::monostate>;
@@ -75,6 +83,84 @@ class metall_graph {
     }
   };
 
+  /// if the where_clause is default constructed, m_has_predicate is false,
+  /// which means:
+  // 1) is_node_clause and is_edge_clause are both true
+  // 2) evaluate() will always return true
+  // TODO: get rid of node and edge differentiation.
+  // TODO: get rid of initialized
+  struct where_clause {
+    where_clause();
+
+    where_clause(const std::vector<std::string>&                     s_names,
+                 std::function<bool(const std::vector<data_types>&)> pred);
+    where_clause(const bjsn::value& jlrule);
+
+    where_clause(const std::string& jsonlogic_file_path);
+
+    where_clause(std::istream& jsonlogic_stream);
+
+    const std::vector<std::string>& series_names() const {
+      return m_series_names;
+    }
+
+    bool good() const {
+      if (m_series_names.empty()) {
+        return true;
+      }
+      auto first_part = get_first_part(m_series_names.front());
+
+      for (const auto& name : m_series_names) {
+        if (first_part != get_first_part(name)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    bool is_node_clause() const {
+      return !m_series_names.empty() && good() &&
+             get_first_part(m_series_names.front()) == "node";
+    }
+
+    bool is_edge_clause() const {
+      return !m_series_names.empty() && good() &&
+             get_first_part(m_series_names.front()) == "edge";
+    }
+
+    const auto& predicate() const { return m_predicate; }
+
+    bool evaluate(const std::vector<data_types>& data) const {
+      return m_predicate(data);
+    }
+
+    bool empty() const { return m_series_names.empty(); }
+
+   private:
+    std::vector<std::string>                            m_series_names;
+    std::function<bool(const std::vector<data_types>&)> m_predicate;
+
+    std::string get_first_part(const std::string& str) const {
+      size_t pos = str.find('.');
+      if (pos != std::string::npos) {
+        return str.substr(0, pos);
+      }
+      return str;  // Return the whole string if no period is found
+    }
+  };
+
+  /*
+
+    where = node.age > 21 && node.zipcode = 77845
+
+    where = edge.u.age > edge.v.age
+
+    unsuupported =  (node.age > 21 && node.zipcode = 77845) & (edge.u.age >
+    edge.v.age)
+
+
+  */
+
   metall_graph(ygm::comm& comm, std::string_view path, bool overwrite = false);
 
   ~metall_graph();
@@ -101,6 +187,45 @@ class metall_graph {
                                   std::string_view                key,
                                   const std::vector<std::string>& meta,
                                   bool overwrite = true);
+
+  std::map<std::string, std::string> get_edge_selector_info() {
+    // Since the m_pedges schema is identical across ranks, we don't have to
+    // collect. Also: the "edge" prefix (and "node" in the corresponding
+    // function) need to match the corresponding meta.json values.
+    std::map<std::string, std::string> sels;
+    for (const auto& el : m_pedges->get_series_names()) {
+      auto sel = el;
+      if (!el.starts_with("edge")) {
+        sel = std::format("edge.{}", el);
+      }
+      sels[sel] = "default";
+    }
+
+    return sels;
+  }
+
+  std::map<std::string, std::string> get_node_selector_info() {
+    // Since the m_pedges schema is identical across ranks, we don't have to
+    // collect.
+    std::map<std::string, std::string> sels;
+    for (const auto& el : m_pnodes->get_series_names()) {
+      auto sel = el;
+      if (!el.starts_with("node")) {
+        sel = std::format("node.{}", el);
+      }
+      sels[sel] = "default";
+    }
+    return sels;
+  }
+
+  std::map<std::string, std::string> get_selector_info() {
+    std::map<std::string, std::string> sels = get_edge_selector_info();
+
+    std::map<std::string, std::string> nsels = get_node_selector_info();
+    sels.insert(nsels.begin(), nsels.end());
+
+    return sels;
+  }
 
   template <typename T>
   bool add_series(std::string_view name) {  // "node.color" or "edge.time"
@@ -143,15 +268,22 @@ class metall_graph {
     return m_pedges->get_series_names();
   };
 
-  size_t num_edges() const {
+  size_t num_edges(const where_clause& where = where_clause{}) const {
     size_t local_size = local_num_edges();
-
+    if (!where.empty()) {
+      local_size = 0;
+      for_all_edges([&](auto) { ++local_size; }, where);
+    }
     return ygm::sum(local_size, m_comm);
   }
 
-  size_t num_nodes() const {
-    size_t local_order = local_num_nodes();
-    return ygm::sum(local_order, m_comm);
+  size_t num_nodes(const where_clause& where = where_clause{}) const {
+    size_t local_size = local_num_nodes();
+    if (!where.empty()) {
+      local_size = 0;
+      for_all_nodes([&](auto) { ++local_size; }, where);
+    }
+    return ygm::sum(local_size, m_comm);
   }
 
   size_t num_node_series() const { return m_pnodes->num_series(); };
@@ -180,58 +312,13 @@ class metall_graph {
 
   operator bool() const { return good(); }
 
-  /// if the where_clause is default constructed, m_has_predicate is false,
-  /// which means:
-  // 1) is_node_clause and is_edge_clause are both true
-  // 2) evaluate() will always return true
-  // TODO: get rid of node and edge differentiation.
-  // TODO: get rid of initialized
-  struct where_clause {
-    where_clause() {
-      m_predicate = [](const std::vector<data_types>&) { return true; };
-    }
-
-    where_clause(const std::vector<std::string>&                     s_names,
-                 std::function<bool(const std::vector<data_types>&)> pred)
-        : m_series_names(s_names), m_predicate(pred) {}
-
-    where_clause(const bjsn::value& jlrule);
-
-    where_clause(const std::string& jsonlogic_file_path);
-
-    where_clause(std::istream& jsonlogic_stream);
-
-    const std::vector<std::string>& series_names() const {
-      return m_series_names;
-    }
-    const auto& predicate() const { return m_predicate; }
-
-    bool evaluate(const std::vector<data_types>& data) const {
-      return m_predicate(data);
-    }
-
-   private:
-    std::vector<std::string>                            m_series_names;
-    std::function<bool(const std::vector<data_types>&)> m_predicate;
-  };
-
-  /*
-
-    where = node.age > 21 && node.zipcode = 77845
-
-    where = edge.u.age > edge.v.age
-
-    unsuupported =  (node.age > 21 && node.zipcode = 77845) & (edge.u.age >
-    edge.v.age)
-
-
-  */
-
   // The following for_all functions take a function that
   // is passed the index as a parameter:
-  // Fn: [](int record_id) {}
+  // Fn: [](record_id_type record_id) {}
+  // TODO: need to accept node where clauses. This is tricky. Leave for Roger.
   template <typename Fn>
-  void for_all_edges(Fn func, const where_clause& where = where_clause()) {
+  void for_all_edges(Fn                  func,
+                     const where_clause& where = where_clause()) const {
     // take the where clause. Convert the where clause variables to
     // a vector of series indices. If it's missing, throw runtime.
     //
@@ -270,39 +357,68 @@ class metall_graph {
 
   // for_all_nodes lambda takes a row index.
   template <typename Fn>
-  void for_all_nodes(Fn func, const where_clause& where) {
-    auto var_idxs_o = m_pnodes->find_series(where.series_names());
-    if (!var_idxs_o.has_value()) {
-      return;
+  void for_all_nodes(Fn func, const where_clause& where) const {
+    if (where.is_node_clause()) {
+      auto var_idxs_o = m_pnodes->find_series(where.series_names());
+      if (!var_idxs_o.has_value()) {
+        return;
+      }
+      auto var_idxs = var_idxs_o.value();
+
+      auto wrapper = [&](size_t row_index) {
+        std::vector<data_types> var_data;
+        var_data.reserve(var_idxs.size());
+        for (auto series_idx : var_idxs) {
+          auto val = m_pnodes->get_dynamic(series_idx, row_index);
+          std::visit(
+            [&var_data](const auto& v) {
+              using T = std::decay_t<decltype(v)>;
+              if constexpr (std::is_same_v<T, int64_t>) {
+                var_data.push_back(size_t(v));
+              } else if constexpr (std::is_same_v<T, std::string_view>) {
+                var_data.push_back(std::string(v));
+              } else {
+                var_data.push_back(v);
+              }
+            },
+            val);
+        }
+
+        if (where.evaluate(var_data)) {
+          func(row_index);
+        }
+      };
+
+      m_pnodes->for_all_rows(wrapper);
+    } else if (where.is_edge_clause()) {
+      auto u_col_idx = m_pedges->find_series(U_COL);
+      auto v_col_idx = m_pedges->find_series(V_COL);
+
+      ygm::container::set<std::string> nodeset(m_comm);
+      for_all_edges(
+        [&](record_id_type record_idx) {
+          auto u = m_pedges->get<std::string_view>(u_col_idx, record_idx);
+          auto v = m_pedges->get<std::string_view>(v_col_idx, record_idx);
+
+          nodeset.async_insert(std::string(u));
+          nodeset.async_insert(std::string(v));
+        },
+        where);
+
+      std::unordered_map<std::string, record_id_type> node_to_id;
+      auto node_col_idx = m_pnodes->find_series(NODE_COL);
+      m_pnodes->for_all_rows([&](record_id_type rid) {
+        auto name = m_pnodes->get<std::string_view>(node_col_idx, rid);
+
+        node_to_id[std::string(name)] = rid;
+      });
+
+      for (const auto& node : nodeset) {
+        // throw an exception if the node is not in our node dataframe.
+        func(node_to_id.at(node));
+      }
     }
-    auto var_idxs = var_idxs_o.value();
-
-    auto wrapper = [&](size_t row_index) {
-      std::vector<data_types> var_data;
-      var_data.reserve(var_idxs.size());
-      for (auto series_idx : var_idxs) {
-        auto val = m_pnodes->get_dynamic(series_idx, row_index);
-        std::visit(
-          [&var_data](const auto& v) {
-            using T = std::decay_t<decltype(v)>;
-            if constexpr (std::is_same_v<T, int64_t>) {
-              var_data.push_back(size_t(v));
-            } else if constexpr (std::is_same_v<T, std::string_view>) {
-              var_data.push_back(std::string(v));
-            } else {
-              var_data.push_back(v);
-            }
-          },
-          val);
-      }
-
-      if (where.evaluate(var_data)) {
-        func(row_index);
-      }
-    };
-
-    m_pnodes->for_all_rows(wrapper);
-  };
+  }
 
   return_code in_degree(std::string_view out_name,
                         const where_clause& = where_clause());
@@ -359,10 +475,6 @@ class metall_graph {
   ygm::comm&  m_comm;         ///< YGM Comm
 
   metall::utility::metall_mpi_adaptor* m_pmetall_mpi = nullptr;
-
-  using record_store_type =
-    multiseries::basic_record_store<metall::manager::allocator_type<std::byte>>;
-  using string_store_type = record_store_type::string_store_type;
 
   /// Dataframe for vertex metadata
   record_store_type* m_pnodes = nullptr;
