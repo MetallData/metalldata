@@ -3,6 +3,8 @@
 #include <vector>
 #include <string>
 
+using series_name = metalldata::metall_graph::series_name;
+
 int main(int argc, char** argv) {
   std::string parquet_path = "multiparq";    // Default path
   std::string metall_path  = "ingestedges";  // Default path
@@ -15,7 +17,9 @@ int main(int argc, char** argv) {
 
   ygm::comm world(&argc, &argv);
 
-  std::vector<std::string> cols{"conn_id", "score", "age"};
+  std::vector<series_name> cols{series_name("edge.conn_id"),
+                                series_name("edge.score"),
+                                series_name("edge.age")};
   metalldata::metall_graph test(world, metall_path);
   world.cerr0("past creation of testgraph\n");
   test.ingest_parquet_edges(parquet_path, false, "from", "to", true, cols);

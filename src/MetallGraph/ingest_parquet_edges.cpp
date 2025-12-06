@@ -36,9 +36,16 @@ int main(int argc, char **argv) {
   auto col_u      = clip.get<std::string>("col_u");
   auto col_v      = clip.get<std::string>("col_v");
   auto directed   = clip.get<bool>("directed");
-  auto meta       = clip.get<std::vector<std::string>>("metadata");
+  auto meta_str   = clip.get<std::vector<std::string>>("metadata");
 
   metalldata::metall_graph mg(comm, path, false);
+
+  std::vector<metalldata::metall_graph::series_name> meta;
+  meta.reserve(meta_str.size());
+
+  for (const auto m : meta_str) {
+    meta.emplace_back("edge", m);
+  }
 
   auto rc =
     mg.ingest_parquet_edges(input_path, true, col_u, col_v, directed, meta);

@@ -16,7 +16,7 @@
 #include <ygm/io/parquet_parser.hpp>
 
 #include <metall_graph.hpp>
-#include <metall_jl/metall_jl.hpp>
+// #include <metall_jl/metall_jl.hpp>
 #include <fcntl.h>
 
 #include <boost/graph/graph_traits.hpp>
@@ -33,81 +33,6 @@ namespace metalldata {
  * @return A tuple containing the compiled lambda function and a vector of
  * variable names
  */
-static auto compile_jl_rule(bjsn::value jl_rule) {
-  auto [expression_rule, vars_b, _] = jsonlogic::create_logic(jl_rule);
-
-  std::vector<std::string> vars{vars_b.begin(), vars_b.end()};
-
-  // Store the unique_ptr in a shared_ptr to make it copyable and shareable
-  auto shared_expr =
-    std::make_shared<jsonlogic::any_expr>(std::move(expression_rule));
-
-  auto compiled =
-    [shared_expr](const std::vector<metall_graph::data_types>& row) -> bool {
-    // Convert data_types to value_variant
-    std::vector<jsonlogic::value_variant> jl_row;
-    jl_row.reserve(row.size());
-
-    for (const auto& val : row) {
-      std::visit(
-        [&jl_row](auto&& arg) {
-          using T = std::decay_t<decltype(arg)>;
-          if constexpr (std::is_same_v<T, std::monostate>) {
-            jl_row.push_back(std::monostate{});
-          } else if constexpr (std::is_same_v<T, bool>) {
-            jl_row.push_back(arg);
-          } else if constexpr (std::is_same_v<T, size_t>) {
-            jl_row.push_back(static_cast<std::uint64_t>(arg));
-          } else if constexpr (std::is_same_v<T, double>) {
-            jl_row.push_back(arg);
-          } else if constexpr (std::is_same_v<T, std::string>) {
-            jl_row.push_back(std::string_view{arg});
-          }
-        },
-        val);
-    }
-
-    auto res_j = jsonlogic::apply(*shared_expr, jl_row);
-    return jsonlogic::unpack_value<bool>(res_j);
-  };
-
-  return std::make_tuple(compiled, vars);
-}
-
-metall_graph::where_clause::where_clause() {
-  m_predicate = [](const std::vector<data_types>&) { return true; };
-}
-
-metall_graph::where_clause::where_clause(
-  const std::vector<std::string>&                     s_names,
-  std::function<bool(const std::vector<data_types>&)> pred)
-    : m_series_names(s_names), m_predicate(pred) {}
-
-metall_graph::where_clause::where_clause(const bjsn::value& jlrule) {
-  auto [compiled, vars] = compile_jl_rule(jlrule);
-
-  m_predicate    = compiled;
-  m_series_names = vars;
-}
-
-metall_graph::where_clause::where_clause(
-  const std::string& jsonlogic_file_path) {
-  bjsn::value jl   = jl::parseFile(jsonlogic_file_path);
-  bjsn::value rule = jl.as_object()["rule"];
-
-  auto [compiled, vars] = compile_jl_rule(rule);
-  m_predicate           = compiled;
-  m_series_names        = vars;
-}
-
-metall_graph::where_clause::where_clause(std::istream& jsonlogic_stream) {
-  bjsn::value jl   = jl::parseStream(jsonlogic_stream);
-  bjsn::value rule = jl.as_object()["rule"];
-
-  auto [compiled, vars] = compile_jl_rule(rule);
-  m_predicate           = compiled;
-  m_series_names        = vars;
-}
 
 metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
                            bool overwrite)
@@ -181,24 +106,30 @@ metall_graph::~metall_graph() {
   m_pmetall_mpi = nullptr;
 }
 
-bool metall_graph::drop_series(const std::string& name) {
-  // TODO: does this need to check the prefix?
+// drop_series requires a qualified selector name (starts with node. or edge.)
+bool metall_graph::drop_series(const series_name& name) {
   if (RESERVED_COLUMN_NAMES.contains(name)) {
-    m_comm.cerr0("Cannot remove reserved column ", name);
+    m_comm.cerr0("Cannot remove reserved column ", name.qualified());
     return false;
   }
-  if (name.starts_with("node.")) {
-    return m_pnodes->remove_series(name);
+  if (name.is_node_series()) {
+    return m_pnodes->remove_series(name.unqualified());
   }
-  return m_pedges->remove_series(name);
+  if (name.is_edge_series()) {
+    return m_pedges->remove_series(name.unqualified());
+  }
+  m_comm.cerr0("Unknown series name", name.qualified());
+  return false;
 }
 
 metall_graph::return_code metall_graph::ingest_parquet_edges(
   std::string_view path, bool recursive, std::string_view col_u,
-  std::string_view col_v, bool directed, const std::vector<std::string>& meta) {
+  std::string_view col_v, bool directed, const std::vector<series_name>& meta) {
   return_code to_return;
-  // Note: meta is exclusive of col_u and col_v.
-  //
+  // Note: meta is exclusive of col_u and col_v. The metaset should
+  // consist of qualified selector names (start with node. or edge.)
+  // The parquet file, since it deals with edge data only, should use
+  // unqualified selector names.
   // Setup parquet reader
 
   std::vector<std::string> paths;
@@ -206,21 +137,22 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
   ygm::io::parquet_parser parquetp(m_comm, paths, recursive);
   const auto&             schema = parquetp.get_schema();
 
-  std::set<std::string> metaset(meta.begin(), meta.end());
+  std::set<series_name> metaset(meta.begin(), meta.end());
 
   ygm::container::set<std::string> nodeset(m_comm);
   std::unordered_set<std::string>  existing_localnodes{};
 
   for (const auto& name : RESERVED_COLUMN_NAMES) {
     if (metaset.contains(name)) {
-      to_return.error = "Error: reserved name " + name + " found in meta data.";
+      to_return.error =
+        "Error: reserved name " + name.qualified() + " found in meta data.";
       return to_return;
     }
   }
 
   metaset.emplace(col_u);
   metaset.emplace(col_v);
-  std::map<std::string, std::string> parquet_to_metall;
+  std::map<std::string, series_name> parquet_to_metall;
 
   std::vector<std::string> parquet_cols;
   parquet_cols.reserve(schema.size());
@@ -233,8 +165,8 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
     std::string pcol_name = schema[i].name;
     auto        pcol_type = schema[i].type;
-    if (metaset.contains(pcol_name)) {
-      std::string mapped_name = "edge." + pcol_name;
+    series_name mapped_name{"edge", pcol_name};
+    if (metaset.contains(mapped_name)) {
       if (pcol_name == col_u) {
         YGM_ASSERT_RELEASE(pcol_type.equal(parquet::Type::BYTE_ARRAY));
 
@@ -269,7 +201,7 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
           to_return.error = "Failed to add source column: " + pcol_name;
         }
       }
-    }
+    };
   }  // for schema
 
   if (!got_u) {
@@ -289,9 +221,9 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
   auto metall_edges = m_pedges;
 
-  auto _U_COL   = U_COL;
-  auto _V_COL   = V_COL;
-  auto _DIR_COL = DIR_COL;
+  // auto _U_COL   = strip_selector(U_COL);
+  // auto _V_COL   = strip_selector(V_COL);
+  // auto _DIR_COL = strip_selector(DIR_COL);
   // for each row, set the metall data.
 
   size_t local_num_edges = 0;
@@ -300,7 +232,7 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
     [&](const std::vector<ygm::io::parquet_parser::parquet_type_variant>& row) {
       auto rec = metall_edges->add_record();
       // first, set the directedness.
-      metall_edges->set(_DIR_COL, rec, directed);
+      metall_edges->set(DIR_COL.unqualified(), rec, directed);
       for (size_t i = 0; i < parquet_cols.size(); ++i) {
         auto parquet_ser = parquet_cols[i];
 
@@ -320,19 +252,23 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
           if constexpr (std::is_same_v<T, std::monostate>) {
             // do nothing
           } else if constexpr (std::is_same_v<T, int>) {
-            metall_edges->set(metall_ser, rec, static_cast<int64_t>(val));
+            metall_edges->set(metall_ser.unqualified(), rec,
+                              static_cast<int64_t>(val));
           } else if constexpr (std::is_same_v<T, long>) {
-            metall_edges->set(metall_ser, rec, static_cast<int64_t>(val));
+            metall_edges->set(metall_ser.unqualified(), rec,
+                              static_cast<int64_t>(val));
           } else if constexpr (std::is_same_v<T, float>) {
-            metall_edges->set(metall_ser, rec, static_cast<double>(val));
+            metall_edges->set(metall_ser.unqualified(), rec,
+                              static_cast<double>(val));
           } else if constexpr (std::is_same_v<T, std::string>) {
-            metall_edges->set(metall_ser, rec, std::string_view(val));
+            metall_edges->set(metall_ser.unqualified(), rec,
+                              std::string_view(val));
             // if this is u or v, add to the distributed nodeset.
-            if (metall_ser == _U_COL || metall_ser == _V_COL) {
+            if (metall_ser == U_COL || metall_ser == V_COL) {
               nodeset.async_insert(val);
             }
           } else {
-            metall_edges->set(metall_ser, rec, val);
+            metall_edges->set(metall_ser.unqualified(), rec, val);
           };
           ++local_num_edges;
         };
@@ -348,7 +284,7 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
   for (const auto& v : nodeset) {
     if (!existing_localnodes.contains(v)) {
       auto rec = m_pnodes->add_record();
-      m_pnodes->set(NODE_COL, rec, std::string_view(v));
+      m_pnodes->set(NODE_COL.unqualified(), rec, std::string_view(v));
       existing_localnodes.emplace(v);
     }
   };
@@ -362,13 +298,13 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 }
 
 metall_graph::return_code metall_graph::out_degree(
-  std::string_view out_name, const metall_graph::where_clause& where) {
-  return in_out_degree(out_name, where, true);
+  series_name out_name, const metall_graph::where_clause& where) {
+  return priv_in_out_degree(out_name, where, true);
 }
 
 metall_graph::return_code metall_graph::in_degree(
-  std::string_view in_name, const metall_graph::where_clause& where) {
-  return in_out_degree(in_name, where, false);
+  series_name in_name, const metall_graph::where_clause& where) {
+  return priv_in_out_degree(in_name, where, false);
 }
 
 /**
@@ -382,13 +318,12 @@ metall_graph::return_code metall_graph::in_degree(
  * @param outdeg If true, compute out-degree; if false, compute in-degree
  * @return return_code indicating success or failure
  */
-metall_graph::return_code metall_graph::in_out_degree(
-  std::string_view series_name, const metall_graph::where_clause& where,
-  bool outdeg) {
+metall_graph::return_code metall_graph::priv_in_out_degree(
+  series_name name, const metall_graph::where_clause& where, bool outdeg) {
   using record_id_type = record_store_type::record_id_type;
 
   metall_graph::return_code to_return;
-  std::string               degcol, otherdegcol;
+  series_name               degcol, otherdegcol;
   if (outdeg) {
     degcol      = U_COL;
     otherdegcol = V_COL;
@@ -397,13 +332,13 @@ metall_graph::return_code metall_graph::in_out_degree(
     otherdegcol = U_COL;
   }
 
-  if (!series_name.starts_with("node.")) {
-    to_return.error = std::format("Invalid series name: {}", series_name);
+  if (!name.is_node_series()) {
+    to_return.error = std::format("Invalid series name: {}", name.qualified());
     return to_return;
   }
 
-  if (m_pnodes->contains_series(series_name)) {
-    to_return.error = std::format("Series {} already exists", series_name);
+  if (m_pnodes->contains_series(name.unqualified())) {
+    to_return.error = std::format("Series {} already exists", name.qualified());
     return to_return;
   }
 
@@ -413,14 +348,15 @@ metall_graph::return_code metall_graph::in_out_degree(
     [&](record_id_type id) {
       // Note: clangd may report a false positive error on the next line
       // The code compiles and runs correctly
-      std::string_view edge_name = m_pedges->get<std::string_view>(degcol, id);
+      std::string_view edge_name =
+        m_pedges->get<std::string_view>(degcol.unqualified(), id);
       degrees.async_insert(std::string(edge_name));
 
       // for undirected edges, add the reverse.
-      bool is_directed = m_pedges->get<bool>(DIR_COL, id);
+      bool is_directed = m_pedges->get<bool>(DIR_COL.unqualified(), id);
       if (!is_directed) {
         auto reverseedge_name =
-          m_pedges->get<std::string_view>(otherdegcol, id);
+          m_pedges->get<std::string_view>(otherdegcol.unqualified(), id);
         degrees.async_insert(std::string(reverseedge_name));
       }
     },
@@ -437,12 +373,13 @@ metall_graph::return_code metall_graph::in_out_degree(
   // create a node_local map of node value to record ids.
   std::map<std::string, record_id_type> node_to_id{};
   m_pnodes->for_all_rows([&](record_id_type id) {
-    std::string_view node = m_pnodes->get<std::string_view>(NODE_COL, id);
+    std::string_view node =
+      m_pnodes->get<std::string_view>(NODE_COL.unqualified(), id);
     node_to_id[std::string(node)] = id;
   });
 
   // create series and store index so we don't have to keep looking it up.
-  auto deg_idx = m_pnodes->add_series<size_t>(series_name);
+  auto deg_idx = m_pnodes->add_series<size_t>(name.unqualified());
 
   // add the values to the degrees series. We are taking advantage of the fact
   // that the node information is local from the degrees shared counting set
@@ -457,28 +394,32 @@ metall_graph::return_code metall_graph::in_out_degree(
 }
 
 metall_graph::return_code metall_graph::degrees(
-  std::string_view in_name, std::string_view out_name,
+  series_name in_name, series_name out_name,
   const metall_graph::where_clause& where) {
   using record_id_type = record_store_type::record_id_type;
 
   metall_graph::return_code to_return;
 
-  if (!in_name.starts_with("node.")) {
-    to_return.error = std::format("Invalid series name: {}", in_name);
+  if (!in_name.is_node_series()) {
+    to_return.error =
+      std::format("Invalid series name: {}", in_name.qualified());
     return to_return;
   }
 
-  if (!out_name.starts_with("node.")) {
-    to_return.error = std::format("Invalid series name: {}", out_name);
+  if (!out_name.is_node_series()) {
+    to_return.error =
+      std::format("Invalid series name: {}", out_name.qualified());
     return to_return;
   }
 
-  if (m_pnodes->contains_series(in_name)) {
-    to_return.error = std::format("Series {} already exists", in_name);
+  if (m_pnodes->contains_series(in_name.unqualified())) {
+    to_return.error =
+      std::format("Series {} already exists", in_name.qualified());
     return to_return;
   }
-  if (m_pnodes->contains_series(out_name)) {
-    to_return.error = std::format("Series {} already exists", out_name);
+  if (m_pnodes->contains_series(out_name.unqualified())) {
+    to_return.error =
+      std::format("Series {} already exists", out_name.qualified());
     return to_return;
   }
 
@@ -490,13 +431,13 @@ metall_graph::return_code metall_graph::degrees(
       // Note: clangd may report a false positive error on the next line
       // The code compiles and runs correctly
       auto in_edge_name =
-        std::string(m_pedges->get<std::string_view>(V_COL, id));
+        std::string(m_pedges->get<std::string_view>(V_COL.unqualified(), id));
       auto out_edge_name =
-        std::string(m_pedges->get<std::string_view>(U_COL, id));
+        std::string(m_pedges->get<std::string_view>(U_COL.unqualified(), id));
       indegrees.async_insert(in_edge_name);
       outdegrees.async_insert(out_edge_name);
 
-      bool is_directed = m_pedges->get<bool>(DIR_COL, id);
+      bool is_directed = m_pedges->get<bool>(DIR_COL.unqualified(), id);
       if (!is_directed) {
         indegrees.async_insert(out_edge_name);
         outdegrees.async_insert(in_edge_name);
@@ -515,13 +456,14 @@ metall_graph::return_code metall_graph::degrees(
   // create a node_local map of record id to node value.
   std::map<std::string, record_id_type> node_to_id{};
   m_pnodes->for_all_rows([&](record_id_type id) {
-    std::string_view node = m_pnodes->get<std::string_view>(NODE_COL, id);
+    std::string_view node =
+      m_pnodes->get<std::string_view>(NODE_COL.unqualified(), id);
     node_to_id[std::string(node)] = id;
   });
 
   // create series and store index so we don't have to keep looking it up.
-  auto in_deg_idx  = m_pnodes->add_series<size_t>(in_name);
-  auto out_deg_idx = m_pnodes->add_series<size_t>(out_name);
+  auto in_deg_idx  = m_pnodes->add_series<size_t>(in_name.unqualified());
+  auto out_deg_idx = m_pnodes->add_series<size_t>(out_name.unqualified());
 
   // add the values to the degrees series. We are taking advantage of the fact
   // that the node information is local from the degrees shared counting set
@@ -541,28 +483,32 @@ metall_graph::return_code metall_graph::degrees(
 }
 
 metall_graph::return_code metall_graph::degrees2(
-  std::string_view in_name, std::string_view out_name,
+  series_name in_name, series_name out_name,
   const metall_graph::where_clause& where) {
   using record_id_type = record_store_type::record_id_type;
 
   metall_graph::return_code to_return;
 
-  if (!in_name.starts_with("node.")) {
-    to_return.error = std::format("Invalid series name: {}", in_name);
+  if (!in_name.is_node_series()) {
+    to_return.error =
+      std::format("Invalid series name: {}", in_name.qualified());
     return to_return;
   }
 
-  if (!out_name.starts_with("node.")) {
-    to_return.error = std::format("Invalid series name: {}", out_name);
+  if (!out_name.is_node_series()) {
+    to_return.error =
+      std::format("Invalid series name: {}", out_name.qualified());
     return to_return;
   }
 
-  if (m_pnodes->contains_series(in_name)) {
-    to_return.error = std::format("Series {} already exists", in_name);
+  if (m_pnodes->contains_series(in_name.unqualified())) {
+    to_return.error =
+      std::format("Series {} already exists", in_name.qualified());
     return to_return;
   }
-  if (m_pnodes->contains_series(out_name)) {
-    to_return.error = std::format("Series {} already exists", out_name);
+  if (m_pnodes->contains_series(out_name.unqualified())) {
+    to_return.error =
+      std::format("Series {} already exists", out_name.qualified());
     return to_return;
   }
 
@@ -574,13 +520,13 @@ metall_graph::return_code metall_graph::degrees2(
       // Note: clangd may report a false positive error on the next line
       // The code compiles and runs correctly
       auto in_edge_name =
-        std::string(m_pedges->get<std::string_view>(V_COL, id));
+        std::string(m_pedges->get<std::string_view>(V_COL.unqualified(), id));
       auto out_edge_name =
-        std::string(m_pedges->get<std::string_view>(U_COL, id));
+        std::string(m_pedges->get<std::string_view>(U_COL.unqualified(), id));
       indegrees.async_insert(in_edge_name);
       outdegrees.async_insert(out_edge_name);
 
-      bool is_directed = m_pedges->get<bool>(DIR_COL, id);
+      bool is_directed = m_pedges->get<bool>(DIR_COL.unqualified(), id);
       if (!is_directed) {
         indegrees.async_insert(out_edge_name);
         outdegrees.async_insert(in_edge_name);

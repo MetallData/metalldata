@@ -20,6 +20,8 @@
  * Usage: mpirun -n <procs> ./test_assign <metall_graph_path> [jsonlogic_file]
  */
 
+using series_name = metalldata::metall_graph::series_name;
+
 int main(int argc, char** argv) {
   ygm::comm world(&argc, &argv);
 
@@ -48,23 +50,23 @@ int main(int argc, char** argv) {
     world.cout0("Total edges: ", graph.num_edges());
 
     // Remove the "edge.color" series if it exists
-    std::string series_name = "edge.color";
-    if (graph.has_edge_series(series_name)) {
-      world.cout0("Removing existing series: ", series_name);
-      if (!graph.drop_series(series_name)) {
-        world.cerr0("Error: Failed to remove series ", series_name);
+    series_name name("edge.color");
+    if (graph.has_edge_series(name)) {
+      world.cout0("Removing existing series: ", name.qualified());
+      if (!graph.drop_series(name)) {
+        world.cerr0("Error: Failed to remove series ", name.qualified());
         return 1;
       }
     }
 
     // Add the "edge.color" series
-    world.cout0("Adding series: ", series_name);
+    world.cout0("Adding series: ", name.qualified());
 
-    if (!graph.add_series<std::string_view>(series_name)) {
-      world.cerr0("Error: Failed to add series ", series_name);
+    if (!graph.add_series<std::string_view>(name)) {
+      world.cerr0("Error: Failed to add series ", name.qualified());
       return 1;
     }
-    world.cout0("Successfully added series: ", series_name);
+    world.cout0("Successfully added series: ", name.qualified());
 
     // Read JSONLogic rule from file (if provided)
     metalldata::metall_graph::return_code result;
@@ -77,16 +79,16 @@ int main(int argc, char** argv) {
       metalldata::metall_graph::where_clause where(jsonlogic_file);
 
       // Assign "blue" to color column where JSONLogic evaluates to true
-      world.cout0("Assigning '", color_value, "' to '", series_name,
+      world.cout0("Assigning '", color_value, "' to '", name.qualified(),
                   "' where JSONLogic evaluates to true");
 
-      result = graph.assign(series_name, color_value, where);
+      result = graph.assign(name, color_value, where);
     } else {
       // No JSONLogic filter - assign to all edges
-      world.cout0("Assigning '", color_value, "' to '", series_name,
+      world.cout0("Assigning '", color_value, "' to '", name.qualified(),
                   "' (all edges)");
 
-      result = graph.assign(series_name, color_value);
+      result = graph.assign(name, color_value);
     }
 
     if (!result.error.empty()) {
@@ -114,8 +116,8 @@ int main(int argc, char** argv) {
         if (count >= 10) return;
 
         // Visit and print each field for this edge
-        for (const auto& series_name : edge_series_names) {
-          graph.visit_edge_field(series_name, record_id, [](const auto& value) {
+        for (const auto& n : edge_series_names) {
+          graph.visit_edge_field(n, record_id, [](const auto& value) {
             std::cout << value << "\t\t";
           });
         }

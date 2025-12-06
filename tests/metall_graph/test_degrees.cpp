@@ -8,6 +8,8 @@
 #include <string>
 #include <filesystem>
 
+using series_name = metalldata::metall_graph::series_name;
+
 void print_usage(ygm::comm& world, const char* prog_name) {
   world.cerr0("Usage: ", prog_name, " [options]\n");
   world.cerr0("\nRequired:\n");
@@ -41,8 +43,8 @@ int main(int argc, char** argv) {
   }
 
   std::string graph_path;
-  std::string in_col;
-  std::string out_col;
+  std::string in_col_str;
+  std::string out_col_str;
   std::string where_file;
 
   for (int i = 1; i < argc; ++i) {
@@ -50,9 +52,9 @@ int main(int argc, char** argv) {
     if (arg == "--graph" && i + 1 < argc) {
       graph_path = argv[++i];
     } else if (arg == "--in-degree" && i + 1 < argc) {
-      in_col = argv[++i];
+      in_col_str = argv[++i];
     } else if (arg == "--out-degree" && i + 1 < argc) {
-      out_col = argv[++i];
+      out_col_str = argv[++i];
     } else if (arg == "--where" && i + 1 < argc) {
       where_file = argv[++i];
     } else if (arg == "--help" || arg == "-h") {
@@ -72,7 +74,7 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  if (in_col.empty() && out_col.empty()) {
+  if (in_col_str.empty() && out_col_str.empty()) {
     world.cerr0(
       "Error: At least one of --in-degree or --out-degree is required");
     print_usage(world, argv[0]);
@@ -112,12 +114,14 @@ int main(int argc, char** argv) {
       world.cout0("No where clause specified (using default)");
     }
 
+    series_name in_col{in_col_str};
+    series_name out_col{out_col_str};
     // Compute degrees
     if (!in_col.empty() && !out_col.empty()) {
       // Both specified - use degrees() function
       world.cout0("Computing both in-degree and out-degree using degrees()");
-      world.cout0("  In-degree  -> ", in_col);
-      world.cout0("  Out-degree -> ", out_col);
+      world.cout0("  In-degree  -> ", in_col.qualified());
+      world.cout0("  Out-degree -> ", out_col.qualified());
       auto result = graph.degrees(in_col, out_col, where);
       if (!result.error.empty()) {
         world.cerr0("Error computing degrees: ", result.error);
@@ -126,7 +130,7 @@ int main(int argc, char** argv) {
       world.cout0("Degree computation complete");
     } else if (!in_col.empty()) {
       // Only in-degree
-      world.cout0("Computing in-degree -> ", in_col);
+      world.cout0("Computing in-degree -> ", in_col.qualified());
       auto result = graph.in_degree(in_col, where);
       if (!result.error.empty()) {
         world.cerr0("Error computing in-degree: ", result.error);
@@ -135,7 +139,7 @@ int main(int argc, char** argv) {
       world.cout0("In-degree computation complete");
     } else if (!out_col.empty()) {
       // Only out-degree
-      world.cout0("Computing out-degree -> ", out_col);
+      world.cout0("Computing out-degree -> ", out_col.qualified());
       auto result = graph.out_degree(out_col, where);
       if (!result.error.empty()) {
         world.cerr0("Error computing out-degree: ", result.error);
@@ -147,7 +151,7 @@ int main(int argc, char** argv) {
     world.cout0("\nDegree computation successful!");
     world.cout0("Node series available:");
     for (const auto& series : graph.get_node_series_names()) {
-      world.cout0("  - ", series);
+      world.cout0("  - ", series.qualified());
     }
 
   } catch (const std::exception& e) {

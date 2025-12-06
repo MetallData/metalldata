@@ -71,7 +71,7 @@ int main(int argc, char** argv) {
   std::string              col_v        = "v";
   bool                     directed     = true;  // Default: directed
   bool                     recursive    = false;
-  std::vector<std::string> meta;  // Default: empty (no metadata)
+  std::vector<std::string> meta_str;  // Default: empty (no metadata)
   bool                     meta_specified = false;
   std::string              output_path;
 
@@ -88,13 +88,13 @@ int main(int argc, char** argv) {
       recursive = true;
     } else if (arg == "--meta" && i + 1 < argc) {
       meta_specified       = true;
-      std::string meta_str = argv[++i];
+      std::string meta_s   = argv[++i];
       // Parse comma-separated metadata columns
-      std::stringstream ss(meta_str);
+      std::stringstream ss(meta_s);
       std::string       item;
       while (std::getline(ss, item, ',')) {
         if (!item.empty()) {
-          meta.push_back(item);
+          meta_str.push_back(item);
         }
       }
     } else if (arg == "--output" && i + 1 < argc) {
@@ -124,9 +124,9 @@ int main(int argc, char** argv) {
   world.cout0("  Col V:      ", col_v);
   world.cout0("  Directed:   ", directed ? "yes" : "no");
   world.cout0("  Recursive:  ", recursive ? "yes" : "no");
-  if (!meta.empty()) {
-    world.cout0("  Metadata:   ", meta.size(), " columns");
-    for (const auto& m : meta) {
+  if (!meta_str.empty()) {
+    world.cout0("  Metadata:   ", meta_str.size(), " columns");
+    for (const auto& m : meta_str) {
       world.cout0("    - ", m);
     }
   } else {
@@ -146,6 +146,13 @@ int main(int argc, char** argv) {
 
     // Ingest parquet edges
     world.cout0("Ingesting edges from Parquet file...");
+
+    std::vector<metalldata::metall_graph::series_name> meta;
+    meta.reserve(meta_str.size());
+
+    for (const auto& m : meta_str) {
+      meta.emplace_back("edge", m);
+    }
 
     auto result = graph.ingest_parquet_edges(parquet_path, recursive, col_u,
                                              col_v, directed, meta);
