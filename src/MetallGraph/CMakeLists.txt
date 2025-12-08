@@ -41,6 +41,7 @@ add_metallgraph_executable(ingest_parquet_edges ingest_parquet_edges.cpp)
 add_metallgraph_executable(describe describe.cpp)
 add_metallgraph_executable(debug debug.cpp)
 add_metallgraph_executable(drop_series drop_series.cpp)
+add_metallgraph_executable(assign assign.cpp)
 # add_metallgraph_executable(drop_series drop_series.cpp)
 
 add_custom_command(
