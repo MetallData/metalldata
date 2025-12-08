@@ -547,4 +547,88 @@ metall_graph::return_code metall_graph::degrees2(
   return to_return;
 }
 
+metall_graph::return_code metall_graph::nhops(series_name              out_name,
+                                              size_t                   nhops,
+                                              std::vector<std::string> sources,
+                                              const where_clause&      where) {
+  return_code to_return;
+
+  if (!out_name.is_node_series()) {
+    to_return.error =
+      std::format("Invalid series name: {}", out_name.qualified());
+    return to_return;
+  }
+
+  if (m_pnodes->contains_series(out_name.unqualified())) {
+    to_return.error =
+      std::format("Series {} already exists", out_name.qualified());
+    return to_return;
+  }
+
+  // if (m_comm.rank0()) {
+  //   std::cerr << "I will compute " << nhops << " nhops from: ";
+  //   for (auto s : sources) {
+  //     std::cerr << s << " ";
+  //   }
+  //   std::cerr << std::endl << "And output to: " << out_name << std::endl;
+  // }
+
+  auto u_col           = m_pedges->find_series(U_COL.unqualified());
+  auto v_col           = m_pedges->find_series(V_COL.unqualified());
+  auto is_directed_col = m_pedges->find_series(DIR_COL.unqualified());
+
+  ygm::container::map<std::string, std::vector<std::string>> adj_list(m_comm);
+
+  for_all_edges(
+    [&](record_id_type id) {
+      std::string u(m_pedges->get<std::string_view>(u_col, id));
+      std::string v(m_pedges->get<std::string_view>(v_col, id));
+      auto        is_directed = m_pedges->get<bool>(is_directed_col, id);
+      // m_comm.cerr(u, " ", v);
+      auto adj_inserter = [](const std::string&        k,
+                             std::vector<std::string>& adj,
+                             const std::string&        v) { adj.push_back(v); };
+      adj_list.async_visit(u, adj_inserter, v);
+      if (!is_directed) {
+        adj_list.async_visit(v, adj_inserter, u);
+      }
+    },
+    where);
+
+  std::map<std::string, size_t>    local_nhop_map;
+  ygm::container::set<std::string> visited(m_comm, sources), cur_level(m_comm),
+    next_level(m_comm, sources);
+  size_t cur_level_dist = 0;
+
+  static auto* sp_visited    = &visited;
+  static auto* sp_next_level = &next_level;
+
+  while (next_level.size() > 0) {
+    cur_level.swap(next_level);
+    next_level.clear();
+    for (const std::string& v : cur_level) {
+      local_nhop_map[v] = cur_level_dist;
+      for (const auto& neighbor : adj_list.local_at(v)) {
+        visited.async_contains(neighbor,
+                               [](bool found, const std::string& node) {
+                                 if (!found) {
+                                   sp_visited->local_insert(node);
+                                   sp_next_level->local_insert(node);
+                                 }
+                               });
+      }
+    }
+
+    ++cur_level_dist;
+  }
+
+  for (const auto& [v, d] : local_nhop_map) {
+    m_comm.cerr(v, " ", d);
+  }
+
+  to_return = set_node_column(out_name, local_nhop_map);
+
+  return to_return;
+}
+
 }  // namespace metalldata

@@ -316,7 +316,7 @@ class metall_graph {
     series_name sname{name};
     return add_series<T>(sname);
   }
-  
+
   // drop_series requires a qualified selector name (starts with node. or
   // edge.)
   bool drop_series(const series_name& name);
@@ -541,17 +541,16 @@ class metall_graph {
   return_code connected_components(series_name out_name,
                                    const where_clause& = where_clause());
 
-  struct ego_net_options {
-    std::optional<std::string> v_dist_closest;
-    std::optional<std::string> v_closest_source;
-    std::optional<std::string> e_included;
-    std::optional<std::string> v_included;
-  };
+  // struct ego_net_options {
+  //   std::optional<std::string> v_dist_closest;
+  //   std::optional<std::string> v_closest_source;
+  //   std::optional<std::string> e_included;
+  //   std::optional<std::string> v_included;
+  // };
 
-  return_code nhops(std::vector<std::string> sources, int hops, ego_net_options,
-                    const where_clause& = where_clause());
-  return_code nhops(std::vector<std::string> sources, int hops, bool half_hop,
-                    ego_net_options, const where_clause& = where_clause());
+  return_code nhops(series_name out_node_series, size_t nhops,
+                    std::vector<std::string> sources,
+                    const where_clause&      where = where_clause());
 
   // TODO: also allow val a function
   return_code assign(series_name series_name, const data_types& val,
