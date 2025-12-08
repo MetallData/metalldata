@@ -359,7 +359,7 @@ class metall_graph {
   std::vector<series_name> get_edge_series_names() const {
     std::vector<series_name> sns;
     for (auto n : m_pedges->get_series_names()) {
-      sns.emplace_back(series_name("node", n));
+      sns.emplace_back(series_name("edge", n));
     }
     return sns;
   };

@@ -150,8 +150,9 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
     }
   }
 
-  metaset.emplace(col_u);
-  metaset.emplace(col_v);
+  metaset.emplace(series_name{"edge", col_u});
+  metaset.emplace(series_name{"edge", col_v});
+
   std::map<std::string, series_name> parquet_to_metall;
 
   std::vector<std::string> parquet_cols;
