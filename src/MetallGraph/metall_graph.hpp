@@ -201,6 +201,9 @@ class metall_graph {
     const auto& predicate() const { return m_predicate; }
 
     bool evaluate(const std::vector<data_types>& data) const {
+      if (m_series_names.empty()) {
+        return true;
+      }
       return m_predicate(data);
     }
 
@@ -256,6 +259,10 @@ class metall_graph {
                                   std::string_view                key,
                                   const std::vector<std::string>& meta,
                                   bool overwrite = true);
+
+  return_code dump_parquet_verts(std::string_view                path,
+                                 const std::vector<series_name>& meta,
+                                 bool overwrite = false);
 
   std::map<std::string, std::string> get_edge_selector_info() {
     // Since the m_pedges schema is identical across ranks, we don't have to
@@ -419,6 +426,10 @@ class metall_graph {
     // a vector of series indices. If it's missing, throw runtime.
     //
 
+    if (where.empty()) {
+      m_pedges->for_all_rows(func);
+      return;
+    }
     std::vector<std::string> str_series_names;
     str_series_names.reserve(where.series_names().size());
     for (const auto& n : where.series_names()) {
@@ -453,12 +464,18 @@ class metall_graph {
         func(row_index);
       }
     };
-    m_pedges->for_all_rows(wrapper);
+    if (where.good()) {
+      m_pedges->for_all_rows(wrapper);
+    }
   };
 
   // for_all_nodes lambda takes a row index.
   template <typename Fn>
   void for_all_nodes(Fn func, const where_clause& where) const {
+    if (where.empty()) {
+      m_pnodes->for_all_rows([&](auto row_index) { func(row_index); });
+      return;
+    }
     if (where.is_node_clause()) {
       std::vector<std::string> str_series_names;
       str_series_names.reserve(where.series_names().size());
@@ -640,3 +657,14 @@ class metall_graph {
   }
 };  // class metall_graph
 }  // namespace metalldata
+
+// Specialize std::hash for series_name to enable use in unordered containers
+namespace std {
+template <>
+struct hash<metalldata::metall_graph::series_name> {
+  std::size_t operator()(
+    const metalldata::metall_graph::series_name& sn) const {
+    return std::hash<std::string>{}(sn.qualified());
+  }
+};
+}  // namespace std

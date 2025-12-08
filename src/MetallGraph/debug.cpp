@@ -30,6 +30,7 @@ int main(int argc, char** argv) {
 
   clippy::clippy clip{method_name, "Provides graph debug information"};
   clip.add_required_state<std::string>("path", "Storage path for MetallGraph");
+  clip.add_optional<bool>("verbose", "dump all info", false);
 
   // no object-state requirements in constructor
   if (clip.parse(argc, argv, comm)) {
@@ -37,6 +38,8 @@ int main(int argc, char** argv) {
   }
 
   auto path = clip.get_state<std::string>("path");
+
+  auto verbose = clip.get<bool>("verbose");
 
   metalldata::metall_graph mg(comm, path, false);
 
@@ -60,6 +63,38 @@ int main(int argc, char** argv) {
     comm.cerr0("  - ", name);
   }
 
+  auto nodenames = mg.get_node_series_names();
+  comm.cerr0("nodenames.size() = ", nodenames.size());
+  if (verbose) {
+    comm.cerr0("Node dump");
+    mg.for_all_nodes(
+      [&](auto rid) {
+        std::stringstream ss;
+        ss << "index " << rid << ": ";
+        for (const auto& nodename : nodenames) {
+          mg.visit_node_field(nodename, rid, [&](auto val) {
+            ss << nodename.qualified() << ": " << val << ", ";
+          });
+        }
+        comm.cerr0(ss.str());
+      },
+      metalldata::metall_graph::where_clause());
+
+    comm.cerr0("Edge dump");
+    auto edgenames = mg.get_edge_series_names();
+    mg.for_all_edges(
+      [&](auto rid) {
+        std::stringstream ss;
+        ss << "index " << rid << ": ";
+        for (const auto& edgename : edgenames) {
+          mg.visit_edge_field(edgename, rid, [&](auto val) {
+            ss << edgename.qualified() << ": " << val << ", ";
+          });
+        }
+        comm.cerr0(ss.str());
+      },
+      metalldata::metall_graph::where_clause());
+  }
   clip.to_return(0);
   return 0;
 }

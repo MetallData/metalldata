@@ -38,7 +38,13 @@ int main(int argc, char **argv) {
   size_t nv = mg.num_nodes(where_c);
   size_t ne = mg.num_edges(where_c);
 
-  clip.to_return(std::make_pair(nv, ne));
+  std::map<std::string, metalldata::metall_graph::data_types> return_dict;
+  return_dict["nv"]   = nv;
+  return_dict["ne"]   = ne;
+  return_dict["path"] = path;
+
+  clip.to_return(return_dict);
+  // clip.to_return(std::make_pair(nv, ne));
 
   return 0;
 }
