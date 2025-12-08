@@ -17,16 +17,19 @@ int main(int argc, char **argv) {
 
   clippy::clippy clip{method_name, "Initializes a MetallGraph"};
   clip.add_required<std::string>("path", "Storage path for MetallGraph");
+  clip.add_optional<bool>("overwrite", "Overwrite existing storeage", false);
 
   // no object-state requirements in constructor
   if (clip.parse(argc, argv, comm)) {
     return 0;
   }
 
-  std::string path = clip.get<std::string>("path");
+  auto path      = clip.get<std::string>("path");
+  auto overwrite = clip.get<bool>("overwrite");
+
   clip.set_state("path", path);
 
-  metalldata::metall_graph mg(comm, path, false);
+  metalldata::metall_graph mg(comm, path, overwrite);
   clip.update_selectors(mg.get_selector_info());
   return 0;
 }
