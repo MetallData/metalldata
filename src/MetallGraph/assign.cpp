@@ -16,10 +16,11 @@ int main(int argc, char **argv) {
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{
-    method_name,
-    "Creates a series name and assigns a value based on where clause"};
+    method_name, "Creates a series and assigns a value based on where clause"};
   clip.add_required_state<std::string>("path", "Storage path for MetallGraph");
-  clip.add_required_state<std::string>("series_name", "series name to create");
+  clip.add_required<std::string>("series_name", "series name to create");
+  clip.add_required<metalldata::metall_graph::data_types>("value",
+                                                          "value to set");
   clip.add_optional<boost::json::object>("where", "where clause",
                                          boost::json::object{});
 
@@ -30,6 +31,10 @@ int main(int argc, char **argv) {
 
   auto path  = clip.get_state<std::string>("path");
   auto where = clip.get<boost::json::object>("where");
+  auto name_str = clip.get<std::string>("series_name");
+  auto val      = clip.get<metalldata::metall_graph::data_types>("value");
+
+  metalldata::metall_graph::series_name name(name_str);
 
   metalldata::metall_graph::where_clause where_c;
   if (where.contains("rule")) {
@@ -38,10 +43,7 @@ int main(int argc, char **argv) {
 
   metalldata::metall_graph mg(comm, path, false);
 
-  mg.assign() size_t nv = mg.num_nodes(where_c);
-  size_t             ne = mg.num_edges(where_c);
-
-  clip.to_return(std::make_pair(nv, ne));
-
+  mg.assign(name, val, where_c);
+  clip.update_selectors(mg.get_selector_info());
   return 0;
 }

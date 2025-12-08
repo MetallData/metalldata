@@ -43,6 +43,7 @@ add_metallgraph_executable(debug debug.cpp)
 add_metallgraph_executable(drop_series drop_series.cpp)
 add_metallgraph_executable(welcome welcome.cpp)
 add_metallgraph_executable(nhops nhops.cpp)
+add_metallgraph_executable(assign assign.cpp)
 
 add_custom_command(
         TARGET __init__ POST_BUILD
