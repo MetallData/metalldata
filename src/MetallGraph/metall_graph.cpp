@@ -516,18 +516,23 @@ metall_graph::return_code metall_graph::degrees2(
   auto                                      edges_ = m_pedges;
   ygm::container::counting_set<std::string> indegrees(m_comm);
   ygm::container::counting_set<std::string> outdegrees(m_comm);
+
+  auto u_col   = m_pedges->find_series(U_COL.unqualified());
+  auto v_col   = m_pedges->find_series(V_COL.unqualified());
+  auto dir_col = m_pedges->find_series(DIR_COL.unqualified());
+
   for_all_edges(
     [&](record_id_type id) {
       // Note: clangd may report a false positive error on the next line
       // The code compiles and runs correctly
       auto in_edge_name =
-        std::string(m_pedges->get<std::string_view>(V_COL.unqualified(), id));
+        std::string(m_pedges->get<std::string_view>(v_col, id));
       auto out_edge_name =
-        std::string(m_pedges->get<std::string_view>(U_COL.unqualified(), id));
+        std::string(m_pedges->get<std::string_view>(u_col, id));
       indegrees.async_insert(in_edge_name);
       outdegrees.async_insert(out_edge_name);
 
-      bool is_directed = m_pedges->get<bool>(DIR_COL.unqualified(), id);
+      bool is_directed = m_pedges->get<bool>(dir_col, id);
       if (!is_directed) {
         indegrees.async_insert(out_edge_name);
         outdegrees.async_insert(in_edge_name);
