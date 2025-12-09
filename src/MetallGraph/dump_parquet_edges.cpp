@@ -11,14 +11,14 @@
 #include <metall_graph.hpp>
 #include <format>
 
-static const std::string method_name    = "dump_parquet_nodes";
+static const std::string method_name    = "dump_parquet_edges";
 static const std::string state_name     = "INTERNAL";
 static const std::string sel_state_name = "selectors";
 
 int main(int argc, char** argv) {
   ygm::comm comm(&argc, &argv);
 
-  clippy::clippy clip{method_name, "Writes a parquet file of node data"};
+  clippy::clippy clip{method_name, "Writes a parquet file of edge data"};
   clip.add_required_state<std::string>("path", "Storage path for MetallGraph");
   clip.add_required<std::string>("output_path", "Path to parquet output");
   clip.add_optional<std::vector<std::string>>(
@@ -33,11 +33,13 @@ int main(int argc, char** argv) {
     return 0;
   }
 
+  bool all = !clip.has_argument(
+    "metadata");  // if we don't specify it at all, include everything
+
   auto path        = clip.get_state<std::string>("path");
   auto output_path = clip.get<std::string>("output_path");
   auto overwrite   = clip.get<bool>("overwrite");
 
-  bool                     all = clip.has_argument(("metadta"));
   metalldata::metall_graph mg(comm, path, false);
 
   std::vector<metalldata::metall_graph::series_name> meta;
@@ -49,10 +51,9 @@ int main(int argc, char** argv) {
       meta.emplace_back(s);
     }
   } else {
-    meta = mg.get_node_series_names();
+    meta = mg.get_edge_series_names();
   }
-
-  auto result = mg.dump_parquet_verts(output_path, meta, overwrite);
+  auto result = mg.dump_parquet_edges(output_path, meta, overwrite);
 
   if (!result.good()) {
     comm.cerr0() << "Error: " << result.error << std::endl;

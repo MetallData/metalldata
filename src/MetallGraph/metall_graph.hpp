@@ -267,6 +267,10 @@ class metall_graph {
                                  const std::vector<series_name>& meta,
                                  bool overwrite = false);
 
+  return_code dump_parquet_edges(std::string_view                path,
+                                 const std::vector<series_name>& meta,
+                                 bool overwrite = false);
+
   return_code erase_edges(const where_clause& where = where_clause{});
 
   return_code erase_edges(const series_name&                     name,
