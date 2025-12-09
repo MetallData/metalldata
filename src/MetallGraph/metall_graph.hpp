@@ -19,6 +19,7 @@
 #include <ygm/comm.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
 #include <boost/json.hpp>
+#include "boost/unordered/unordered_flat_set_fwd.hpp"
 #include "ygm/container/set.hpp"
 
 namespace bjsn = boost::json;
@@ -164,6 +165,8 @@ class metall_graph {
 
     where_clause(const bjsn::value& jlrule);
 
+    where_clause(const bjsn::object& obj);
+
     where_clause(const std::string& jsonlogic_file_path);
 
     where_clause(std::istream& jsonlogic_stream);
@@ -264,6 +267,11 @@ class metall_graph {
                                  const std::vector<series_name>& meta,
                                  bool overwrite = false);
 
+  return_code erase_edges(const where_clause& where = where_clause{});
+
+  return_code erase_edges(const series_name&                     name,
+                          boost::unordered_flat_set<std::string> haystack);
+
   std::map<std::string, std::string> get_edge_selector_info() {
     // Since the m_pedges schema is identical across ranks, we don't have to
     // collect. Also: the "edge" prefix (and "node" in the corresponding
@@ -272,6 +280,12 @@ class metall_graph {
     for (const auto& el : m_pedges->get_series_names()) {
       auto sel  = std::format("edge.{}", el);
       sels[sel] = "default";
+    }
+    for (const auto& el : m_pnodes->get_series_names()) {
+      auto sel  = std::format("{}.{}", U_COL.qualified(), el);
+      sels[sel] = "default";
+      sel       = std::format("{}.{}", V_COL.qualified(), el);
+      sels[sel] = "inherited";
     }
 
     return sels;
@@ -572,8 +586,6 @@ class metall_graph {
   // TODO: also allow val a function
   return_code assign(series_name series_name, const data_types& val,
                      const where_clause& = where_clause());
-
-  return_code erase(const where_clause& = where_clause());
 
   // struct shortest_path_options {
   //   std::optional<std::string> dist_series;

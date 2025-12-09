@@ -15,7 +15,7 @@ endif()
 include_directories(${PROJECT_SOURCE_DIR}/src/MetallGraph/)
 
 
-add_library(MetallGraphLib STATIC metall_graph.cpp metall_graph_assign.cpp metall_graph_where.cpp metall_graph_dump_parquet.cpp) 
+add_library(MetallGraphLib STATIC metall_graph.cpp metall_graph_assign.cpp metall_graph_where.cpp metall_graph_dump_parquet.cpp metall_graph_erase.cpp) 
 setup_metall_target(MetallGraphLib)
 setup_ygm_target(MetallGraphLib)
 #these could be made public if we used the PIMPL technique
@@ -47,6 +47,7 @@ add_metallgraph_executable(assign assign.cpp)
 add_metallgraph_executable(select_nodes select_nodes.cpp)
 add_metallgraph_executable(select_edges select_edges.cpp)
 add_metallgraph_executable(dump_parquet_nodes dump_parquet_nodes.cpp)
+add_metallgraph_executable(erase_edges erase_edges.cpp)
 
 add_custom_command(
         TARGET __init__ POST_BUILD

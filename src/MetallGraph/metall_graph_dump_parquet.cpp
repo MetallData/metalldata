@@ -94,7 +94,7 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
 
   // Create filename based on rank
   std::string filename =
-    std::format("{}_rank{}.parquet", std::string(path), m_comm.rank());
+    std::format("{}_{}.parquet", std::string(path), m_comm.rank());
 
   // Check if file exists and handle overwrite flag
   if (!overwrite) {
@@ -185,6 +185,8 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
   } catch (const std::exception& e) {
     to_return.error = std::format("Exception: {}", e.what());
   }
+
+  m_comm.barrier();
 
   return to_return;
 }

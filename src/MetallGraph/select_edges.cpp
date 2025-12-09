@@ -11,6 +11,7 @@
 #include <string>
 #include <unordered_set>
 #include <boost/json.hpp>
+#include <ygm/utility/boost_json.hpp>
 
 static const std::string method_name    = "select_edges";
 static const std::string state_name     = "INTERNAL";
@@ -97,9 +98,28 @@ int main(int argc, char** argv) {
     },
     where_c);
 
-  // Output the JSON array
-  //   comm.cout0() << boost::json::serialize(edges_array) << std::endl;
+  std::vector<bjsn::array> everything(comm.size() - 1);
+  static auto&             s_everything = everything;
+  comm.cf_barrier();
+  if (!comm.rank0()) {
+    comm.async(
+      0,
+      [](const bjsn::array& rank_data, int rank) {
+        (s_everything)[rank - 1] = rank_data;
+      },
+      edges_array, comm.rank());
+  }
 
+  comm.barrier();
+
+  if (comm.rank0()) {
+    for (auto& el : everything) {
+      edges_array.insert(edges_array.end(), el);
+      el.clear();
+    }
+  }
+
+  comm.barrier();
   clip.to_return(edges_array);
   return 0;
 }

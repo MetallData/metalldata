@@ -582,6 +582,7 @@ metall_graph::return_code metall_graph::nhops(series_name              out_name,
   auto v_col           = m_pedges->find_series(V_COL.unqualified());
   auto is_directed_col = m_pedges->find_series(DIR_COL.unqualified());
 
+  // TODO: convert to (rank, node row id) tuples.
   ygm::container::map<std::string, std::vector<std::string>> adj_list(m_comm);
 
   for_all_edges(
@@ -590,9 +591,8 @@ metall_graph::return_code metall_graph::nhops(series_name              out_name,
       std::string v(m_pedges->get<std::string_view>(v_col, id));
       auto        is_directed = m_pedges->get<bool>(is_directed_col, id);
       // m_comm.cerr(u, " ", v);
-      auto adj_inserter = [](const std::string&        k,
-                             std::vector<std::string>& adj,
-                             const std::string&        v) { adj.push_back(v); };
+      auto adj_inserter = [](const std::string&, std::vector<std::string>& adj,
+                             const std::string& vert) { adj.push_back(vert); };
       adj_list.async_visit(u, adj_inserter, v);
       if (!is_directed) {
         adj_list.async_visit(v, adj_inserter, u);
@@ -627,9 +627,9 @@ metall_graph::return_code metall_graph::nhops(series_name              out_name,
     ++cur_level_dist;
   }
 
-  for (const auto& [v, d] : local_nhop_map) {
-    m_comm.cerr(v, " ", d);
-  }
+  // for (const auto& [v, d] : local_nhop_map) {
+  //   m_comm.cerr(v, " ", d);
+  // }
 
   to_return = set_node_column(out_name, local_nhop_map);
 

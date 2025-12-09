@@ -43,9 +43,16 @@ int main(int argc, char **argv) {
   }
 
   metalldata::metall_graph mg(comm, path, false);
-  auto                     rc = mg.nhops(
-    metalldata::metall_graph::series_name(std::string("node.") + output), nhops,
-    seeds, where_c);
+  metalldata::metall_graph::series_name sname(output);
+  if (sname.prefix().empty()) {
+    sname = metalldata::metall_graph::series_name("node", output);
+  }
+  if (!sname.is_node_series()) {
+    comm.cerr0("Invalid node series name: ", sname.qualified());
+    return -1;
+  }
+
+  auto rc = mg.nhops(sname, nhops, seeds, where_c);
 
   if (!rc.good()) {
     comm.cerr0(rc.error);

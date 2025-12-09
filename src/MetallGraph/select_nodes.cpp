@@ -11,6 +11,7 @@
 #include <string>
 #include <unordered_set>
 #include <boost/json.hpp>
+#include <ygm/utility/boost_json.hpp>
 
 static const std::string method_name    = "select_nodes";
 static const std::string state_name     = "INTERNAL";
@@ -97,6 +98,27 @@ int main(int argc, char** argv) {
     },
     where_c);
 
+  std::vector<bjsn::array> everything(comm.size() - 1);
+  static auto*             sp_everything = &everything;
+  comm.cf_barrier();
+  if (!comm.rank0()) {
+    comm.async(
+      0,
+      [](const bjsn::array& rank_data, int rank) {
+        (*sp_everything)[rank - 1] = rank_data;
+      },
+      nodes_array, comm.rank());
+  }
+
+  comm.barrier();
+
+  if (comm.rank0()) {
+    for (auto& el : everything) {
+      nodes_array.insert(nodes_array.end(), el);
+      el.clear();
+    }
+  }
+  comm.barrier();
   clip.to_return(nodes_array);
   return 0;
 }
