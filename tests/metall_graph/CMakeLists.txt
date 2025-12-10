@@ -7,7 +7,7 @@ function(add_metallgraph_test name source)
   target_link_libraries(${name} PRIVATE Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph Boost::program_options jsonlogic)
   target_link_libraries(${name} PRIVATE Arrow::arrow_shared)
   target_link_libraries(${name} PRIVATE Parquet::parquet_shared)
-  target_link_libraries(${name} PRIVATE MetallGraphLib)
+  target_link_libraries(${name} PRIVATE libmetalldata)
   target_compile_definitions(${name} PRIVATE METALLDATA_USE_PARQUET)
 
   setup_clippy_target(${name})

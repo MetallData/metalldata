@@ -36,7 +36,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
 FetchContent_MakeAvailable(Boost)
 
-# JSONLogic
+# JSONLogic.  TODO remove this?
 set(Boost_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/boost-install) # needed for jsonlogic
 
 FetchContent_Declare(jsonlogic
@@ -44,6 +44,7 @@ FetchContent_Declare(jsonlogic
     GIT_TAG v0.1.0
     SOURCE_SUBDIR cpp
 )
+
 
 FetchContent_MakeAvailable(jsonlogic)
 set(jsonlogic_INCLUDE_DIR ${jsonlogic_SOURCE_DIR}/cpp/include)
@@ -213,8 +214,8 @@ endfunction()
 add_subdirectory(src)
 add_subdirectory(include)
 add_subdirectory(examples)
-add_subdirectory(bench)
-add_subdirectory(utils)
+
+
 
 if (METALLDATA_BUILD_TESTS)
     enable_testing()

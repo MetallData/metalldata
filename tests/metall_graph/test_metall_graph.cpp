@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-#include <metall_graph.hpp>
+#include <metalldata/metall_graph.hpp>
 #include <ygm/comm.hpp>
 
 int main(int argc, char** argv) {
