@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: MIT
 
 #define WITH_YGM 1
-
-#include "metall_graph.hpp"
+#include "utils.hpp"
+#include <metall_graph.hpp>
 #include <ygm/comm.hpp>
 #include <clippy/clippy.hpp>
 #include <string>
@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
   clip.add_optional<boost::json::object>("where", "where clause",
                                          boost::json::object{});
   clip.add_optional<std::unordered_set<boost::json::object>>(
-    "metadata", "Column names to include", {});
+    "series_names", "Column names to include", {});
 
   // no object-state requirements in constructor
   if (clip.parse(argc, argv, comm)) {
@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
   auto path  = clip.get_state<std::string>("path");
   auto where = clip.get<boost::json::object>("where");
   auto metadata_set =
-    clip.get<std::unordered_set<boost::json::object>>("metadata");
+    clip.get<std::unordered_set<boost::json::object>>("series_names");
 
   metalldata::metall_graph::where_clause where_c;
   if (where.contains("rule")) {
@@ -45,35 +45,19 @@ int main(int argc, char** argv) {
 
   metalldata::metall_graph mg(comm, path, false);
 
-  std::unordered_set<metalldata::metall_graph::series_name> metadata;
-  if (metadata_set.empty()) {
-    auto n   = mg.get_node_series_names();
-    metadata = {n.begin(), n.end()};
+  std::unordered_set<metalldata::metall_graph::series_name> series_set;
+  if (!clip.has_argument("series_names")) {
+    auto e     = mg.get_node_series_names();
+    series_set = {e.begin(), e.end()};
   } else {
-    metadata.reserve(metadata_set.size());
-
-    for (const auto& md : metadata_set) {
-      if (!md.contains("rule")) {
-        comm.cerr0("Series name invalid (norule); ignoring");
-        continue;
-      }
-      auto md_rule = md.at("rule");
-
-      auto md_rule_obj = md_rule.get_object();
-      if (!md_rule_obj.contains("var")) {
-        comm.cerr0("Series name invalid (novar); ignoring");
-        continue;
-      }
-      metalldata::metall_graph::series_name md_ser(
-        md_rule_obj["var"].as_string());
-
-      if (!mg.has_node_series(md_ser)) {
-        comm.cerr0("Series name ", md_ser.qualified(), " not found; skipping");
-        continue;
-      }
-
-      metadata.insert(md_ser);
+    auto series_obj_set =
+      clip.get<std::unordered_set<boost::json::object>>("series_names");
+    auto try_obj = metalldata::obj2sn(series_obj_set);
+    if (!try_obj.has_value()) {
+      comm.cerr0(try_obj.error().error);
+      return -1;
     }
+    series_set = try_obj.value();
   }
 
   // Build array of node dictionaries
@@ -83,13 +67,15 @@ int main(int argc, char** argv) {
     [&](auto rid) {
       boost::json::object node_obj;
 
-      for (const auto& nodename : metadata) {
-        mg.visit_node_field(nodename, rid, [&](auto val) {
+      for (const auto& series : series_set) {
+        // TODO: make this better. This is potentially expensive because we have
+        // to do a field lookup on every node.
+        mg.visit_node_field(series, rid, [&](auto val) {
           using T = std::decay_t<decltype(val)>;
           if constexpr (std::is_same_v<T, std::string_view>) {
-            node_obj[nodename.unqualified()] = std::string(val);
+            node_obj[series.unqualified()] = std::string(val);
           } else {
-            node_obj[nodename.unqualified()] = val;
+            node_obj[series.unqualified()] = val;
           }
         });
       }

@@ -21,7 +21,6 @@
 #include <boost/json.hpp>
 #include "boost/unordered/unordered_flat_set_fwd.hpp"
 #include "ygm/container/set.hpp"
-
 namespace bjsn = boost::json;
 
 /* ASSUMPTIONS
@@ -78,7 +77,7 @@ class metall_graph {
    public:
     series_name() = default;
     series_name(std::string_view name) {
-      auto [prefix, unqualified] = priv_split_selector(name);
+      auto [prefix, unqualified] = priv_split_series_str(name);
       m_prefix                   = prefix;
       m_unqualified              = unqualified;
     };
@@ -129,7 +128,7 @@ class metall_graph {
     std::string m_prefix;
     std::string m_unqualified;
 
-    static std::pair<std::string_view, std::string_view> priv_split_selector(
+    static std::pair<std::string_view, std::string_view> priv_split_series_str(
       std::string_view str) {
       std::string_view prefix;
       std::string_view unqualified;
@@ -276,6 +275,10 @@ class metall_graph {
   return_code erase_edges(const series_name&                     name,
                           boost::unordered_flat_set<std::string> haystack);
 
+  template <typename Fn, typename T>  // defined in metall_graph_faker.hpp
+  return_code add_faker_series(const metall_graph::series_name& name,
+                               Fn                               faker_func,
+                               const where_clause& where = where_clause{});
   std::map<std::string, std::string> get_edge_selector_info() {
     // Since the m_pedges schema is identical across ranks, we don't have to
     // collect. Also: the "edge" prefix (and "node" in the corresponding
@@ -287,7 +290,7 @@ class metall_graph {
     }
     for (const auto& el : m_pnodes->get_series_names()) {
       auto sel  = std::format("{}.{}", U_COL.qualified(), el);
-      sels[sel] = "default";
+      sels[sel] = "inherited";
       sel       = std::format("{}.{}", V_COL.qualified(), el);
       sels[sel] = "inherited";
     }
@@ -671,7 +674,9 @@ class metall_graph {
 
     return to_return;
   }
+
 };  // class metall_graph
+
 }  // namespace metalldata
 
 // Specialize std::hash for series_name to enable use in unordered containers
@@ -684,3 +689,5 @@ struct hash<metalldata::metall_graph::series_name> {
   }
 };
 }  // namespace std
+
+#include <metall_graph_faker.ipp>

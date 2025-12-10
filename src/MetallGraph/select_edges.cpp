@@ -12,6 +12,7 @@
 #include <unordered_set>
 #include <boost/json.hpp>
 #include <ygm/utility/boost_json.hpp>
+#include "utils.hpp"
 
 static const std::string method_name    = "select_edges";
 static const std::string state_name     = "INTERNAL";
@@ -26,7 +27,7 @@ int main(int argc, char** argv) {
   clip.add_optional<boost::json::object>("where", "where clause",
                                          boost::json::object{});
   clip.add_optional<std::unordered_set<boost::json::object>>(
-    "metadata", "Column names to include", {});
+    "series_names", "Series names to include (default: none)", {});
 
   // no object-state requirements in constructor
   if (clip.parse(argc, argv, comm)) {
@@ -35,8 +36,6 @@ int main(int argc, char** argv) {
 
   auto path  = clip.get_state<std::string>("path");
   auto where = clip.get<boost::json::object>("where");
-  auto metadata_set =
-    clip.get<std::unordered_set<boost::json::object>>("metadata");
 
   metalldata::metall_graph::where_clause where_c;
   if (where.contains("rule")) {
@@ -45,35 +44,19 @@ int main(int argc, char** argv) {
 
   metalldata::metall_graph mg(comm, path, false);
 
-  std::unordered_set<metalldata::metall_graph::series_name> metadata;
-  if (metadata_set.empty()) {
-    auto e   = mg.get_edge_series_names();
-    metadata = {e.begin(), e.end()};
+  std::unordered_set<metalldata::metall_graph::series_name> series_set;
+  if (!clip.has_argument("series_names")) {
+    auto e     = mg.get_edge_series_names();
+    series_set = {e.begin(), e.end()};
   } else {
-    metadata.reserve(metadata_set.size());
-
-    for (const auto& md : metadata_set) {
-      if (!md.contains("rule")) {
-        comm.cerr0("Series name invalid (norule); ignoring");
-        continue;
-      }
-      auto md_rule = md.at("rule");
-
-      auto md_rule_obj = md_rule.get_object();
-      if (!md_rule_obj.contains("var")) {
-        comm.cerr0("Series name invalid (novar); ignoring");
-        continue;
-      }
-      metalldata::metall_graph::series_name md_ser(
-        md_rule_obj["var"].as_string());
-
-      if (!mg.has_edge_series(md_ser)) {
-        comm.cerr0("Series name ", md_ser.qualified(), " not found; skipping");
-        continue;
-      }
-
-      metadata.insert(md_ser);
+    auto series_obj_set =
+      clip.get<std::unordered_set<boost::json::object>>("series_names");
+    auto try_obj = metalldata::obj2sn(series_obj_set);
+    if (!try_obj.has_value()) {
+      comm.cerr0(try_obj.error().error);
+      return -1;
     }
+    series_set = try_obj.value();
   }
 
   // Build array of edge dictionaries
@@ -83,13 +66,15 @@ int main(int argc, char** argv) {
     [&](auto rid) {
       boost::json::object edge_obj;
 
-      for (const auto& edgename : metadata) {
-        mg.visit_edge_field(edgename, rid, [&](auto val) {
+      for (const auto& series : series_set) {
+        // TODO: make this better. This is potentially expensive because we have
+        // to do a field lookup on every edge.
+        mg.visit_edge_field(series, rid, [&](auto val) {
           using T = std::decay_t<decltype(val)>;
           if constexpr (std::is_same_v<T, std::string_view>) {
-            edge_obj[edgename.unqualified()] = std::string(val);
+            edge_obj[series.unqualified()] = std::string(val);
           } else {
-            edge_obj[edgename.unqualified()] = val;
+            edge_obj[series.unqualified()] = val;
           }
         });
       }
@@ -98,7 +83,7 @@ int main(int argc, char** argv) {
     },
     where_c);
 
-  std::vector<bjsn::array> everything(comm.size() - 1);
+  std::vector<bjsn::array> everything(comm.size() - 1);  // don't need rank 0
   static auto&             s_everything = everything;
   comm.cf_barrier();
   if (!comm.rank0()) {

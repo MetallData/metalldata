@@ -21,8 +21,8 @@ int main(int argc, char** argv) {
   clippy::clippy clip{method_name, "Writes a parquet file of edge data"};
   clip.add_required_state<std::string>("path", "Storage path for MetallGraph");
   clip.add_required<std::string>("output_path", "Path to parquet output");
-  clip.add_optional<std::vector<std::string>>(
-    "metadata", "Column names of additional fields to ingest", {});
+  clip.add_optional<std::vector<std::string>>("fields",
+                                              "names of series to ingest", {});
 
   clip.add_optional<bool>(
     "overwrite",
