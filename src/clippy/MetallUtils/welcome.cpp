@@ -6,7 +6,6 @@
 #define WITH_YGM 1
 #include <clippy/clippy.hpp>
 #include <ygm/comm.hpp>
-#include <metalldata/metall_graph.hpp>
 
 static const std::string method_name    = "welcome";
 static const std::string state_name     = "INTERNAL";

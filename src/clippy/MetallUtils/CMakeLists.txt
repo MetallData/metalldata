@@ -29,3 +29,4 @@ endfunction()
 
 
 add_mgr_executable(mgr_call_with_string call_with_string.cpp)
+add_mgr_executable(welcome welcome.cpp)
