@@ -58,7 +58,7 @@ std::expected<bjsn::array, std::string> metall_graph::select_edges(
 
   if (m_comm.rank0()) {
     for (auto& el : everything) {
-      select_results_arr.insert(select_results_arr.end(), el);
+      select_results_arr.insert(select_results_arr.end(), el.begin(), el.end());
       el.clear();
     }
   }
@@ -118,7 +118,7 @@ std::expected<bjsn::array, std::string> metall_graph::select_nodes(
   m_comm.barrier();
   if (m_comm.rank0()) {
     for (auto& el : everything) {
-      select_results_arr.insert(select_results_arr.end(), el);
+      select_results_arr.insert(select_results_arr.end(), el.begin(), el.end());
       el.clear();
     }
   }
