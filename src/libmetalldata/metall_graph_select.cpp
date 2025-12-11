@@ -5,6 +5,8 @@
 
 #include <metalldata/metall_graph.hpp>
 #include <expected>
+#define BOOST_JSON_SRC_HPP  // This is a temp hack until YGM removes the src.hpp
+                            // inclusion
 #include <ygm/utility/boost_json.hpp>
 
 namespace metalldata {
