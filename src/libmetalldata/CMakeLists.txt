@@ -16,7 +16,7 @@ include_directories(${PROJECT_SOURCE_DIR}/src/MetallGraph/)
 
 
 #List all future metall_graph cpp files here
-add_library(libmetalldata STATIC metall_graph.cpp metall_graph_assign.cpp metall_graph_where.cpp metall_graph_dump_parquet.cpp metall_graph_erase.cpp) 
+add_library(libmetalldata STATIC metall_graph.cpp metall_graph_assign.cpp metall_graph_where.cpp metall_graph_dump_parquet.cpp metall_graph_erase.cpp metall_graph_select.cpp) 
 set_target_properties(libmetalldata PROPERTIES
   IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/lib/libmetalldata.so"
   INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/include/metalldata"

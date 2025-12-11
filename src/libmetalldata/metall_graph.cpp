@@ -345,7 +345,7 @@ metall_graph::return_code metall_graph::priv_in_out_degree(
 
   auto                                      edges_ = m_pedges;
   ygm::container::counting_set<std::string> degrees(m_comm);
-  for_all_edges(
+  priv_for_all_edges(
     [&](record_id_type id) {
       // Note: clangd may report a false positive error on the next line
       // The code compiles and runs correctly
@@ -427,7 +427,7 @@ metall_graph::return_code metall_graph::degrees(
   auto                                      edges_ = m_pedges;
   ygm::container::counting_set<std::string> indegrees(m_comm);
   ygm::container::counting_set<std::string> outdegrees(m_comm);
-  for_all_edges(
+  priv_for_all_edges(
     [&](record_id_type id) {
       // Note: clangd may report a false positive error on the next line
       // The code compiles and runs correctly
@@ -521,7 +521,7 @@ metall_graph::return_code metall_graph::degrees2(
   auto v_col   = m_pedges->find_series(V_COL.unqualified());
   auto dir_col = m_pedges->find_series(DIR_COL.unqualified());
 
-  for_all_edges(
+  priv_for_all_edges(
     [&](record_id_type id) {
       // Note: clangd may report a false positive error on the next line
       // The code compiles and runs correctly
@@ -585,7 +585,7 @@ metall_graph::return_code metall_graph::nhops(series_name              out_name,
   // TODO: convert to (rank, node row id) tuples.
   ygm::container::map<std::string, std::vector<std::string>> adj_list(m_comm);
 
-  for_all_edges(
+  priv_for_all_edges(
     [&](record_id_type id) {
       std::string u(m_pedges->get<std::string_view>(u_col, id));
       std::string v(m_pedges->get<std::string_view>(v_col, id));

@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 #define WITH_YGM 1
-#include "utils.hpp"
+
 #include <metalldata/metall_graph.hpp>
 #include <ygm/comm.hpp>
 #include <clippy/clippy.hpp>
@@ -12,6 +12,7 @@
 #include <unordered_set>
 #include <boost/json.hpp>
 #include <ygm/utility/boost_json.hpp>
+#include "utils.hpp"
 
 static const std::string method_name    = "select_nodes";
 static const std::string state_name     = "INTERNAL";
@@ -21,12 +22,14 @@ int main(int argc, char** argv) {
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{method_name,
-                      "Returns node information and metadata as JSON"};
+                      "Returns information and metadata about nodes as JSON"};
   clip.add_required_state<std::string>("path", "Storage path for MetallGraph");
   clip.add_optional<boost::json::object>("where", "where clause",
                                          boost::json::object{});
   clip.add_optional<std::unordered_set<boost::json::object>>(
-    "series_names", "Column names to include", {});
+    "series_names",
+    "Series names to include (default: none). All series must be node series.",
+    {});
 
   // no object-state requirements in constructor
   if (clip.parse(argc, argv, comm)) {
@@ -35,8 +38,6 @@ int main(int argc, char** argv) {
 
   auto path  = clip.get_state<std::string>("path");
   auto where = clip.get<boost::json::object>("where");
-  auto metadata_set =
-    clip.get<std::unordered_set<boost::json::object>>("series_names");
 
   metalldata::metall_graph::where_clause where_c;
   if (where.contains("rule")) {
@@ -60,51 +61,14 @@ int main(int argc, char** argv) {
     series_set = try_obj.value();
   }
 
-  // Build array of node dictionaries
-  boost::json::array nodes_array;
+  // Build array of edge dictionaries
+  auto expected_array = mg.select_nodes(series_set, where_c);
 
-  mg.for_all_nodes(
-    [&](auto rid) {
-      boost::json::object node_obj;
-
-      for (const auto& series : series_set) {
-        // TODO: make this better. This is potentially expensive because we have
-        // to do a field lookup on every node.
-        mg.visit_node_field(series, rid, [&](auto val) {
-          using T = std::decay_t<decltype(val)>;
-          if constexpr (std::is_same_v<T, std::string_view>) {
-            node_obj[series.unqualified()] = std::string(val);
-          } else {
-            node_obj[series.unqualified()] = val;
-          }
-        });
-      }
-
-      nodes_array.push_back(node_obj);
-    },
-    where_c);
-
-  std::vector<bjsn::array> everything(comm.size() - 1);
-  static auto*             sp_everything = &everything;
-  comm.cf_barrier();
-  if (!comm.rank0()) {
-    comm.async(
-      0,
-      [](const bjsn::array& rank_data, int rank) {
-        (*sp_everything)[rank - 1] = rank_data;
-      },
-      nodes_array, comm.rank());
+  if (!expected_array.has_value()) {
+    comm.cerr0(expected_array.error());
+    return -1;
   }
 
-  comm.barrier();
-
-  if (comm.rank0()) {
-    for (auto& el : everything) {
-      nodes_array.insert(nodes_array.end(), el);
-      el.clear();
-    }
-  }
-  comm.barrier();
-  clip.to_return(nodes_array);
+  clip.to_return(expected_array.value());
   return 0;
 }

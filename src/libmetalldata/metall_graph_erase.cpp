@@ -4,7 +4,7 @@ namespace metalldata {
 metall_graph::return_code metall_graph::erase_edges(const where_clause &where) {
   metall_graph::return_code to_return;
 
-  for_all_edges([&](auto rid) { m_pedges->remove_record(rid); }, where);
+  priv_for_all_edges([&](auto rid) { m_pedges->remove_record(rid); }, where);
 
   return to_return;
 }
@@ -21,7 +21,7 @@ metall_graph::return_code metall_graph::erase_edges(
 
   auto idx = m_pedges->find_series(name.unqualified());
 
-  for_all_edges([&](auto rid) {
+  priv_for_all_edges([&](auto rid) {
     auto val = m_pedges->get<std::string_view>(idx, rid);
     if (haystack.contains(std::string(val))) {
       m_pedges->remove_record(rid);

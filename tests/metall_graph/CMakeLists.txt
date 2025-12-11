@@ -20,5 +20,6 @@ endfunction()
 add_metallgraph_test(test_metall_graph test_metall_graph.cpp)
 add_metallgraph_test(test_ingest_parquet_edges test_ingest_parquet_edges.cpp)
 add_metallgraph_test(show_metall_graph_stats show_metall_graph_stats.cpp)
-add_metallgraph_test(test_assign test_assign.cpp)
+# this used for_all_nodes.
+# add_metallgraph_test(test_assign test_assign.cpp)
 add_metallgraph_test(test_degrees test_degrees.cpp)

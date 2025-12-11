@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
       nodes_file << "\n";
 
       // Write data rows
-      graph.for_all_nodes(
+      graph.priv_for_all_nodes(
         [&](auto record_id) {
           bool first = true;
           for (const auto& series_name : node_series_names) {
@@ -124,7 +124,7 @@ int main(int argc, char** argv) {
       edges_file << "\n";
 
       // Write data rows
-      graph.for_all_edges(
+      graph.priv_for_all_edges(
         [&](auto record_id) {
           bool first = true;
           for (const auto& series_name : edge_series_names) {

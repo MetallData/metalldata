@@ -23,7 +23,7 @@ metall_graph::return_code metall_graph::add_faker_series(
     }
     auto ser_ind = m_pedges->add_series<T>(name.unqualified());
     auto rec_p   = m_pedges;
-    for_all_edges(
+    priv_for_all_edges(
       [&](auto rid) {
         T val = T(faker_func());
         rec_p->set(ser_ind, rid, val);
@@ -37,7 +37,7 @@ metall_graph::return_code metall_graph::add_faker_series(
     }
     auto ser_ind = m_pnodes->add_series<T>(name.unqualified());
     auto rec_p   = m_pnodes;
-    for_all_nodes(
+    priv_for_all_nodes(
       [&](auto rid) {
         T val = T(faker_func());
         rec_p->set(ser_ind, rid, val);

@@ -10,7 +10,6 @@
 #include <functional>
 #include <variant>
 #include <map>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -19,8 +18,9 @@
 #include <ygm/comm.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
 #include <boost/json.hpp>
-#include "boost/unordered/unordered_flat_set_fwd.hpp"
-#include "ygm/container/set.hpp"
+#include <boost/unordered/unordered_flat_set.hpp>
+#include <ygm/container/set.hpp>
+#include <expected>
 namespace bjsn = boost::json;
 
 /* ASSUMPTIONS
@@ -396,7 +396,7 @@ class metall_graph {
     size_t local_size = local_num_edges();
     if (!where.empty()) {
       local_size = 0;
-      for_all_edges([&](auto) { ++local_size; }, where);
+      priv_for_all_edges([&](auto) { ++local_size; }, where);
     }
     return ygm::sum(local_size, m_comm);
   }
@@ -405,7 +405,7 @@ class metall_graph {
     size_t local_size = local_num_nodes();
     if (!where.empty()) {
       local_size = 0;
-      for_all_nodes([&](auto) { ++local_size; }, where);
+      priv_for_all_nodes([&](auto) { ++local_size; }, where);
     }
     return ygm::sum(local_size, m_comm);
   }
@@ -426,6 +426,14 @@ class metall_graph {
     m_pedges->visit_field(name.unqualified(), record_id, func);
   }
 
+  std::expected<boost::json::array, std::string> select_edges(
+    const std::unordered_set<metall_graph::series_name>& series_set,
+    const metall_graph::where_clause&                    where);
+
+  std::expected<boost::json::array, std::string> select_nodes(
+    const std::unordered_set<metall_graph::series_name>& series_set,
+    const metall_graph::where_clause&                    where);
+
   /**
    * @brief Determines if the metall_graph is in good condition
    *
@@ -435,134 +443,6 @@ class metall_graph {
   bool good() const { return m_pmetall_mpi != nullptr; }
 
   operator bool() const { return good(); }
-
-  // The following for_all functions take a function that
-  // is passed the index as a parameter:
-  // Fn: [](record_id_type record_id) {}
-  // TODO: need to accept node where clauses. This is tricky. Leave for Roger.
-  template <typename Fn>
-  void for_all_edges(Fn                  func,
-                     const where_clause& where = where_clause()) const {
-    // take the where clause. Convert the where clause variables to
-    // a vector of series indices. If it's missing, throw runtime.
-    //
-
-    if (where.empty()) {
-      m_pedges->for_all_rows(func);
-      return;
-    }
-    std::vector<std::string> str_series_names;
-    str_series_names.reserve(where.series_names().size());
-    for (const auto& n : where.series_names()) {
-      str_series_names.emplace_back(n.unqualified());
-    }
-    auto var_idxs_o = m_pedges->find_series(str_series_names);
-    if (!var_idxs_o.has_value()) {
-      return;
-    }
-
-    auto var_idxs = var_idxs_o.value();
-    auto wrapper  = [&](size_t row_index) {
-      std::vector<data_types> var_data;
-      var_data.reserve(var_idxs.size());
-      for (auto series_idx : var_idxs) {
-        auto val = m_pedges->get_dynamic(series_idx, row_index);
-        std::visit(
-          [&var_data](const auto& v) {
-            using T = std::decay_t<decltype(v)>;
-            if constexpr (std::is_same_v<T, int64_t>) {
-              var_data.push_back(size_t(v));
-            } else if constexpr (std::is_same_v<T, std::string_view>) {
-              var_data.push_back(std::string(v));
-            } else {
-              var_data.push_back(v);
-            }
-          },
-          val);
-      }
-
-      if (where.evaluate(var_data)) {
-        func(row_index);
-      }
-    };
-    if (where.good()) {
-      m_pedges->for_all_rows(wrapper);
-    }
-  };
-
-  // for_all_nodes lambda takes a row index.
-  template <typename Fn>
-  void for_all_nodes(Fn func, const where_clause& where) const {
-    if (where.empty()) {
-      m_pnodes->for_all_rows([&](auto row_index) { func(row_index); });
-      return;
-    }
-    if (where.is_node_clause()) {
-      std::vector<std::string> str_series_names;
-      str_series_names.reserve(where.series_names().size());
-      for (auto n : where.series_names()) {
-        str_series_names.emplace_back(n.unqualified());
-      }
-      auto var_idxs_o = m_pnodes->find_series(str_series_names);
-      if (!var_idxs_o.has_value()) {
-        return;
-      }
-      auto var_idxs = var_idxs_o.value();
-
-      auto wrapper = [&](size_t row_index) {
-        std::vector<data_types> var_data;
-        var_data.reserve(var_idxs.size());
-        for (auto series_idx : var_idxs) {
-          auto val = m_pnodes->get_dynamic(series_idx, row_index);
-          std::visit(
-            [&var_data](const auto& v) {
-              using T = std::decay_t<decltype(v)>;
-              if constexpr (std::is_same_v<T, int64_t>) {
-                var_data.push_back(size_t(v));
-              } else if constexpr (std::is_same_v<T, std::string_view>) {
-                var_data.push_back(std::string(v));
-              } else {
-                var_data.push_back(v);
-              }
-            },
-            val);
-        }
-
-        if (where.evaluate(var_data)) {
-          func(row_index);
-        }
-      };
-
-      m_pnodes->for_all_rows(wrapper);
-    } else if (where.is_edge_clause()) {
-      auto u_col_idx = m_pedges->find_series(U_COL.unqualified());
-      auto v_col_idx = m_pedges->find_series(V_COL.unqualified());
-
-      ygm::container::set<std::string> nodeset(m_comm);
-      for_all_edges(
-        [&](record_id_type record_idx) {
-          auto u = m_pedges->get<std::string_view>(u_col_idx, record_idx);
-          auto v = m_pedges->get<std::string_view>(v_col_idx, record_idx);
-
-          nodeset.async_insert(std::string(u));
-          nodeset.async_insert(std::string(v));
-        },
-        where);
-
-      std::unordered_map<std::string, record_id_type> node_to_id;
-      auto node_col_idx = m_pnodes->find_series(NODE_COL.unqualified());
-      m_pnodes->for_all_rows([&](record_id_type rid) {
-        auto name = m_pnodes->get<std::string_view>(node_col_idx, rid);
-
-        node_to_id[std::string(name)] = rid;
-      });
-
-      for (const auto& node : nodeset) {
-        // throw an exception if the node is not in our node dataframe.
-        func(node_to_id.at(node));
-      }
-    }
-  }
 
   return_code in_degree(series_name out_name,
                         const where_clause& = where_clause());
@@ -628,6 +508,14 @@ class metall_graph {
   return_code priv_in_out_degree(series_name name, const where_clause&,
                                  bool        outdeg);
 
+  template <typename Fn>
+  void priv_for_all_edges(Fn                  func,
+                          const where_clause& where = where_clause()) const;
+
+  template <typename Fn>
+  void priv_for_all_nodes(Fn                  func,
+                          const where_clause& where = where_clause()) const;
+
   // Sets a node metadata column based on a lookup from an associative data
   // structure.
   // Node names are extracted from the key.
@@ -691,3 +579,4 @@ struct hash<metalldata::metall_graph::series_name> {
 }  // namespace std
 
 #include <metalldata/detail/metall_graph_faker.ipp>
+#include <metalldata/detail/metall_graph_priv_for_all.ipp>

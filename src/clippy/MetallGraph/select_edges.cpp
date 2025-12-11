@@ -22,12 +22,14 @@ int main(int argc, char** argv) {
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{method_name,
-                      "Returns edge information and metadata as JSON"};
+                      "Returns information and metadata about edges as JSON"};
   clip.add_required_state<std::string>("path", "Storage path for MetallGraph");
   clip.add_optional<boost::json::object>("where", "where clause",
                                          boost::json::object{});
   clip.add_optional<std::unordered_set<boost::json::object>>(
-    "series_names", "Series names to include (default: none)", {});
+    "series_names",
+    "Series names to include (default: none). All series must be edge series.",
+    {});
 
   // no object-state requirements in constructor
   if (clip.parse(argc, argv, comm)) {
@@ -60,51 +62,13 @@ int main(int argc, char** argv) {
   }
 
   // Build array of edge dictionaries
-  boost::json::array edges_array;
+  auto expected_array = mg.select_edges(series_set, where_c);
 
-  mg.for_all_edges(
-    [&](auto rid) {
-      boost::json::object edge_obj;
-
-      for (const auto& series : series_set) {
-        // TODO: make this better. This is potentially expensive because we have
-        // to do a field lookup on every edge.
-        mg.visit_edge_field(series, rid, [&](auto val) {
-          using T = std::decay_t<decltype(val)>;
-          if constexpr (std::is_same_v<T, std::string_view>) {
-            edge_obj[series.unqualified()] = std::string(val);
-          } else {
-            edge_obj[series.unqualified()] = val;
-          }
-        });
-      }
-
-      edges_array.push_back(edge_obj);
-    },
-    where_c);
-
-  std::vector<bjsn::array> everything(comm.size() - 1);  // don't need rank 0
-  static auto&             s_everything = everything;
-  comm.cf_barrier();
-  if (!comm.rank0()) {
-    comm.async(
-      0,
-      [](const bjsn::array& rank_data, int rank) {
-        (s_everything)[rank - 1] = rank_data;
-      },
-      edges_array, comm.rank());
+  if (!expected_array.has_value()) {
+    comm.cerr0(expected_array.error());
+    return -1;
   }
 
-  comm.barrier();
-
-  if (comm.rank0()) {
-    for (auto& el : everything) {
-      edges_array.insert(edges_array.end(), el);
-      el.clear();
-    }
-  }
-
-  comm.barrier();
-  clip.to_return(edges_array);
+  clip.to_return(expected_array.value());
   return 0;
 }

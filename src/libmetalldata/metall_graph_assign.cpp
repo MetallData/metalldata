@@ -60,7 +60,7 @@ metall_graph::return_code metall_graph::assign(
         },
         val);
     };
-    for_all_edges(wrapper, where);
+    priv_for_all_edges(wrapper, where);
   } else if (name.is_node_series()) {
     auto pnodes_     = m_pnodes;
     bool assigned_ok = true;
@@ -105,7 +105,7 @@ metall_graph::return_code metall_graph::assign(
         },
         val);
     };
-    for_all_nodes(wrapper, where);
+    priv_for_all_nodes(wrapper, where);
   } else {
     to_return.error = std::format("Unknown series name: {}", name.qualified());
   };
