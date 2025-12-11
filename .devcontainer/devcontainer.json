@@ -11,12 +11,17 @@
     // "forwardPorts": [],
     // Use 'postCreateCommand' to run commands after the container is created.
     // "postCreateCommand": "uname -a",
-    "extensions": [
-        "llvm-vs-code-extensions.vscode-clangd",
-        "streetsidesoftware.code-spell-checker"
-    ]
-	"mounts": [
-        "source=${localEnv:HOME}${localEnv:USERPROFILE},target=/host-home,type=bind,consistency=cached",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                
+                "llvm-vs-code-extensions.vscode-clangd",
+                "streetsidesoftware.code-spell-checker"
+            ]
+        }
+    },
+    "mounts": [
+        "source=${localEnv:HOME}${localEnv:USERPROFILE},target=/host-home,type=bind,consistency=cached"
     ]
     // Configure tool-specific properties.
     // "customizations": {},

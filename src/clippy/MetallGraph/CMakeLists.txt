@@ -44,6 +44,7 @@ add_metallgraph_executable(dump_parquet_nodes dump_parquet_nodes.cpp)
 add_metallgraph_executable(dump_parquet_edges dump_parquet_edges.cpp)
 add_metallgraph_executable(erase_edges erase_edges.cpp)
 
+
 add_custom_command(
         TARGET __init__ POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
