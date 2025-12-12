@@ -14,14 +14,13 @@ set(FETCHCONTENT_QUIET OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
-
-
 set(BOOST_FETCH_URL 
     "https://github.com/boostorg/boost/releases/download/boost-1.87.0/boost-1.87.0-cmake.tar.gz" 
     CACHE STRING "URL to fetch Boost tarball")
 
 #
 # Boost
+#
 FetchContent_Declare(
     Boost 
     URL ${BOOST_FETCH_URL}
@@ -29,31 +28,14 @@ FetchContent_Declare(
 )
 set(BOOST_INCLUDE_LIBRARIES json container unordered interprocess property_tree uuid graph program_options static_string)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
 # Boost specific PIC settings
 set(Boost_USE_STATIC_LIBS ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-
 FetchContent_MakeAvailable(Boost)
 
-# JSONLogic.  TODO remove this?
-set(Boost_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/boost-install) # needed for jsonlogic
-
-FetchContent_Declare(jsonlogic
-    GIT_REPOSITORY https://github.com/LLNL/jsonlogic.git
-    GIT_TAG v0.1.0
-    SOURCE_SUBDIR cpp
-)
-
-
-FetchContent_MakeAvailable(jsonlogic)
-set(jsonlogic_INCLUDE_DIR ${jsonlogic_SOURCE_DIR}/cpp/include)
-message(STATUS "jsonlogic source dir: ${jsonlogic_SOURCE_DIR}")
-message(STATUS "jsonlogic include dir: ${jsonlogic_INCLUDE_DIR}")
-get_property(targets DIRECTORY ${jsonlogic_SOURCE_DIR}/cpp PROPERTY BUILDSYSTEM_TARGETS)
-message(STATUS "jsonlogic targets: ${targets}")
 #
 #  YGM
+#
 set(YGM_REQUIRE_PARQUET ON)
 set(YGM_INSTALL_PARQUET ON)
 FetchContent_Declare(YGM
@@ -62,6 +44,9 @@ FetchContent_Declare(YGM
         )
 FetchContent_MakeAvailable(YGM)
 
+#
+#  Faker
+#
 FetchContent_Declare(faker
     GIT_REPOSITORY https://github.com/cieslarmichal/faker-cxx
     GIT_TAG v4.0.1
@@ -70,15 +55,19 @@ FetchContent_MakeAvailable(faker)
 
 
 #
-#  Clippy
+#  Clippy (which includes jsonlogic)
 #
+set(JSONLOGIC_ENABLE_BENCH OFF)
+set(JSONLOGIC_ENABLE_TESTS OFF)
 FetchContent_Declare(CLIPPy
         GIT_REPOSITORY https://github.com/LLNL/clippy-cpp.git
         GIT_TAG v0.4
         )
         FetchContent_MakeAvailable(CLIPPy)
 set(CLIPPy_INCLUDE_DIR "${clippy_SOURCE_DIR}/include")
-
+set(jsonlogic_INCLUDE_DIR ${jsonlogic_SOURCE_DIR}/include)
+message(STATUS "jsonlogic source dir: ${jsonlogic_SOURCE_DIR}")
+message(STATUS "jsonlogic include dir: ${jsonlogic_INCLUDE_DIR}")
 
 
 #
