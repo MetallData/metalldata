@@ -28,5 +28,5 @@ function(add_mgr_executable name source)
 endfunction()
 
 
-add_mgr_executable(mgr_call_with_string call_with_string.cpp)
+add_mgr_executable(remove remove.cpp)
 add_mgr_executable(welcome welcome.cpp)
