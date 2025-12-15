@@ -52,10 +52,9 @@ inline bjsn::value parseFile(const std::string& filename) {
 template <typename Fn>
 size_t apply_jl(bjsn::value jl_rule, record_store_type& record_store, Fn fn) {
   std::vector<bjsn::string> vars;
-  jsonlogic::any_expr       expression_rule;
+  // jsonlogic::any_expr       expression_rule;
 
-  std::tie(expression_rule, vars, std::ignore) =
-      jsonlogic::create_logic(jl_rule);
+  auto jlrule = jsonlogic::create_logic(jl_rule);
 
   std::set<std::string> varset{};
   for (auto v : vars) {
@@ -65,9 +64,9 @@ size_t apply_jl(bjsn::value jl_rule, record_store_type& record_store, Fn fn) {
 
   size_t fn_count = 0;
   record_store.for_all_dynamic(
-      [varset, series, &expression_rule, &fn, &fn_count](
+      [jlexpr=std::move(jlrule), varset, series, &fn, &fn_count] (
           const record_store_type::record_id_type index,
-          const auto&                             series_values) {
+          const auto&                             series_values) mutable {
         bjsn::object data{};
         bool         has_monostate = false;
         for (size_t i = 0; i < series.size(); ++i) {
@@ -93,10 +92,8 @@ size_t apply_jl(bjsn::value jl_rule, record_store_type& record_store, Fn fn) {
         if (has_monostate) {
           return;
         }
-        jsonlogic::any_expr res_j =
-            jsonlogic::apply(expression_rule, jsonlogic::data_accessor(data));
 
-        auto res = jsonlogic::unpack_value<bool>(res_j);
+        bool res = truthy(jlexpr.apply(jsonlogic::json_accessor(data)));
         if (res) {
           fn(index, series_values);
           fn_count++;
