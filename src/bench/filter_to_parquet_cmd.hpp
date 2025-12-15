@@ -183,11 +183,9 @@ class filter_to_parquet_cmd : public base_subcommand {
     std::vector<bjsn::string> vars;
     jsonlogic::any_expr       expression_rule;
 
-    std::tie(expression_rule, vars, std::ignore) =
-        jsonlogic::create_logic(jl_rule);
-
-    // jsonlogic::expr*                 rawexpr = expression_rule_.release();
-    // std::shared_ptr<jsonlogic::expr> expression_rule{rawexpr};
+    // this is not used ... PP (12/12/25)
+    // was: std::tie(expression_rule, vars, std::ignore) = jsonlogic::create_logic(jl_rule);
+    // new: jsonlogic::logic_rule jlrule = jsonlogic::create_logic(jl_rule);
 
     std::set<std::string> varset{};
     for (auto v : vars) {

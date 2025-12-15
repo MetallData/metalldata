@@ -6,23 +6,27 @@
 #define WITH_YGM 1
 #include <clippy/clippy.hpp>
 #include <ygm/comm.hpp>
-#include <metalldata/metall_graph.hpp>
+#include <filesystem>
 
-static const std::string method_name    = "welcome";
-static const std::string state_name     = "INTERNAL";
-static const std::string sel_state_name = "selectors";
+static const std::string method_name = "remove";
 
 int main(int argc, char **argv) {
   ygm::comm comm(&argc, &argv);
 
-  clippy::clippy clip{method_name, "Prints YGM's welcome message"};
+  clippy::clippy clip{method_name, "Removes Metall storage across processors"};
+  clip.add_required<std::string>("path", "Path to Metall storage");
 
   // no object-state requirements in constructor
   if (clip.parse(argc, argv, comm)) {
     return 0;
   }
 
-  comm.welcome(std::cerr);
-  clip.to_return(0);
+  auto path = clip.get<std::string>("path");
+
+  if (comm.layout().local_id() == 0) {
+    // Only one rank per node needs to call remove_all
+    std::filesystem::remove_all(path);
+  }
+
   return 0;
 }

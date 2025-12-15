@@ -98,13 +98,7 @@ class remove_if_cmd : public base_subcommand {
     static std::vector<size_t> records_to_erase;
 
     std::vector<bjsn::string> vars;
-    jsonlogic::any_expr       expression_rule;
-
-    std::tie(expression_rule, vars, std::ignore) =
-        jsonlogic::create_logic(jl_rule);
-
-    // jsonlogic::expr*                 rawexpr = expression_rule_.release();
-    // std::shared_ptr<jsonlogic::expr> expression_rule{rawexpr};
+    jsonlogic::logic_rule jlrule = jsonlogic::create_logic(jl_rule);
 
     std::set<std::string> varset{};
     for (auto v : vars) {
@@ -113,10 +107,9 @@ class remove_if_cmd : public base_subcommand {
     auto series = record_store->get_series_names();
 
     record_store->for_all_dynamic(
-
-        [&comm, varset, series, &expression_rule](
+        [jlexpr = std::move(jlrule), &comm, varset, series](
             const record_store_type::record_id_type index,
-            const auto                              series_values) {
+            const auto                              series_values) mutable {
           bjsn::object data{};
           bool         has_monostate = false;
           for (size_t i = 0; i < series.size(); ++i) {
@@ -142,10 +135,7 @@ class remove_if_cmd : public base_subcommand {
           if (has_monostate) {
             return;
           }
-          jsonlogic::any_expr res_j =
-              jsonlogic::apply(expression_rule, jsonlogic::data_accessor(data));
-
-          auto res = jsonlogic::unpack_value<bool>(res_j);
+          bool const res = truthy(jlexpr.apply(jsonlogic::json_accessor(data)));
           if (res) {
             comm.cout0("Removing index ", index);
             records_to_erase.push_back(index);

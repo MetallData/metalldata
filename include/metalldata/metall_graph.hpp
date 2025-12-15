@@ -545,6 +545,6 @@ struct hash<metalldata::metall_graph::series_name> {
 };
 }  // namespace std
 
-#include <metalldata/detail/metall_graph_faker.ipp>
-#include <metalldata/detail/metall_graph_priv_for_all.ipp>
-#include <metalldata/detail/metall_graph_set_node_column.ipp>
+#include <metalldata/impl/metall_graph_faker.ipp>
+#include <metalldata/impl/metall_graph_priv_for_all.ipp>
+#include <metalldata/impl/metall_graph_set_node_column.ipp>

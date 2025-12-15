@@ -8,16 +8,19 @@
 
 namespace {
 static auto priv_compile_jl_rule(bjsn::value jl_rule) {
-  auto [expression_rule, vars_b, _] = jsonlogic::create_logic(jl_rule);
+  // pack rule into a shared_ptr since it is not copyable.
+  std::shared_ptr<jsonlogic::logic_rule> rule
+    = std::make_shared<jsonlogic::logic_rule>(jsonlogic::create_logic(jl_rule));
+  std::vector<std::string> vars;
 
-  std::vector<std::string> vars{vars_b.begin(), vars_b.end()};
-
-  // Store the unique_ptr in a shared_ptr to make it copyable and shareable
-  auto shared_expr =
-    std::make_shared<jsonlogic::any_expr>(std::move(expression_rule));
+  vars.reserve(rule->variable_names().size());
+  std::ranges::transform( rule->variable_names(),
+                          std::back_inserter(vars),
+                          [](std::string_view sv) { return std::string{sv}; }
+                        );
 
   auto compiled =
-    [shared_expr](
+    [jlexpr = std::move(rule)](
       const std::vector<metalldata::metall_graph::data_types>& row) -> bool {
     // Convert data_types to value_variant
     std::vector<jsonlogic::value_variant> jl_row;
@@ -36,14 +39,13 @@ static auto priv_compile_jl_rule(bjsn::value jl_rule) {
           } else if constexpr (std::is_same_v<T, double>) {
             jl_row.push_back(arg);
           } else if constexpr (std::is_same_v<T, std::string>) {
-            jl_row.push_back(std::string_view{arg});
+            jl_row.push_back(jsonlogic::managed_string_view{arg});
           }
         },
         val);
     }
 
-    auto res_j = jsonlogic::apply(*shared_expr, jl_row);
-    return jsonlogic::unpack_value<bool>(res_j);
+    return truthy(jlexpr->apply(jl_row));
   };
 
   return std::make_tuple(compiled, vars);
@@ -71,7 +73,7 @@ metall_graph::where_clause::where_clause(
 metall_graph::where_clause::where_clause(const bjsn::value& jlrule) {
   auto [compiled, vars] = priv_compile_jl_rule(jlrule);
 
-  m_predicate = compiled;
+  m_predicate = std::move(compiled);
   m_series_names.reserve(vars.size());
   for (const auto& v : vars) {
     m_series_names.emplace_back(v);

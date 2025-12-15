@@ -18,4 +18,4 @@ endfunction()
 
 
 add_subdirectory(MetallGraph)
-add_subdirectory(mgr)
+add_subdirectory(MetallUtils)
