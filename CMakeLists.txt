@@ -14,15 +14,15 @@ set(FETCHCONTENT_QUIET OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
-set(BOOST_FETCH_URL 
-    "https://github.com/boostorg/boost/releases/download/boost-1.87.0/boost-1.87.0-cmake.tar.gz" 
+set(BOOST_FETCH_URL
+    "https://github.com/boostorg/boost/releases/download/boost-1.87.0/boost-1.87.0-cmake.tar.gz"
     CACHE STRING "URL to fetch Boost tarball")
 
 #
 # Boost
 #
 FetchContent_Declare(
-    Boost 
+    Boost
     URL ${BOOST_FETCH_URL}
     DOWNLOAD_EXTRACT_TIMESTAMP ON
 )
@@ -61,7 +61,7 @@ set(JSONLOGIC_ENABLE_BENCH OFF)
 set(JSONLOGIC_ENABLE_TESTS OFF)
 FetchContent_Declare(CLIPPy
         GIT_REPOSITORY https://github.com/LLNL/clippy-cpp.git
-        GIT_TAG v0.5
+        GIT_TAG v0.4.2
         )
         FetchContent_MakeAvailable(CLIPPy)
 set(CLIPPy_INCLUDE_DIR "${clippy_SOURCE_DIR}/include")
