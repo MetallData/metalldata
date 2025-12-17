@@ -79,10 +79,16 @@ void metall_graph::priv_for_all_nodes(
     auto wrapper = [&](size_t row_index) {
       std::vector<data_types> var_data;
       var_data.reserve(var_idxs.size());
+      bool missing_field = false;
       for (auto series_idx : var_idxs) {
+        if (m_pnodes->is_none(series_idx, row_index)) {
+          missing_field = true;
+          break;
+        }
         auto val = m_pnodes->get_dynamic(series_idx, row_index);
+
         std::visit(
-          [&var_data](const auto& v) {
+          [&var_data, &missing_field](const auto& v) {
             using T = std::decay_t<decltype(v)>;
             if constexpr (std::is_same_v<T, int64_t>) {
               var_data.push_back(size_t(v));
@@ -95,7 +101,7 @@ void metall_graph::priv_for_all_nodes(
           val);
       }
 
-      if (where.evaluate(var_data)) {
+      if (!missing_field && where.evaluate(var_data)) {
         func(row_index);
       }
     };
