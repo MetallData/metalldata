@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <metall/metall.hpp>
+#include <set>
 #include "multiseries/multiseries_record.hpp"
 
 namespace bjsn = boost::json;
