@@ -31,7 +31,12 @@ void metall_graph::priv_for_all_edges(
   auto wrapper  = [&](size_t row_index) {
     std::vector<data_types> var_data;
     var_data.reserve(var_idxs.size());
+    bool missing_field = false;
     for (auto series_idx : var_idxs) {
+      if (m_pedges->is_none(series_idx, row_index)) {
+        missing_field = true;
+        break;
+      }
       auto val = m_pedges->get_dynamic(series_idx, row_index);
       std::visit(
         [&var_data](const auto& v) {
@@ -47,7 +52,7 @@ void metall_graph::priv_for_all_edges(
         val);
     }
 
-    if (where.evaluate(var_data)) {
+    if (!missing_field && where.evaluate(var_data)) {
       func(row_index);
     }
   };

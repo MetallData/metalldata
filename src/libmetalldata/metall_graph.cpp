@@ -183,7 +183,8 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
       std::string col_errs;
       bool        add_series_err = false;
       // Don't try to add series for U_COL and V_COL - they already exist
-      if (pcol_name != col_u && pcol_name != col_v) {
+      if (pcol_name != col_u && pcol_name != col_v &&
+          !has_series(mapped_name)) {
         if (pcol_type.equal(parquet::Type::INT32) ||
             pcol_type.equal(parquet::Type::INT64)) {
           add_series_err = !add_series<int64_t>(mapped_name);
@@ -215,9 +216,11 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
     return to_return;
   }
 
-  if (!add_series<bool>(DIR_COL)) {
-    to_return.error = "could not add directed column";
-    return to_return;
+  if (!has_edge_series(DIR_COL)) {
+    if (!add_series<bool>(DIR_COL)) {
+      to_return.error = "could not add directed column";
+      return to_return;
+    }
   }
 
   auto metall_edges = m_pedges;

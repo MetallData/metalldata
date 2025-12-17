@@ -1,7 +1,0 @@
-u,v,weight,color
-a,b,1,blue
-b,c,2,blue
-c,a,1,blue
-c,d,1,red
-d,e,4,red
-e,c,3,red

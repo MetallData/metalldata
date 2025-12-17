@@ -1,0 +1,7 @@
+s,t,weight,color,name,directed
+4clique-a,4clique-b,2,black,Adam,true
+4clique-a,4clique-c,1,orange,Beth,true
+4clique-a,4clique-d,3,,Charlie,true
+4clique-b,4clique-c,2,black,,true
+4clique-b,4clique-d,1,orange,,true
+4clique-c,4clique-d,3,black,Fred,true
