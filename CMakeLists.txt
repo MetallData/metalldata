@@ -81,12 +81,6 @@ FetchContent_Declare(Metall
 )
 FetchContent_MakeAvailable(Metall)
 
-#
-#  CXX Filesystem library
-#
-include(include_cxx_filesystem_library)
-include_cxx_filesystem_library()
-
 
 #
 #  Common functions for all MetallData Executables
