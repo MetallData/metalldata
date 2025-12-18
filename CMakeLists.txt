@@ -182,9 +182,6 @@ endfunction()
 
 add_subdirectory(src)
 add_subdirectory(include)
-add_subdirectory(examples)
-
-
 
 if (METALLDATA_BUILD_TESTS)
     enable_testing()
