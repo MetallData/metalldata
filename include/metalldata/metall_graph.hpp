@@ -428,11 +428,11 @@ class metall_graph {
 
   std::expected<boost::json::array, std::string> select_edges(
     const std::unordered_set<metall_graph::series_name>& series_set,
-    const metall_graph::where_clause&                    where);
+    const metall_graph::where_clause& where, size_t limit = 1000);
 
   std::expected<boost::json::array, std::string> select_nodes(
     const std::unordered_set<metall_graph::series_name>& series_set,
-    const metall_graph::where_clause&                    where);
+    const metall_graph::where_clause& where, size_t limit = 1000);
 
   /**
    * @brief Determines if the metall_graph is in good condition

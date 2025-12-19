@@ -12,7 +12,7 @@
 namespace metalldata {
 std::expected<bjsn::array, std::string> metall_graph::select_edges(
   const std::unordered_set<metall_graph::series_name>& series_set,
-  const metall_graph::where_clause&                    where) {
+  const metall_graph::where_clause& where, size_t limit) {
   if (series_set.empty()) {
     return {};
   }
@@ -60,18 +60,26 @@ std::expected<bjsn::array, std::string> metall_graph::select_edges(
 
   if (m_comm.rank0()) {
     for (auto& el : everything) {
+      if (select_results_arr.size() >= limit) {
+        break;
+      }
       select_results_arr.insert(select_results_arr.end(), el.begin(), el.end());
       el.clear();
     }
   }
 
   m_comm.barrier();
-  return select_results_arr;
+
+  boost::json::array limited;
+  size_t             n = std::min(select_results_arr.size(), size_t(limit));
+  limited.insert(limited.end(), select_results_arr.begin(),
+                 select_results_arr.begin() + n);
+  return limited;
 }
 
 std::expected<bjsn::array, std::string> metall_graph::select_nodes(
   const std::unordered_set<metall_graph::series_name>& series_set,
-  const metall_graph::where_clause&                    where) {
+  const metall_graph::where_clause& where, size_t limit) {
   if (series_set.empty()) {
     return {};
   }
@@ -120,13 +128,21 @@ std::expected<bjsn::array, std::string> metall_graph::select_nodes(
   m_comm.barrier();
   if (m_comm.rank0()) {
     for (auto& el : everything) {
+      if (select_results_arr.size() >= limit) {
+        break;
+      }
       select_results_arr.insert(select_results_arr.end(), el.begin(), el.end());
       el.clear();
     }
   }
 
   m_comm.barrier();
-  return select_results_arr;
+
+  boost::json::array limited;
+  size_t             n = std::min(select_results_arr.size(), size_t(limit));
+  limited.insert(limited.end(), select_results_arr.begin(),
+                 select_results_arr.begin() + n);
+  return limited;
 }
 
 }  // namespace metalldata
