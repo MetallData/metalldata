@@ -30,6 +30,7 @@ int main(int argc, char** argv) {
     "series_names",
     "Series names to include (default: none). All series must be edge series.",
     {});
+  clip.add_optional<size_t>("limit", "Limit number of rows returned", 1000);
 
   // no object-state requirements in constructor
   if (clip.parse(argc, argv, comm)) {
@@ -38,6 +39,8 @@ int main(int argc, char** argv) {
 
   auto path  = clip.get_state<std::string>("path");
   auto where = clip.get<boost::json::object>("where");
+
+  auto limit = clip.get<size_t>("limit");
 
   metalldata::metall_graph::where_clause where_c;
   if (where.contains("rule")) {
@@ -62,7 +65,7 @@ int main(int argc, char** argv) {
   }
 
   // Build array of edge dictionaries
-  auto expected_array = mg.select_edges(series_set, where_c);
+  auto expected_array = mg.select_edges(series_set, where_c, limit);
 
   if (!expected_array.has_value()) {
     comm.cerr0(expected_array.error());
