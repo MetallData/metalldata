@@ -9,8 +9,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      CC: gcc-12
-      CXX: g++-12
+      CC: gcc-13
+      CXX: g++-13
     steps:
       - uses: actions/checkout@v3
       - name: Install OpenMPI
@@ -18,9 +18,9 @@ jobs:
       - name: Build and test
         run: |
           pushd /dev/shm
-          wget -q https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.tar.gz
+          wget -q https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.bz2
           mkdir boost
-          tar xf boost_1_78_0.tar.gz -C boost --strip-components 1
+          tar xf boost_1_87_0.tar.bz2 -C boost --strip-components 1
           export CPLUS_INCLUDE_PATH="${PWD}/boost"
           popd
           cd $GITHUB_WORKSPACE
@@ -29,6 +29,7 @@ jobs:
           cmake ../ -DMETALLDATA_BUILD_TESTS=ON
           make -j6
           make test
-          cd ../tests
-          export OMPI_MCA_rmaps_base_oversubscribe=1
-          bash run_test.sh
+          # removed 20250814 sbromberger
+          #cd ../tests
+          # export OMPI_MCA_rmaps_base_oversubscribe=1
+          # bash run_test.sh

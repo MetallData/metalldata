@@ -1,0 +1,1 @@
+add_gtest_executable(test_multiseries_record test_multiseries_record.cpp)

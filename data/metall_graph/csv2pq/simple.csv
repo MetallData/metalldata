@@ -1,0 +1,6 @@
+src,dst,name,age
+a,b,edge1,3
+b,c,edge2,7
+c,a,edge3,4
+c,d,edge4,66
+d,e,edge5,18
