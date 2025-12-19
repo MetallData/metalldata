@@ -2,153 +2,84 @@ cmake_minimum_required(VERSION 3.14)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 project(MetallData
-        VERSION 0.1
+        VERSION 0.3
         DESCRIPTION "Metall Containers"
         LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 
 include(FetchContent)
+set(FETCHCONTENT_QUIET OFF)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
-#
-#  Options
-#
-option(METALLDATA_USE_PRIVATEER "Use Privateer in Metall" OFF)
-if (APPLE AND METALLDATA_USE_PRIVATEER)
-    message(WARNING "Turn off Privateer on MacOS")
-    set(METALLDATA_USE_PRIVATEER OFF)
-endif ()
-
-option(METALLDATA_BUILD_TESTS "Build tests" OFF)
-option(METALLDATA_USE_PARQUET "Use Apache Parquet" OFF)
-
-#
-#  Threads
-#
-find_package(Threads REQUIRED)
-
+set(BOOST_FETCH_URL
+    "https://github.com/boostorg/boost/releases/download/boost-1.87.0/boost-1.87.0-cmake.tar.gz"
+    CACHE STRING "URL to fetch Boost tarball")
 
 #
 # Boost
-include(setup_boost)
-prepare_fetchcontent_boost()
-set(FETCHCONTENT_QUIET FALSE)
+#
 FetchContent_Declare(
-        Boost
-        GIT_REPOSITORY https://github.com/boostorg/boost.git
-        GIT_TAG boost-1.78.0
-        GIT_SUBMODULES ${BOOST_REQD_SUBMODULES}
-        GIT_PROGRESS TRUE
-        CONFIGURE_COMMAND ""  # tell CMake it's not a cmake project
+    Boost
+    URL ${BOOST_FETCH_URL}
+    DOWNLOAD_EXTRACT_TIMESTAMP ON
 )
+set(BOOST_INCLUDE_LIBRARIES json container unordered interprocess property_tree uuid graph program_options static_string)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+# Boost specific PIC settings
+set(Boost_USE_STATIC_LIBS ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 FetchContent_MakeAvailable(Boost)
-get_boost_include_dirs()
-
-#
-#  cereal
-find_package(cereal QUIET)
-if (NOT cereal_FOUND)
-    set(JUST_INSTALL_CEREAL TRUE)
-    FetchContent_Declare(cereal
-            GIT_REPOSITORY https://github.com/USCiLab/cereal.git
-            GIT_TAG master
-            )
-    FetchContent_MakeAvailable(cereal)
-endif ()
-
-
-#
-#  MPI
-find_package(MPI)
-
-#
-# Parquet
-#
-if (METALLDATA_USE_PARQUET)
-    find_package(Arrow 14 REQUIRED)
-    find_package(Parquet 14 REQUIRED)
-endif ()
 
 #
 #  YGM
-if (MPI_CXX_FOUND)
-    find_package(YGM QUIET)
-    if (NOT YGM_FOUND)
-        set(JUST_INSTALL_YGM TRUE)
-        FetchContent_Declare(YGM
-            GIT_REPOSITORY https://github.com/LLNL/ygm.git
-            GIT_TAG develop
-                )
-        FetchContent_MakeAvailable(YGM)
-    endif ()
-endif ()
+#
+set(YGM_REQUIRE_PARQUET ON)
+set(YGM_INSTALL_PARQUET ON)
+FetchContent_Declare(YGM
+    GIT_REPOSITORY https://github.com/llnl/ygm.git
+    GIT_TAG v0.8
+        )
+FetchContent_MakeAvailable(YGM)
 
-
+#
+#  Faker
+#
+FetchContent_Declare(faker
+    GIT_REPOSITORY https://github.com/cieslarmichal/faker-cxx
+    GIT_TAG v4.0.1
+        )
+FetchContent_MakeAvailable(faker)
 
 
 #
-# Privateer
+#  Clippy (which includes jsonlogic)
 #
-if (METALLDATA_USE_PRIVATEER)
-    #
-    #  ZSTD
-    #
-    find_package(zstd QUIET)
-    if (NOT zstd_FOUND)
-    FetchContent_Declare(zstd
-            GIT_REPOSITORY https://github.com/facebook/zstd.git
-            GIT_TAG v1.5.4
-            )
-    FetchContent_MakeAvailable(zstd)
-    list(APPEND CMAKE_MODULE_PATH "${zstd_SOURCE_DIR}/build/cmake")
-    endif ()
-    find_package(Privateer QUIET)
-    if (NOT Privateer_FOUND)
-        FetchContent_Declare(Privateer
-                GIT_REPOSITORY https://github.com/LLNL/Privateer.git
-                GIT_TAG feature/uffd
-                )
-        FetchContent_MakeAvailable(Privateer)
-    endif ()
-endif ()
+set(JSONLOGIC_ENABLE_BENCH OFF)
+set(JSONLOGIC_ENABLE_TESTS OFF)
+FetchContent_Declare(CLIPPy
+        GIT_REPOSITORY https://github.com/LLNL/clippy-cpp.git
+        GIT_TAG v0.4.2
+        )
+        FetchContent_MakeAvailable(CLIPPy)
+set(CLIPPy_INCLUDE_DIR "${clippy_SOURCE_DIR}/include")
+set(jsonlogic_INCLUDE_DIR ${jsonlogic_SOURCE_DIR}/include)
+message(STATUS "jsonlogic source dir: ${jsonlogic_SOURCE_DIR}")
+message(STATUS "jsonlogic include dir: ${jsonlogic_INCLUDE_DIR}")
+
 
 #
 #  Metall
 #
-find_package(Metall QUIET)
-if (NOT Metall_FOUND)
-    set(JUST_INSTALL_METALL_HEADER TRUE)
-    if (Privateer_FOUND)
-        set(METALL_GIT_TAG "privateer2.0")
-    else()
-        set(METALL_GIT_TAG "develop")
-    endif()
-    FetchContent_Declare(Metall
-            GIT_REPOSITORY https://github.com/LLNL/metall.git
-            GIT_TAG ${METALL_GIT_TAG}
-            )
-    FetchContent_MakeAvailable(Metall)
-endif ()
-
-
-#
-#  GoogleTest
-#
-if (METALLDATA_BUILD_TESTS)
-    FetchContent_Declare(
-            googletest
-            GIT_REPOSITORY https://github.com/google/googletest.git
-            GIT_TAG main
-    )
-    FetchContent_MakeAvailable(googletest)
-endif()
-
-#
-#  CXX Filesystem library
-#
-include(include_cxx_filesystem_library)
-include_cxx_filesystem_library()
+set(JUST_INSTALL_METALL_HEADER TRUE)
+set(METALL_GIT_TAG "master")
+FetchContent_Declare(Metall
+        GIT_REPOSITORY https://github.com/LLNL/metall.git
+        GIT_TAG ${METALL_GIT_TAG}
+)
+FetchContent_MakeAvailable(Metall)
 
 
 #
@@ -161,9 +92,9 @@ function(add_common_compile_options name)
     # Debug
     target_compile_options(${name} PRIVATE $<$<CONFIG:Debug>:-O0>)
     target_compile_options(${name} PRIVATE $<$<CONFIG:Debug>:-g3>)
-#    if (Linux)
-#        target_compile_options(${name} PRIVATE $<$<CONFIG:Debug>:-pg>)
-#    endif ()
+    #    if (Linux)
+    #        target_compile_options(${name} PRIVATE $<$<CONFIG:Debug>:-pg>)
+    #    endif ()
 
     # Release
     target_compile_options(${name} PRIVATE $<$<CONFIG:Release>:-Ofast>)
@@ -172,52 +103,48 @@ function(add_common_compile_options name)
     # Release with debug info
     target_compile_options(${name} PRIVATE $<$<CONFIG:RelWithDebInfo>:-Ofast>)
     target_compile_options(${name} PRIVATE $<$<CONFIG:RelWithDebInfo>:-g3>)
-#    if (Linux)
-#        target_compile_options(${name} PRIVATE $<$<CONFIG:RelWithDebInfo>:-pg>)
-#    endif ()
+    #    if (Linux)
+    #        target_compile_options(${name} PRIVATE $<$<CONFIG:RelWithDebInfo>:-pg>)
+    #    endif ()
 endfunction()
 
 function(add_metalldata_executable name source)
     add_executable(${name} ${source})
     add_common_compile_options(${name})
-    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include ${BOOST_INCLUDE_DIRS})
-    target_link_libraries(${name} PRIVATE Boost::json)
+    target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include ${BOOST_INCLUDE_DIRS} ${jsonlogic_INCLUDE_DIR})
+    target_link_libraries(${name} PRIVATE Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph Boost::program_options jsonlogic)
+    target_link_libraries(${name} PRIVATE Arrow::arrow_shared)
+    target_link_libraries(${name} PRIVATE Parquet::parquet_shared)
+    target_compile_definitions(${name} PRIVATE METALLDATA_USE_PARQUET)
 endfunction()
 
 
 #
-#  Clippy
+# spdlog
 #
-find_package(CLIPPy QUIET)
-if (NOT CLIPPy_FOUND)
-    FetchContent_Declare(CLIPPy
-            GIT_REPOSITORY https://github.com/LLNL/clippy-cpp.git
-            GIT_TAG master
-            )
-    FetchContent_GetProperties(CLIPPy)
-    if (NOT clippy_POPULATED)
-        FetchContent_Populate(CLIPPy)
-    endif ()
-    set(CLIPPy_INCLUDE_DIR "${clippy_SOURCE_DIR}/include")
-endif ()
+FetchContent_Declare(
+  spdlog
+  GIT_REPOSITORY https://github.com/gabime/spdlog.git
+  GIT_TAG v1.14.1)
+FetchContent_MakeAvailable(spdlog)
+
+#
+# Function for setting up a target that uses spdlog
+#
+function(setup_spdlog_target target)
+  target_link_libraries(${target} PRIVATE spdlog::spdlog)
+endfunction()
 
 #
 # Function for setting up a target that uses YGM
 #
 function(setup_ygm_target exe_name)
-    if (NOT MPI_CXX_FOUND)
-        message(WARNING "YGM requires MPI; skip building ${exe_name}.")
-        return()
-    endif ()
-
-    target_link_libraries(${exe_name} PRIVATE MPI::MPI_CXX)
-    target_link_libraries(${exe_name} PRIVATE cereal)
-    target_link_libraries(${exe_name} PRIVATE Threads::Threads)
     if (${CMAKE_HOST_SYSTEM_NAME} MATCHES "Linux")
         target_link_libraries(${exe_name} PRIVATE rt)
     endif ()
     target_link_libraries(${exe_name} PRIVATE ygm::ygm)
 endfunction()
+
 
 #
 # Function for setting up a target that uses CLIPPy
@@ -233,21 +160,7 @@ endfunction()
 function(setup_metall_target exe_name)
     target_include_directories(${exe_name} PRIVATE ${Boost_INCLUDE_DIRS})
 
-    target_link_libraries(${exe_name} PRIVATE Threads::Threads)
-    if (Privateer_FOUND)
-        target_include_directories(${exe_name} PRIVATE "${Privateer_SOURCE_DIR}/include")
-
-        find_package(OpenSSL)
-        target_link_libraries(${exe_name} PRIVATE OpenSSL::SSL)
-        target_link_libraries(${exe_name} PRIVATE OpenSSL::Crypto)
-        target_link_libraries(${exe_name} PRIVATE rt)
-        target_link_libraries(${exe_name} PRIVATE zstd)
-
-        target_compile_definitions(${exe_name} PRIVATE USE_COMPRESSION)
-
-        target_link_libraries(${exe_name} PRIVATE privateer-static)
-        target_compile_definitions(${exe_name} PRIVATE METALL_USE_PRIVATEER)
-    endif ()
+    #target_link_libraries(${exe_name} PRIVATE Threads::Threads)
 
     target_link_libraries(${exe_name} PRIVATE Metall)
 
@@ -268,11 +181,9 @@ function(setup_metall_target exe_name)
 endfunction()
 
 add_subdirectory(src)
-add_subdirectory(examples)
+add_subdirectory(include)
 
 if (METALLDATA_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
-endif()
-
-#add_subdirectory(example)
+endif ()

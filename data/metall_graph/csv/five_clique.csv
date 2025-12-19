@@ -1,0 +1,11 @@
+s,t,weight,color,name,directed
+5clique-a,5clique-b,1,grey,Adam,false
+5clique-a,5clique-c,2,red,Beth,false
+5clique-a,5clique-d,3,green,,false
+5clique-a,5clique-e,4,grey,David,false
+5clique-b,5clique-c,3,red,Edward,false
+5clique-b,5clique-d,2,green,Fred,false
+5clique-b,5clique-e,1,grey,,false
+5clique-c,5clique-d,2,red,Hannah,false
+5clique-c,5clique-e,3,green,,false
+5clique-d,5clique-e,4,grey,Jane,false

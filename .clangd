@@ -1,0 +1,7 @@
+CompileFlags:
+  CompilationDatabase: build
+  Add: [-std=c++23, -stdlib=libstdc++]
+
+Diagnostics:
+  Suppress: [ovl_no_viable_function_in_init]
+  UnusedIncludes: None
