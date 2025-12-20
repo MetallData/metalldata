@@ -43,12 +43,16 @@ int main(int argc, char **argv) {
   std::vector<metalldata::metall_graph::series_name> meta;
   meta.reserve(meta_str.size());
 
+  bool has_meta = clip.has_argument("metadata");
+
   for (const auto m : meta_str) {
     meta.emplace_back("edge", m);
   }
 
   auto rc =
-    mg.ingest_parquet_edges(input_path, true, col_u, col_v, directed, meta);
+    has_meta
+      ? mg.ingest_parquet_edges(input_path, true, col_u, col_v, directed, meta)
+      : mg.ingest_parquet_edges(input_path, true, col_u, col_v, directed);
 
   if (!rc.good()) {
     comm.cerr0(rc.error);

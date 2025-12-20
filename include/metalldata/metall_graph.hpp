@@ -21,6 +21,8 @@
 #include <boost/unordered/unordered_flat_set.hpp>
 #include <ygm/container/set.hpp>
 #include <expected>
+#include <optional>
+
 namespace bjsn = boost::json;
 
 /* ASSUMPTIONS
@@ -242,10 +244,10 @@ class metall_graph {
   //
   // Ingest from parquet, provide 2 column names to define an edge, provide if
   // directed, provide list of optional metadata fields
-  return_code ingest_parquet_edges(std::string_view path, bool recursive,
-                                   std::string_view col_u,
-                                   std::string_view col_v, bool directed,
-                                   const std::vector<series_name>& meta);
+  return_code ingest_parquet_edges(
+    std::string_view path, bool recursive, std::string_view col_u,
+    std::string_view col_v, bool directed,
+    const std::optional<std::vector<series_name>>& meta = std::nullopt);
 
   return_code ingest_parquet_verts(std::string_view path, bool recursive,
                                    std::string_view                key,
