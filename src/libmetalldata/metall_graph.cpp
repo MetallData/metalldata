@@ -124,7 +124,8 @@ bool metall_graph::drop_series(const series_name& name) {
 
 metall_graph::return_code metall_graph::ingest_parquet_edges(
   std::string_view path, bool recursive, std::string_view col_u,
-  std::string_view col_v, bool directed, const std::vector<series_name>& meta) {
+  std::string_view col_v, bool directed,
+  const std::optional<std::vector<series_name>>& meta) {
   return_code to_return;
   // Note: meta is exclusive of col_u and col_v. The metaset should
   // consist of qualified selector names (start with node. or edge.)
@@ -137,7 +138,25 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
   ygm::io::parquet_parser parquetp(m_comm, paths, recursive);
   const auto&             schema = parquetp.get_schema();
 
-  std::set<series_name> metaset(meta.begin(), meta.end());
+  std::vector<std::string> parquet_cols;
+  parquet_cols.reserve(schema.size());
+  for (size_t i = 0; i < schema.size(); ++i) {
+    auto& n = schema[i].name;
+    parquet_cols.emplace_back(n);
+  }
+
+  std::set<series_name> metaset;
+  if (meta.has_value()) {
+    auto& v         = meta.value();
+    metaset         = {v.begin(), v.end()};
+  } else {
+    for (const auto& col : parquet_cols) {
+      if (col != col_u && col != col_v) {
+        series_name sn = {"edge", col};
+        metaset.insert(sn);
+      }
+    }
+  }
 
   ygm::container::set<std::string> nodeset(m_comm);
   std::unordered_set<std::string>  existing_localnodes{};
@@ -155,15 +174,11 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
   std::map<std::string, series_name> parquet_to_metall;
 
-  std::vector<std::string> parquet_cols;
-  parquet_cols.reserve(schema.size());
-
   bool got_u = false;
   bool got_v = false;
 
+  // we have parquet_cols already
   for (size_t i = 0; i < schema.size(); ++i) {
-    parquet_cols.emplace_back(schema[i].name);
-
     std::string pcol_name = schema[i].name;
     auto        pcol_type = schema[i].type;
     series_name mapped_name{"edge", pcol_name};
@@ -185,8 +200,10 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
       // Don't try to add series for U_COL and V_COL - they already exist
       if (pcol_name != col_u && pcol_name != col_v &&
           !has_series(mapped_name)) {
-        if (pcol_type.equal(parquet::Type::INT32) ||
-            pcol_type.equal(parquet::Type::INT64)) {
+        if (pcol_type.equal(parquet::Type::BOOLEAN)) {
+          add_series_err = !add_series<bool>(mapped_name);
+        } else if (pcol_type.equal(parquet::Type::INT32) ||
+                   pcol_type.equal(parquet::Type::INT64)) {
           add_series_err = !add_series<int64_t>(mapped_name);
         } else if (pcol_type.equal(parquet::Type::FLOAT) ||
                    pcol_type.equal(parquet::Type::DOUBLE)) {
@@ -573,14 +590,6 @@ metall_graph::return_code metall_graph::nhops(series_name              out_name,
     return to_return;
   }
 
-  // if (m_comm.rank0()) {
-  //   std::cerr << "I will compute " << nhops << " nhops from: ";
-  //   for (auto s : sources) {
-  //     std::cerr << s << " ";
-  //   }
-  //   std::cerr << std::endl << "And output to: " << out_name << std::endl;
-  // }
-
   auto u_col           = m_pedges->find_series(U_COL.unqualified());
   auto v_col           = m_pedges->find_series(V_COL.unqualified());
   auto is_directed_col = m_pedges->find_series(DIR_COL.unqualified());
@@ -593,7 +602,6 @@ metall_graph::return_code metall_graph::nhops(series_name              out_name,
       std::string u(m_pedges->get<std::string_view>(u_col, id));
       std::string v(m_pedges->get<std::string_view>(v_col, id));
       auto        is_directed = m_pedges->get<bool>(is_directed_col, id);
-      // m_comm.cerr(u, " ", v);
       auto adj_inserter = [](const std::string&, std::vector<std::string>& adj,
                              const std::string& vert) { adj.push_back(vert); };
       adj_list.async_visit(u, adj_inserter, v);
@@ -629,10 +637,6 @@ metall_graph::return_code metall_graph::nhops(series_name              out_name,
 
     ++cur_level_dist;
   }
-
-  // for (const auto& [v, d] : local_nhop_map) {
-  //   m_comm.cerr(v, " ", d);
-  // }
 
   to_return = set_node_column(out_name, local_nhop_map);
 
