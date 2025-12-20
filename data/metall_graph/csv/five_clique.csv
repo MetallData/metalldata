@@ -1,4 +1,4 @@
-s,t,weight,color,name,directed
+s,t,weight,color,name,relevant
 5clique-a,5clique-b,1,grey,Adam,false
 5clique-a,5clique-c,2,red,Beth,false
 5clique-a,5clique-d,3,green,,false
