@@ -1,4 +1,4 @@
-s,t,weight,color,name,directed
+s,t,weight,color,name,relevant
 4clique-a,4clique-b,2,black,Adam,true
 4clique-a,4clique-c,1,orange,Beth,true
 4clique-a,4clique-d,3,,Charlie,true

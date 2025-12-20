@@ -13,3 +13,5 @@ cmake-build-*/
 CMakeCache.txt
 CMakeFiles/
 compile_commands.json
+venv/
+__pycache__/
