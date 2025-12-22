@@ -127,17 +127,11 @@ void metall_graph::priv_for_all_nodes(
       },
       where);
 
-    std::unordered_map<std::string, record_id_type> node_to_id;
-    auto node_col_idx = m_pnodes->find_series(NODE_COL.unqualified());
-    m_pnodes->for_all_rows([&](record_id_type rid) {
-      auto name = m_pnodes->get<std::string_view>(node_col_idx, rid);
-
-      node_to_id[std::string(name)] = rid;
-    });
-
     for (const auto& node : nodeset) {
-      // throw an exception if the node is not in our node dataframe.
-      func(node_to_id.at(node));
+      auto opsa = priv_local_node_find(node);
+      if (opsa) {
+        func(opsa.value());
+      }
     }
   }
 }
