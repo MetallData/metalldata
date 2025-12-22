@@ -1,0 +1,4 @@
+pytest
+llnl-clippy
+pytest-cov
+pytest-ordering
