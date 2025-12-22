@@ -590,7 +590,6 @@ metall_graph::return_code metall_graph::nhops(series_name              out_name,
     return to_return;
   }
 
-  m_pnodes->add_series<size_t>(out_name.unqualified());
   auto u_col           = m_pedges->find_series(U_COL.unqualified());
   auto v_col           = m_pedges->find_series(V_COL.unqualified());
   auto is_directed_col = m_pedges->find_series(DIR_COL.unqualified());
