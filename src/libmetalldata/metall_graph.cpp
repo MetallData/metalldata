@@ -302,7 +302,9 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
               int owner = m_partitioner.owner(val);
               m_comm.async(
                 owner,
-                [](const std::string& s) { sthis->priv_local_node_find(s); },
+                [](const std::string& s) {
+                  sthis->priv_local_node_find_or_insert(s);
+                },
                 val);
             }
           } else {
