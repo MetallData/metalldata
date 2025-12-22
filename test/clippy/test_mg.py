@@ -92,3 +92,6 @@ def test_mg_drop_series(metallgraph):
     select_data = metallgraph.select_edges()
     is_as_selected(select_data, {}, ["u"], ["assign1", "field_does_not_exist"])
 
+# @pytest.mark.order(6)
+# def test_mg_nhops(metallgraph):
+    
