@@ -65,6 +65,12 @@ def test_mg_assign(metallgraph):
     select_data = metallgraph.select_edges(where=metallgraph.edge.graphnum != 0)
     is_as_selected(select_data, {}, ["u", "v"], ["field_does_not_exist", "assign2"])
 
+    # assign node based on edge where
+    metallgraph.assign("node.gnum", 3, where=metallgraph.edge.graphnum == 3)
+    select_data = metallgraph.select_nodes()
+    is_as_selected(select_data, {"gnum": 3}, [], [])
+    
+
 @pytest.mark.order(4)
 def test_mg_add_faker(metallgraph):
     metallgraph.add_faker("node.uuid", "uuid4")
@@ -92,6 +98,17 @@ def test_mg_drop_series(metallgraph):
     select_data = metallgraph.select_edges()
     is_as_selected(select_data, {}, ["u"], ["assign1", "field_does_not_exist"])
 
-# @pytest.mark.order(6)
-# def test_mg_nhops(metallgraph):
+@pytest.mark.order(6)
+def test_mg_assign(metallgraph):
+    
+
+@pytest.mark.order(7)
+def test_mg_nhops(metallgraph):
+    
+    metallgraph.nhops("nhops", ["d", "a"], 2, where=metallgraph.node.gnum == 3)
+
+
+
+
+
     
