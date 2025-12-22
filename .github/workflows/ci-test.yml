@@ -38,6 +38,7 @@ jobs:
           cd $GITHUB_WORKSPACE/build
           python -m venv venv
           source venv/bin/activate
-          pip install -r $GITHUB_WORKSPACE/test/requirements.txt -r $GITHUB_WORKSPACE/test/requirements-dev.txt
           cd $GITHUB_WORKSPACE/test/clippy
+          pip install -r requirements.txt -r requirements-dev.txt
+
           CLIPPY_BACKEND_PATH=$GITHUB_WORKSPACE/build/src/clippy pytest
