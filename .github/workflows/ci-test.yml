@@ -33,3 +33,11 @@ jobs:
           #cd ../tests
           # export OMPI_MCA_rmaps_base_oversubscribe=1
           # bash run_test.sh
+      - name: end-to-end testing
+        run: |
+          cd $GITHUB_WORKSPACE/build
+          python -m venv venv
+          source venv/bin/activate
+          pip install -r $GITHUB_WORKSPACE/test/requirements.txt -r $GITHUB_WORKSPACE/test/requirements-dev.txt
+          cd $GITHUB_WORKSPACE/test/clippy
+          CLIPPY_BACKEND_PATH=$GITHUB_WORKSPACE/build/src/clippy pytest
