@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 import clippy
 from clippy import MetallGraph # type: ignore
@@ -28,6 +29,15 @@ def is_as_selected(data_list: list[dict], required_pairs: dict, required_fields:
         for required in required_fields:
             assert required in el.keys()
 
+def is_specific(data_list: list[dict[str, Any]], key: str, keydict: dict[str, dict[str, Any]]):
+    for el in data_list:
+        if key in el:  # "id"
+            keyval = el[key] # "path-a" or similar node value
+            if keyval in keydict:
+                assert keydict[keyval].items() <= el.items()
+
+
+    
 @pytest.fixture(scope="module")
 def temp_file(tmp_path_factory):
     temp_name = tmp_path_factory.mktemp("data") / "metallgraph.db"
@@ -36,7 +46,6 @@ def temp_file(tmp_path_factory):
 
 @pytest.fixture()
 def metallgraph(temp_file):
-    print(f"{temp_file=}")
     return MetallGraph(temp_file)
 
 @pytest.mark.order(1)
@@ -66,10 +75,13 @@ def test_mg_assign(metallgraph):
     is_as_selected(select_data, {}, ["u", "v"], ["field_does_not_exist", "assign2"])
 
     # assign node based on edge where
+    # used in test nhops
     metallgraph.assign("node.gnum", 3, where=metallgraph.edge.graphnum == 3)
-    select_data = metallgraph.select_nodes()
+    select_data = metallgraph.select_nodes(where=metallgraph.edge.graphnum == 3)
     is_as_selected(select_data, {"gnum": 3}, [], [])
-    
+    select_data = metallgraph.select_nodes(where=metallgraph.edge.graphnum != 3)
+    is_as_selected(select_data, {}, [], ["gnum"])
+
 
 @pytest.mark.order(4)
 def test_mg_add_faker(metallgraph):
@@ -97,18 +109,28 @@ def test_mg_drop_series(metallgraph):
     metallgraph.drop_series(metallgraph.edge.assign1)
     select_data = metallgraph.select_edges()
     is_as_selected(select_data, {}, ["u"], ["assign1", "field_does_not_exist"])
+    
 
 @pytest.mark.order(6)
-def test_mg_assign(metallgraph):
+def test_mg_nhops(metallgraph):    
+    metallgraph.nhops("nhops", 2, ["path-a", "path-f"])
+    select_data = metallgraph.select_nodes()
+    required_result = {"path-a": {"nhops": 0},
+                       "path-f": {"nhops": 0},
+                       "path-b": {"nhops": 1},
+                       "path-g": {"nhops": 1},
+                       "path-c": {"nhops": 2}
+                       }
     
-
-@pytest.mark.order(7)
-def test_mg_nhops(metallgraph):
-    
-    metallgraph.nhops("nhops", ["d", "a"], 2, where=metallgraph.node.gnum == 3)
+    is_specific(select_data, "id", required_result)
+    select_data = metallgraph.select_nodes(where=metallgraph.node.gnum != 3)
+    is_as_selected(select_data, {}, ["id"], ["nhops"])
 
 
 
 
 
-    
+
+
+
+
