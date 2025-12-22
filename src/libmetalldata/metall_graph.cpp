@@ -176,9 +176,6 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
     }
   }
 
-  ///\todo eliminate nodeset, after completing persistent node to index map
-  ygm::container::set<std::string> nodeset(m_comm);
-
   for (const auto& name : RESERVED_COLUMN_NAMES) {
     if (metaset.contains(name)) {
       to_return.error =
@@ -260,7 +257,10 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
   auto metall_edges = m_pedges;
 
-  size_t local_num_edges = 0;
+  size_t               local_num_edges = 0;
+  size_t               local_num_nodes = m_pnode_to_idx->size();
+  static metall_graph* sthis           = nullptr;
+  sthis                                = this;
   parquetp.for_all(
     parquet_cols,
     [&](const std::vector<ygm::io::parquet_parser::parquet_type_variant>& row) {
@@ -299,7 +299,11 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
                               std::string_view(val));
             // if this is u or v, add to the distributed nodeset.
             if (metall_ser == U_COL || metall_ser == V_COL) {
-              nodeset.async_insert(val);
+              int owner = m_partitioner.owner(val);
+              m_comm.async(
+                owner,
+                [](const std::string& s) { sthis->priv_local_node_find(s); },
+                val);
             }
           } else {
             metall_edges->set(metall_ser.unqualified(), rec, val);
@@ -310,15 +314,7 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
       }  // for loop
     });  // for_all
 
-  // go through the local possible nodes to add and if we don't
-  // have them, then add to the graph's m_pnodes. This starts with
-  // a barrier so we don't need an explicit one beforehand.
-
-  size_t local_num_nodes = m_pnode_to_idx->size();
-  for (const auto& v : nodeset) {
-    priv_local_node_find_or_insert(v);
-  }
-
+  m_comm.barrier();
   to_return.return_info["num_edges_ingested"] =
     ygm::sum(local_num_edges, m_comm);
   to_return.return_info["num_new_nodes_ingested"] =
