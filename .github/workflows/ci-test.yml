@@ -40,5 +40,6 @@ jobs:
           source venv/bin/activate
           cd $GITHUB_WORKSPACE/test/clippy
           pip install -r requirements.txt -r requirements-dev.txt
-
           CLIPPY_BACKEND_PATH=$GITHUB_WORKSPACE/build/src/clippy pytest
+          # repeat test with MPI
+          CLIPPY_BACKEND_PATH=$GITHUB_WORKSPACE/build/src/clippy CLIPPY_CMD_PREFIX="mpirun --oversubscribe -np 4" pytest
