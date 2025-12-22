@@ -593,7 +593,6 @@ metall_graph::return_code metall_graph::nhops(series_name              out_name,
   auto u_col           = m_pedges->find_series(U_COL.unqualified());
   auto v_col           = m_pedges->find_series(V_COL.unqualified());
   auto is_directed_col = m_pedges->find_series(DIR_COL.unqualified());
-
   // TODO: convert to (rank, node row id) tuples.
   ygm::container::map<std::string, std::vector<std::string>> adj_list(m_comm);
 
@@ -624,14 +623,16 @@ metall_graph::return_code metall_graph::nhops(series_name              out_name,
     next_level.clear();
     for (const std::string& v : cur_level) {
       local_nhop_map[v] = cur_level_dist;
-      for (const auto& neighbor : adj_list.local_at(v)) {
-        visited.async_contains(neighbor,
-                               [](bool found, const std::string& node) {
-                                 if (!found) {
-                                   sp_visited->local_insert(node);
-                                   sp_next_level->local_insert(node);
-                                 }
-                               });
+      if (adj_list.local_count(v) > 0) {
+        for (const auto& neighbor : adj_list.local_at(v)) {
+          visited.async_contains(neighbor,
+                                 [](bool found, const std::string& node) {
+                                   if (!found) {
+                                     sp_visited->local_insert(node);
+                                     sp_next_level->local_insert(node);
+                                   }
+                                 });
+        }
       }
     }
 
