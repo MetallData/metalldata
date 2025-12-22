@@ -1,7 +1,7 @@
-s,t,weight,color,name,relevant
-2tri-a,2tri-b,1,blue,Adam,false
-2tri-b,2tri-c,2,blue,,false
-2tri-c,2tri-a,1,blue,Charlie,false
-2tri-c,2tri-d,1,red,,false
-2tri-d,2tri-e,4,red,Edward,false
-2tri-e,2tri-c,3,red,Fred,false
+s,t,graphnum,weight,color,name,relevant
+2tri-a,2tri-b,0,1.1,blue,Adam,false
+2tri-b,2tri-c,0,2.2,blue,,false
+2tri-c,2tri-a,0,1.1,blue,Charlie,false
+2tri-c,2tri-d,0,1.1,red,,false
+2tri-d,2tri-e,0,4.4,red,Edward,false
+2tri-e,2tri-c,0,3.3,red,Fred,false
