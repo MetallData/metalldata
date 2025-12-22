@@ -33,3 +33,13 @@ jobs:
           #cd ../tests
           # export OMPI_MCA_rmaps_base_oversubscribe=1
           # bash run_test.sh
+      - name: end-to-end testing
+        run: |
+          cd $GITHUB_WORKSPACE/build
+          python -m venv venv
+          source venv/bin/activate
+          cd $GITHUB_WORKSPACE/test/clippy
+          pip install -r requirements.txt -r requirements-dev.txt
+          CLIPPY_BACKEND_PATH=$GITHUB_WORKSPACE/build/src/clippy pytest
+          # repeat test with MPI
+          CLIPPY_BACKEND_PATH=$GITHUB_WORKSPACE/build/src/clippy CLIPPY_CMD_PREFIX="mpirun --oversubscribe -np 4" pytest
