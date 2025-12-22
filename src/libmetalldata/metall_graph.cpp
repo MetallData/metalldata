@@ -69,7 +69,7 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
     add_series<std::string_view>(NODE_COL);
     add_series<std::string_view>(U_COL);
     add_series<std::string_view>(V_COL);
-    add_series<std::string_view>(DIR_COL);
+    add_series<bool>(DIR_COL);
 
   } else {  // open existing
     comm.barrier();
