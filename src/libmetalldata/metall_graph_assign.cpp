@@ -1,9 +1,6 @@
 
 #include <metalldata/metall_graph.hpp>
 
-// using data_types =
-//   std::variant<size_t, double, bool, std::string, std::monostate>;
-
 namespace metalldata {
 
 metall_graph::return_code metall_graph::assign(
@@ -21,7 +18,7 @@ metall_graph::return_code metall_graph::assign(
     auto pedges_     = m_pedges;
     bool assigned_ok = true;
     std::visit(
-      [&assigned_ok, &name, &pedges_](const auto& v) {
+      [&assigned_ok, &name, pedges_](const auto& v) {
         using T = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<T, std::monostate>) {
           // do nothing
@@ -43,19 +40,19 @@ metall_graph::return_code metall_graph::assign(
       to_return.error = "Invalid type for value; aborting";
       return to_return;
     }
-    auto wrapper = [&val, &pedges_, &name](record_id_type record_id) {
+    series_index_type name_idx = m_pedges->find_series(name.unqualified());
+    auto wrapper = [&val, pedges_, name_idx](record_id_type record_id) {
       std::visit(
-        [&pedges_, &name, record_id](const auto& v) {
+        [pedges_, name_idx, record_id](const auto& v) {
           using T = std::decay_t<decltype(v)>;
           if constexpr (std::is_same_v<T, std::monostate>) {
             // Skip monostate
           } else if constexpr (std::is_same_v<T, std::string>) {
-            pedges_->set(name.unqualified(), record_id, std::string_view(v));
+            pedges_->set(name_idx, record_id, std::string_view(v));
           } else if constexpr (std::is_same_v<T, size_t>) {
-            pedges_->set(name.unqualified(), record_id,
-                         static_cast<uint64_t>(v));
+            pedges_->set(name_idx, record_id, static_cast<uint64_t>(v));
           } else {
-            pedges_->set(name.unqualified(), record_id, v);
+            pedges_->set(name_idx, record_id, v);
           }
         },
         val);
@@ -65,7 +62,7 @@ metall_graph::return_code metall_graph::assign(
     auto pnodes_     = m_pnodes;
     bool assigned_ok = true;
     std::visit(
-      [&assigned_ok, &name, &pnodes_](const auto& v) {
+      [&assigned_ok, &name, pnodes_](const auto& v) {
         using T = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<T, std::monostate>) {
           // do nothing
@@ -87,20 +84,19 @@ metall_graph::return_code metall_graph::assign(
       to_return.error = "Invalid type for value; aborting";
       return to_return;
     }
-
-    auto wrapper = [&val, &pnodes_, &name](record_id_type record_id) {
+    series_index_type name_idx = m_pnodes->find_series(name.unqualified());
+    auto wrapper = [&val, pnodes_, name_idx](record_id_type record_id) {
       std::visit(
-        [&pnodes_, &name, record_id](const auto& v) {
+        [pnodes_, name_idx, record_id](const auto& v) {
           using T = std::decay_t<decltype(v)>;
           if constexpr (std::is_same_v<T, std::monostate>) {
             // Skip monostate
           } else if constexpr (std::is_same_v<T, std::string>) {
-            pnodes_->set(name.unqualified(), record_id, std::string_view(v));
+            pnodes_->set(name_idx, record_id, std::string_view(v));
           } else if constexpr (std::is_same_v<T, size_t>) {
-            pnodes_->set(name.unqualified(), record_id,
-                         static_cast<uint64_t>(v));
+            pnodes_->set(name_idx, record_id, static_cast<uint64_t>(v));
           } else {
-            pnodes_->set(name.unqualified(), record_id, v);
+            pnodes_->set(name_idx, record_id, v);
           }
         },
         val);

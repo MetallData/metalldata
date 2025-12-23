@@ -255,8 +255,6 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
     }
   }
 
-  auto metall_edges = m_pedges;
-
   size_t               local_num_edges = 0;
   size_t               local_num_nodes = m_pnode_to_idx->size();
   static metall_graph* sthis           = nullptr;
@@ -264,9 +262,9 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
   parquetp.for_all(
     parquet_cols,
     [&](const std::vector<ygm::io::parquet_parser::parquet_type_variant>& row) {
-      auto rec = metall_edges->add_record();
+      auto rec = m_pedges->add_record();
       // first, set the directedness.
-      metall_edges->set(DIR_COL.unqualified(), rec, directed);
+      m_pedges->set(m_dir_col_idx, rec, directed);
       for (size_t i = 0; i < parquet_cols.size(); ++i) {
         auto parquet_ser = parquet_cols[i];
 
@@ -277,7 +275,9 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
         auto parquet_val = row[i];
 
-        auto metall_ser = parquet_to_metall[parquet_ser];
+        auto              metall_ser = parquet_to_metall[parquet_ser];
+        series_index_type metall_ser_idx =
+          m_pedges->find_series(metall_ser.unqualified());
 
         auto add_val = [&](const auto& val) {
           using T = std::decay_t<decltype(val)>;
@@ -286,17 +286,13 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
           if constexpr (std::is_same_v<T, std::monostate>) {
             // do nothing
           } else if constexpr (std::is_same_v<T, int>) {
-            metall_edges->set(metall_ser.unqualified(), rec,
-                              static_cast<int64_t>(val));
+            m_pedges->set(metall_ser_idx, rec, static_cast<int64_t>(val));
           } else if constexpr (std::is_same_v<T, long>) {
-            metall_edges->set(metall_ser.unqualified(), rec,
-                              static_cast<int64_t>(val));
+            m_pedges->set(metall_ser_idx, rec, static_cast<int64_t>(val));
           } else if constexpr (std::is_same_v<T, float>) {
-            metall_edges->set(metall_ser.unqualified(), rec,
-                              static_cast<double>(val));
+            m_pedges->set(metall_ser_idx, rec, static_cast<double>(val));
           } else if constexpr (std::is_same_v<T, std::string>) {
-            metall_edges->set(metall_ser.unqualified(), rec,
-                              std::string_view(val));
+            m_pedges->set(metall_ser_idx, rec, std::string_view(val));
             // if this is u or v, add to the distributed nodeset.
             if (metall_ser == U_COL || metall_ser == V_COL) {
               int owner = m_partitioner.owner(val);
@@ -308,7 +304,7 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
                 val);
             }
           } else {
-            metall_edges->set(metall_ser.unqualified(), rec, val);
+            m_pedges->set(metall_ser_idx, rec, val);
           };
           ++local_num_edges;
         };
@@ -350,13 +346,13 @@ metall_graph::return_code metall_graph::priv_in_out_degree(
   using record_id_type = record_store_type::record_id_type;
 
   metall_graph::return_code to_return;
-  series_name               degcol, otherdegcol;
+  series_index_type         degcol, otherdegcol;
   if (outdeg) {
-    degcol      = U_COL;
-    otherdegcol = V_COL;
+    degcol      = m_u_col_idx;
+    otherdegcol = m_v_col_idx;
   } else {
-    degcol      = V_COL;
-    otherdegcol = U_COL;
+    degcol      = m_v_col_idx;
+    otherdegcol = m_u_col_idx;
   }
 
   if (!name.is_node_series()) {
@@ -375,15 +371,14 @@ metall_graph::return_code metall_graph::priv_in_out_degree(
     [&](record_id_type id) {
       // Note: clangd may report a false positive error on the next line
       // The code compiles and runs correctly
-      std::string_view edge_name =
-        m_pedges->get<std::string_view>(degcol.unqualified(), id);
+      std::string_view edge_name = m_pedges->get<std::string_view>(degcol, id);
       degrees.async_insert(std::string(edge_name));
 
       // for undirected edges, add the reverse.
-      bool is_directed = m_pedges->get<bool>(DIR_COL.unqualified(), id);
+      bool is_directed = m_pedges->get<bool>(m_dir_col_idx, id);
       if (!is_directed) {
         auto reverseedge_name =
-          m_pedges->get<std::string_view>(otherdegcol.unqualified(), id);
+          m_pedges->get<std::string_view>(otherdegcol, id);
         degrees.async_insert(std::string(reverseedge_name));
       }
     },
@@ -437,13 +432,13 @@ metall_graph::return_code metall_graph::degrees(
       // Note: clangd may report a false positive error on the next line
       // The code compiles and runs correctly
       auto in_edge_name =
-        std::string(m_pedges->get<std::string_view>(V_COL.unqualified(), id));
+        std::string(m_pedges->get<std::string_view>(m_v_col_idx, id));
       auto out_edge_name =
-        std::string(m_pedges->get<std::string_view>(U_COL.unqualified(), id));
+        std::string(m_pedges->get<std::string_view>(m_u_col_idx, id));
       indegrees.async_insert(in_edge_name);
       outdegrees.async_insert(out_edge_name);
 
-      bool is_directed = m_pedges->get<bool>(DIR_COL.unqualified(), id);
+      bool is_directed = m_pedges->get<bool>(m_dir_col_idx, id);
       if (!is_directed) {
         indegrees.async_insert(out_edge_name);
         outdegrees.async_insert(in_edge_name);
@@ -462,8 +457,7 @@ metall_graph::return_code metall_graph::degrees(
   // create a node_local map of record id to node value.
   std::map<std::string, record_id_type> node_to_id{};
   m_pnodes->for_all_rows([&](record_id_type id) {
-    std::string_view node =
-      m_pnodes->get<std::string_view>(NODE_COL.unqualified(), id);
+    std::string_view node = m_pnodes->get<std::string_view>(m_node_col_idx, id);
     node_to_id[std::string(node)] = id;
   });
 
