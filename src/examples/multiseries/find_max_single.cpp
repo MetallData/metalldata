@@ -23,7 +23,7 @@
 #include <multiseries/multiseries_record.hpp>
 
 using record_store_type =
-    multiseries::basic_record_store<metall::manager::allocator_type<std::byte>>;
+  multiseries::basic_record_store<metall::manager::allocator_type<std::byte>>;
 using string_store_type = record_store_type::string_store_type;
 
 struct option {
@@ -68,10 +68,10 @@ void show_usage(std::ostream &os) {
 auto start_timer() { return std::chrono::high_resolution_clock::now(); }
 
 auto get_elapsed_time_seconds(
-    const std::chrono::time_point<std::chrono::high_resolution_clock> &start) {
+  const std::chrono::time_point<std::chrono::high_resolution_clock> &start) {
   const auto end = std::chrono::high_resolution_clock::now();
   return std::chrono::duration_cast<std::chrono::duration<double>>(end - start)
-      .count();
+    .count();
 }
 
 int main(int argc, char *argv[]) {
@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
 
   metall::manager manager(metall::open_read_only, opt.metall_path);
   auto           *record_store =
-      manager.find<record_store_type>(metall::unique_instance).first;
+    manager.find<record_store_type>(metall::unique_instance).first;
   if (!record_store) {
     std::cerr << "Failed to find record store in " + opt.metall_path.string()
               << std::endl;
@@ -110,8 +110,9 @@ int main(int argc, char *argv[]) {
 
     using value_type = int64_t;
     std::cout << "Value type is: " << typeid(value_type).name() << std::endl;
-    value_type max_value = std::numeric_limits<value_type>::min();
-    record_store->for_all<value_type>(series_name,
+    value_type max_value  = std::numeric_limits<value_type>::min();
+    auto       series_idx = record_store->find_series(series_name);
+    record_store->for_all<value_type>(series_idx,
                                       [&](const auto, const auto value) {
                                         max_value = std::max(max_value, value);
                                       });

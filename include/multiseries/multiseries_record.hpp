@@ -143,22 +143,6 @@ class basic_record_store {
   }
 
   /// \brief Returns the series data of a record
-  /// \param series_name The name of the series
-  /// \param record_id The record ID
-  /// \return The series data
-  /// If the series data does not exist, it throws a runtime error.
-  template <typename series_type>
-  const auto get(const std::string_view series_name,
-                 const record_id_type   record_id) const {
-    priv_series_type_check<series_type>();
-    auto itr = priv_find_series(series_name);
-    if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found: " + std::string(series_name));
-    }
-    return priv_get_series_data<series_type>(itr->container, record_id);
-  }
-
-  /// \brief Returns the series data of a record
   /// \param series_index The index of the series
   /// \param record_id The record ID
   /// \return The series data
@@ -230,21 +214,6 @@ class basic_record_store {
   }
 
   /// \brief Returns if a series data of a record is None (does not exist)
-  bool is_none(const std::string_view series_name,
-               const record_id_type   record_id) const {
-    auto itr = priv_find_series(series_name);
-    if (itr == m_series.end()) {
-      return true;
-    }
-
-    return !std::visit(
-      [&record_id](const auto &container) {
-        return container.contains(record_id);
-      },
-      itr->container);
-  }
-
-  /// \brief Returns if a series data of a record is None (does not exist)
   bool is_none(const series_index_type series_index,
                const record_id_type    record_id) const {
     if (series_index >= m_series.size()) {
@@ -259,21 +228,6 @@ class basic_record_store {
 
   /// \brief Set a series data of a record (row)
   /// TODO: explore the use of templated variadic variants. (See Roger)
-  /// template <typename... Types>
-  ///   void foo(std::variant<Types...>) {}
-
-  template <typename T>
-  void set(const std::string_view series_name, const record_id_type record_id,
-           T value) {
-    priv_series_type_check<T>();
-    auto itr = priv_find_series(series_name);
-    if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found: " + std::string(series_name));
-    }
-
-    priv_set_series_data<T>(*itr, record_id, value);
-  }
-
   template <typename T>
   void set(const series_index_type series_index, const record_id_type record_id,
            T value) {
@@ -331,25 +285,6 @@ class basic_record_store {
       itr->container);
   }
 
-  /// \brief Loop over all records of a series, skipping None values.
-  /// series_func_t: [](int record_id, auto single_series_value) {}
-  template <typename series_type, typename series_func_t>
-  void for_all(const std::string_view series_name,
-               series_func_t          series_func) const {
-    auto itr = priv_find_series(series_name);
-    if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found: " + std::string(series_name));
-    }
-
-    const auto &container =
-      priv_get_series_container<series_type>(itr->container);
-    for (size_t i = 0; i < m_record_status.size(); ++i) {
-      if (m_record_status[i] && container.contains(i)) {
-        series_func(i, container.at(i));
-      }
-    }
-  }
-
   template <typename series_type, typename series_func_t>
   void for_all(const series_index_type series_index,
                series_func_t           series_func) const {
@@ -358,7 +293,7 @@ class basic_record_store {
     }
 
     const auto &container =
-      priv_get_series_container<series_type>(m_series[series_index]);
+      priv_get_series_container<series_type>(m_series[series_index].container);
     for (size_t i = 0; i < m_record_status.size(); ++i) {
       if (m_record_status[i] && container.contains(i)) {
         series_func(i, container.at(i));
@@ -473,25 +408,6 @@ class basic_record_store {
       series_names.push_back(item.name);
     }
     return series_names;
-  }
-
-  /// \brief Remove a single data
-  bool remove(const std::string_view series_name,
-              const record_id_type   record_id) {
-    auto itr = priv_find_series(series_name);
-    if (itr == m_series.end()) {
-      return false;
-    }
-
-    bool to_return = false;
-    std::visit(
-      [&record_id, &to_return](auto &container) {
-        if (container.contains(record_id)) {
-          to_return = container.erase(record_id);
-        }
-      },
-      itr->container);
-    return to_return;
   }
 
   /// \brief Remove a single data
