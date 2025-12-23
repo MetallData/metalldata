@@ -231,22 +231,6 @@ class basic_record_store {
   }
 
   /// \brief Returns if a series data of a record is None (does not exist)
-  //[[deprecated]]
-  bool is_none(const std::string_view series_name,
-               const record_id_type   record_id) const {
-    auto itr = priv_find_series(series_name);
-    if (itr == m_series.end()) {
-      return true;
-    }
-
-    return !std::visit(
-      [&record_id](const auto &container) {
-        return container.contains(record_id);
-      },
-      itr->container);
-  }
-
-  /// \brief Returns if a series data of a record is None (does not exist)
   bool is_none(const series_index_type series_index,
                const record_id_type    record_id) const {
     if (series_index >= m_series.size()) {
@@ -332,27 +316,6 @@ class basic_record_store {
       [this](const auto &container) { return container.size(); },
       itr->container);
   }
-
-  // /// \brief Loop over all records of a series, skipping None values.
-  // /// series_func_t: [](int record_id, auto single_series_value) {}
-  // template <typename series_type, typename series_func_t>
-  // [[deprecated]]
-  // void for_all(const std::string_view series_name,
-  //              series_func_t          series_func) const {
-  //   auto itr = priv_find_series(series_name);
-  //   if (itr == m_series.end()) {
-  //     throw std::runtime_error("Series not found: " +
-  //     std::string(series_name));
-  //   }
-
-  //   const auto &container =
-  //     priv_get_series_container<series_type>(itr->container);
-  //   for (size_t i = 0; i < m_record_status.size(); ++i) {
-  //     if (m_record_status[i] && container.contains(i)) {
-  //       series_func(i, container.at(i));
-  //     }
-  //   }
-  // }
 
   template <typename series_type, typename series_func_t>
   void for_all(const series_index_type series_index,
@@ -480,6 +443,7 @@ class basic_record_store {
   }
 
   /// \brief Remove a single data
+  ///[[deprecated(Message, )]]
   bool remove(const std::string_view series_name,
               const record_id_type   record_id) {
     auto itr = priv_find_series(series_name);
