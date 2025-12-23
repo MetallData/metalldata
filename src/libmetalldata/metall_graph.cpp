@@ -23,6 +23,8 @@
 #include <multiseries/multiseries_record.hpp>
 #include <ygm/container/set.hpp>
 #include <ygm/container/counting_set.hpp>
+#include "metall/tags.hpp"
+#include "ygm/utility/assert.hpp"
 
 namespace metalldata {
 
@@ -36,7 +38,7 @@ namespace metalldata {
 
 metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
                            bool overwrite)
-    : m_comm(comm), m_metall_path(path) {
+    : m_comm(comm), m_metall_path(path), m_partitioner(m_comm) {
   //
   // Check if metall store already exists and overwrite if requested
   // There are three states:
@@ -54,17 +56,20 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
       metall::create_only, m_metall_path, m_comm.get_mpi_comm());
     auto& manager = m_pmetall_mpi->get_local_manager();
 
-    auto* string_store = manager.construct<string_store_type>(
+    m_pstring_store = manager.construct<string_store_type>(
       metall::unique_instance)(manager.get_allocator());
     m_pnodes = manager.construct<record_store_type>("nodes")(
-      string_store, manager.get_allocator());
+      m_pstring_store, manager.get_allocator());
     m_pedges = manager.construct<record_store_type>("edges")(
-      string_store, manager.get_allocator());
+      m_pstring_store, manager.get_allocator());
+    m_pnode_to_idx = manager.construct<local_vertex_map_type>("nodeindex")(
+      manager.get_allocator());
 
     // add the default series for the indices.
     add_series<std::string_view>(NODE_COL);
     add_series<std::string_view>(U_COL);
     add_series<std::string_view>(V_COL);
+    add_series<bool>(DIR_COL);
 
   } else {  // open existing
     comm.barrier();
@@ -72,25 +77,36 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
       metall::open_only, m_metall_path, m_comm.get_mpi_comm());
     auto& manager = m_pmetall_mpi->get_local_manager();
 
-    m_pnodes = manager.find<record_store_type>("nodes").first;
-    m_pedges = manager.find<record_store_type>("edges").first;
+    m_pstring_store =
+      manager.find<string_store_type>(metall::unique_instance).first;
+    m_pnodes       = manager.find<record_store_type>("nodes").first;
+    m_pedges       = manager.find<record_store_type>("edges").first;
+    m_pnode_to_idx = manager.find<local_vertex_map_type>("nodeindex").first;
 
     if (!m_pnodes || !m_pedges) {
       m_comm.cerr0(
         "Error: Failed to find required data structures in metall store");
       delete m_pmetall_mpi;
-      m_pmetall_mpi = nullptr;
-      m_pnodes      = nullptr;
-      m_pedges      = nullptr;
+      m_pmetall_mpi   = nullptr;
+      m_pstring_store = nullptr;
+      m_pnodes        = nullptr;
+      m_pedges        = nullptr;
+      m_pnode_to_idx  = nullptr;
     }
   }
 
+  ///\todo Instead of hard crashing, need a nicer fail, maybe .good() method
   YGM_ASSERT_RELEASE(has_node_series(NODE_COL));
   YGM_ASSERT_RELEASE(has_edge_series(U_COL));
   YGM_ASSERT_RELEASE(has_edge_series(V_COL));
+  YGM_ASSERT_RELEASE(has_edge_series(DIR_COL));
 
   //
-  // Open metall store
+  // Find required column names
+  m_u_col_idx    = m_pedges->find_series(U_COL.unqualified());
+  m_v_col_idx    = m_pedges->find_series(V_COL.unqualified());
+  m_dir_col_idx  = m_pedges->find_series(DIR_COL.unqualified());
+  m_node_col_idx = m_pnodes->find_series(NODE_COL.unqualified());
 }
 
 metall_graph::~metall_graph() {
@@ -98,8 +114,10 @@ metall_graph::~metall_graph() {
   m_comm.barrier();
 
   // We don't free these because they are persistent in the metall store
-  m_pnodes = nullptr;
-  m_pedges = nullptr;
+  m_pstring_store = nullptr;
+  m_pnodes        = nullptr;
+  m_pedges        = nullptr;
+  m_pnode_to_idx  = nullptr;
 
   // Destroy the metall manager
   delete m_pmetall_mpi;
@@ -147,8 +165,8 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
   std::set<series_name> metaset;
   if (meta.has_value()) {
-    auto& v         = meta.value();
-    metaset         = {v.begin(), v.end()};
+    auto& v = meta.value();
+    metaset = {v.begin(), v.end()};
   } else {
     for (const auto& col : parquet_cols) {
       if (col != col_u && col != col_v) {
@@ -157,9 +175,6 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
       }
     }
   }
-
-  ygm::container::set<std::string> nodeset(m_comm);
-  std::unordered_set<std::string>  existing_localnodes{};
 
   for (const auto& name : RESERVED_COLUMN_NAMES) {
     if (metaset.contains(name)) {
@@ -242,12 +257,10 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
   auto metall_edges = m_pedges;
 
-  // auto _U_COL   = strip_selector(U_COL);
-  // auto _V_COL   = strip_selector(V_COL);
-  // auto _DIR_COL = strip_selector(DIR_COL);
-  // for each row, set the metall data.
-
-  size_t local_num_edges = 0;
+  size_t               local_num_edges = 0;
+  size_t               local_num_nodes = m_pnode_to_idx->size();
+  static metall_graph* sthis           = nullptr;
+  sthis                                = this;
   parquetp.for_all(
     parquet_cols,
     [&](const std::vector<ygm::io::parquet_parser::parquet_type_variant>& row) {
@@ -286,7 +299,13 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
                               std::string_view(val));
             // if this is u or v, add to the distributed nodeset.
             if (metall_ser == U_COL || metall_ser == V_COL) {
-              nodeset.async_insert(val);
+              int owner = m_partitioner.owner(val);
+              m_comm.async(
+                owner,
+                [](const std::string& s) {
+                  sthis->priv_local_node_find_or_insert(s);
+                },
+                val);
             }
           } else {
             metall_edges->set(metall_ser.unqualified(), rec, val);
@@ -297,24 +316,11 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
       }  // for loop
     });  // for_all
 
-  // go through the local possible nodes to add and if we don't
-  // have them, then add to the graph's m_pnodes. This starts with
-  // a barrier so we don't need an explicit one beforehand.
-
-  size_t local_num_nodes = existing_localnodes.size();
-  for (const auto& v : nodeset) {
-    if (!existing_localnodes.contains(v)) {
-      auto rec = m_pnodes->add_record();
-      m_pnodes->set(NODE_COL.unqualified(), rec, std::string_view(v));
-      existing_localnodes.emplace(v);
-    }
-  };
-  local_num_nodes = existing_localnodes.size() - local_num_nodes;
-
+  m_comm.barrier();
   to_return.return_info["num_edges_ingested"] =
     ygm::sum(local_num_edges, m_comm);
   to_return.return_info["num_new_nodes_ingested"] =
-    ygm::sum(local_num_nodes, m_comm);
+    ygm::sum(m_pnode_to_idx->size() - local_num_edges, m_comm);
   return to_return;
 }
 
@@ -388,28 +394,7 @@ metall_graph::return_code metall_graph::priv_in_out_degree(
   // explicit here.
   m_comm.barrier();
 
-  // TODO: we want to abstract this to set_node_column because this is a
-  // common operation. Make this a private function inside metall_graph.
-
-  // create a node_local map of node value to record ids.
-  std::map<std::string, record_id_type> node_to_id{};
-  m_pnodes->for_all_rows([&](record_id_type id) {
-    std::string_view node =
-      m_pnodes->get<std::string_view>(NODE_COL.unqualified(), id);
-    node_to_id[std::string(node)] = id;
-  });
-
-  // create series and store index so we don't have to keep looking it up.
-  auto deg_idx = m_pnodes->add_series<size_t>(name.unqualified());
-
-  // add the values to the degrees series. We are taking advantage of the fact
-  // that the node information is local from the degrees shared counting set
-  // because it uses the same partitioning scheme as we used when we added the
-  // nodes in ingest.
-  for (const auto& [k, v] : degrees) {
-    auto rec_idx = node_to_id.at(k);
-    m_pnodes->set(deg_idx, rec_idx, v);
-  }
+  set_node_column(name, degrees);
 
   return to_return;
 }
