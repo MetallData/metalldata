@@ -55,10 +55,11 @@ TEST(MultiSeriesTest, GetValues) {
 
   // Use series names to retrieve values
   for (size_t i = 0; i < cities.size(); ++i) {
-    EXPECT_EQ(store.get<std::string_view>("name", i), names[i]);
-    EXPECT_EQ(store.get<uint64_t>("age", i), ages[i]);
-    EXPECT_EQ(store.get<std::string_view>("city", i), cities[i]);
-    EXPECT_EQ(store.get<bool>("flag", i), flags[i]);
+    EXPECT_EQ(store.get<std::string_view>(series_indices["name"], i), names[i]);
+    EXPECT_EQ(store.get<uint64_t>(series_indices["age"], i), ages[i]);
+    EXPECT_EQ(store.get<std::string_view>(series_indices["city"], i),
+              cities[i]);
+    EXPECT_EQ(store.get<bool>(series_indices["flag"], i), flags[i]);
   }
 }
 

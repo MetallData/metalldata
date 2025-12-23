@@ -143,23 +143,6 @@ class basic_record_store {
   }
 
   /// \brief Returns the series data of a record
-  /// \param series_name The name of the series
-  /// \param record_id The record ID
-  /// \return The series data
-  /// If the series data does not exist, it throws a runtime error.
-  template <typename series_type>
-  //[[deprecated]]
-  const auto get(const std::string_view series_name,
-                 const record_id_type   record_id) const {
-    priv_series_type_check<series_type>();
-    auto itr = priv_find_series(series_name);
-    if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found: " + std::string(series_name));
-    }
-    return priv_get_series_data<series_type>(itr->container, record_id);
-  }
-
-  /// \brief Returns the series data of a record
   /// \param series_index The index of the series
   /// \param record_id The record ID
   /// \return The series data
