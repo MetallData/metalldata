@@ -28,7 +28,7 @@ metall_graph::return_code metall_graph::set_node_column(
   size_t invalid_nodes = 0;
   for (const auto& [node_name, value] : collection) {
     auto opsv = priv_local_node_find(node_name);
-    if (!opsv) {
+    if (!opsv.has_value()) {
       ++invalid_nodes;
       continue;
     }

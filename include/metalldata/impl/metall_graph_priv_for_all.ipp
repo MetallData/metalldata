@@ -1,5 +1,6 @@
 #pragma once
 #include <metalldata/metall_graph.hpp>
+#include <ygm/utility/assert.hpp>
 
 namespace metalldata {
 // The following for_all functions take a function that
@@ -129,9 +130,8 @@ void metall_graph::priv_for_all_nodes(
 
     for (const auto& node : nodeset) {
       auto opsa = priv_local_node_find(node);
-      if (opsa) {
-        func(opsa.value());
-      }
+      YGM_ASSERT_RELEASE(opsa.has_value());
+      func(opsa.value());
     }
   }
 }
