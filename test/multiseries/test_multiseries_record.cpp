@@ -103,6 +103,7 @@ TEST(MultiSeriesTest, IsNone) {
   auto name_id = store.find_series("name");
   EXPECT_TRUE(store.is_none(name_id, 0));
   store.add_series<std::string_view>("name");
+  name_id = store.find_series("name");
   EXPECT_TRUE(store.is_none(name_id, 0));
   store.add_record();
   EXPECT_TRUE(store.is_none(name_id, 0));
