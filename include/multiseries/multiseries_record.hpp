@@ -245,21 +245,6 @@ class basic_record_store {
 
   /// \brief Set a series data of a record (row)
   /// TODO: explore the use of templated variadic variants. (See Roger)
-  /// template <typename... Types>
-  ///   void foo(std::variant<Types...>) {}
-  template <typename T>
-  //[[deprecated]]
-  void set(const std::string_view series_name, const record_id_type record_id,
-           T value) {
-    priv_series_type_check<T>();
-    auto itr = priv_find_series(series_name);
-    if (itr == m_series.end()) {
-      throw std::runtime_error("Series not found: " + std::string(series_name));
-    }
-
-    priv_set_series_data<T>(*itr, record_id, value);
-  }
-
   template <typename T>
   void set(const series_index_type series_index, const record_id_type record_id,
            T value) {

@@ -26,8 +26,8 @@
 
 #include "utils.hpp"
 
-using record_store_type = multiseries::basic_record_store<
-    metall::manager::allocator_type<std::byte> >;
+using record_store_type =
+  multiseries::basic_record_store<metall::manager::allocator_type<std::byte> >;
 using string_store_type = record_store_type::string_store_type;
 
 struct option {
@@ -87,13 +87,13 @@ int main(int argc, char **argv) {
 
   ygm::utility::timer                 setup_timer;
   metall::utility::metall_mpi_adaptor mpi_adaptor(
-      metall::create_only, opt.metall_path, comm.get_mpi_comm());
+    metall::create_only, opt.metall_path, comm.get_mpi_comm());
   auto &manager = mpi_adaptor.get_local_manager();
 
   auto *string_store = manager.construct<string_store_type>(
-      metall::unique_instance)(manager.get_allocator());
+    metall::unique_instance)(manager.get_allocator());
   auto *record_store = manager.construct<record_store_type>(
-      metall::unique_instance)(string_store, manager.get_allocator());
+    metall::unique_instance)(string_store, manager.get_allocator());
 
   ygm::io::parquet_parser parquetp(comm, {opt.input_path});
   const auto             &schema = parquetp.get_schema();
@@ -129,35 +129,35 @@ int main(int argc, char **argv) {
         continue;  // Leave the field empty for None/NaN values
       }
 
-      const auto &name = schema[i].name;
+      auto name_idx = record_store->find_series(schema[i].name);
       std::visit(
-          [&record_store, &record_id, &name, &opt](auto &&field) {
-            using T = std::decay_t<decltype(field)>;
-            if constexpr (std::is_same_v<T, int32_t> ||
-                          std::is_same_v<T, int64_t>) {
-              record_store->set<int64_t>(name, record_id, field);
-              if (opt.profile) {
-                total_ingested_bytes += sizeof(T);
-              }
-            } else if constexpr (std::is_same_v<T, float> ||
-                                 std::is_same_v<T, double>) {
-              record_store->set<double>(name, record_id, field);
-              if (opt.profile) {
-                total_ingested_bytes += sizeof(T);
-              }
-            } else if constexpr (std::is_same_v<T, std::string>) {
-              record_store->set<std::string_view>(name, record_id, field);
-
-              if (opt.profile) {
-                total_ingested_str_size += field.size();
-                total_ingested_bytes += field.size();  // Assume ASCII
-                ++total_num_strs;
-              }
-            } else {
-              throw std::runtime_error("Unsupported type");
+        [&record_store, &record_id, name_idx, &opt](auto &&field) {
+          using T = std::decay_t<decltype(field)>;
+          if constexpr (std::is_same_v<T, int32_t> ||
+                        std::is_same_v<T, int64_t>) {
+            record_store->set<int64_t>(name_idx, record_id, field);
+            if (opt.profile) {
+              total_ingested_bytes += sizeof(T);
             }
-          },
-          std::move(field));
+          } else if constexpr (std::is_same_v<T, float> ||
+                               std::is_same_v<T, double>) {
+            record_store->set<double>(name_idx, record_id, field);
+            if (opt.profile) {
+              total_ingested_bytes += sizeof(T);
+            }
+          } else if constexpr (std::is_same_v<T, std::string>) {
+            record_store->set<std::string_view>(name_idx, record_id, field);
+
+            if (opt.profile) {
+              total_ingested_str_size += field.size();
+              total_ingested_bytes += field.size();  // Assume ASCII
+              ++total_num_strs;
+            }
+          } else {
+            throw std::runtime_error("Unsupported type");
+          }
+        },
+        std::move(field));
     }
   });
   comm.barrier();
@@ -177,7 +177,7 @@ int main(int argc, char **argv) {
   comm.cout0() << "Series name, Load factor" << std::endl;
   for (const auto &s : schema) {
     const auto ave_load_factor =
-        ygm::sum(record_store->load_factor(s.name), comm) / comm.size();
+      ygm::sum(record_store->load_factor(s.name), comm) / comm.size();
     comm.cout0() << "  " << s.name << ", " << ave_load_factor << std::endl;
   }
 
