@@ -659,8 +659,7 @@ class basic_record_store {
                             const record_id_type record_id,
                             const series_type   &value) {
     if constexpr (std::is_same_v<series_type, std::string_view>) {
-      auto accessor =
-        cstr::add_string(value.data(), value.size(), *m_string_store);
+      auto accessor = cstr::add_string(value, *m_string_store);
       priv_get_series_container<series_type>(series.container)[record_id] =
         accessor;
     } else {

@@ -10,7 +10,7 @@
 #include <string_table/string_store.hpp>
 
 using store_type =
-    compact_string::string_store<metall::manager::allocator_type<std::byte>>;
+  compact_string::string_store<metall::manager::allocator_type<std::byte>>;
 using char_pointer = metall::offset_ptr<const char>;
 
 // Demonstrate some basic assertions.
@@ -18,16 +18,16 @@ TEST(StringTableTest, Basic) {
   {
     metall::manager manager(metall::create_only, "/tmp/metall-test");
     auto *store = manager.construct<store_type>(metall::unique_instance)(
-        manager.get_allocator());
+      manager.get_allocator());
 
     auto *ptr0 = manager.construct<char_pointer>("ptr0")();
-    *ptr0 = store->find_or_add("key0");
+    *ptr0      = store->find_or_add("key0");
 
     EXPECT_EQ(store->find("key0"), *ptr0);
-    EXPECT_EQ(store->find_or_add("key0"), *ptr0); // No duplicate insert
+    EXPECT_EQ(store->find_or_add("key0"), *ptr0);  // No duplicate insert
 
     auto *ptr1 = manager.construct<char_pointer>("ptr1")();
-    *ptr1 = store->find_or_add("key1");
+    *ptr1      = store->find_or_add("key1");
     EXPECT_STREQ(store->find("key0"), ptr0->get());
     EXPECT_STREQ(store->find("key1"), ptr1->get());
 
@@ -56,12 +56,11 @@ TEST(StringTableTest, AddString) {
   {
     metall::manager manager(metall::create_only, "/tmp/metall-test");
     auto *store = manager.construct<store_type>(metall::unique_instance)(
-        manager.get_allocator());
+      manager.get_allocator());
 
     for (int len = 0; len < 100; ++len) {
       std::string str(len, 'a');
-      auto accessor =
-          compact_string::add_string(str.c_str(), str.length(), *store);
+      auto        accessor = compact_string::add_string(str, *store);
       EXPECT_EQ(accessor.length(), len);
       EXPECT_STREQ(accessor.c_str(), str.c_str());
     }

@@ -10,27 +10,28 @@
 #include <string_table/string_store.hpp>
 
 namespace compact_string {
-template <typename Alloc = std::allocator<std::byte>> class vector {
-private:
+template <typename Alloc = std::allocator<std::byte>>
+class vector {
+ private:
   using self_type = vector<Alloc>;
 
   template <typename T>
   using other_allocator =
-      typename std::allocator_traits<Alloc>::template rebind_alloc<T>;
+    typename std::allocator_traits<Alloc>::template rebind_alloc<T>;
 
   template <typename T>
   using other_scoped_allocator =
-      std::scoped_allocator_adaptor<other_allocator<T>>;
+    std::scoped_allocator_adaptor<other_allocator<T>>;
 
   using pointer_type = typename std::allocator_traits<Alloc>::pointer;
 
   using internal_value_type = string_accessor;
   using internal_vector_type =
-      boost::container::vector<internal_value_type,
-                               other_allocator<internal_value_type>>;
+    boost::container::vector<internal_value_type,
+                             other_allocator<internal_value_type>>;
 
-public:
-  using char_type = char;
+ public:
+  using char_type      = char;
   using allocator_type = Alloc;
   using const_iterator = typename internal_vector_type::const_iterator;
 
@@ -41,11 +42,11 @@ public:
   explicit vector(string_store_type *const string_table, const Alloc &alloc)
       : m_vector(alloc), string_table(string_table) {}
 
-  vector(const vector &) = default;
-  vector(vector &&) noexcept = default;
-  vector &operator=(const vector &) = default;
+  vector(const vector &)                = default;
+  vector(vector &&) noexcept            = default;
+  vector &operator=(const vector &)     = default;
   vector &operator=(vector &&) noexcept = default;
-  ~vector() = default;
+  ~vector()                             = default;
 
   std::string_view operator[](const size_t i) const {
     return m_vector[i].to_view();
@@ -57,13 +58,9 @@ public:
     m_vector.push_back(add_string(str.data(), str.length(), *string_table));
   }
 
-  void push_back(const char_type *data, const std::size_t length) {
-    m_vector.push_back(add_string(data, length, *string_table));
-  }
-
   /// FIXME: this is a temporary solution to update data
   void assign(std::string_view str, const size_t i) {
-    m_vector[i] = add_string(str.data(), str.length(), *string_table);
+    m_vector[i] = add_string(str, *string_table);
   }
 
   size_t size() const { return m_vector.size(); }
@@ -77,12 +74,12 @@ public:
 
   allocator_type get_allocator() const { return m_vector.get_allocator(); }
 
-private:
+ private:
   using string_store_pointer_type = typename std::pointer_traits<
-      pointer_type>::template rebind<string_store_type>;
+    pointer_type>::template rebind<string_store_type>;
 
-  internal_vector_type m_vector{};
+  internal_vector_type      m_vector{};
   string_store_pointer_type string_table{nullptr};
 };
 
-} // namespace compact_string
+}  // namespace compact_string

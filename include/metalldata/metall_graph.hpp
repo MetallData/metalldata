@@ -16,12 +16,15 @@
 #include <metall/metall.hpp>
 #include <multiseries/multiseries_record.hpp>
 #include <ygm/comm.hpp>
+#include <ygm/container/detail/hash_partitioner.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
 #include <boost/json.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
+#include <metall/container/unordered_map.hpp>
 #include <ygm/container/set.hpp>
 #include <expected>
 #include <optional>
+#include <ygm/utility/assert.hpp>
 
 namespace bjsn = boost::json;
 
@@ -42,11 +45,23 @@ namespace metalldata {
 
 class metall_graph {
  private:
+  /// multiseries record store are the dataframes
   using record_store_type =
     multiseries::basic_record_store<metall::manager::allocator_type<std::byte>>;
-  using string_store_type = record_store_type::string_store_type;
+  using record_id_type    = record_store_type::record_id_type;
+  using series_index_type = record_store_type::series_index_type;
 
-  using record_id_type = record_store_type::record_id_type;
+  /// string table deduplicates strings
+  using string_store_type     = record_store_type::string_store_type;
+  using string_table_accessor = compact_string::string_accessor;
+
+  /// hash table to index local node's record ids
+  using local_vertex_map_type = metall::container::unordered_map<
+    string_table_accessor, record_id_type,
+    compact_string::string_accessor_hasher,
+    std::equal_to<compact_string::string_accessor>,
+    metall::manager::allocator_type<
+      std::pair<const compact_string::string_accessor, record_id_type>>>;
 
  public:
   // TODO: Rationalize these data types to correspond better with JSONLogic and
@@ -503,6 +518,15 @@ class metall_graph {
   record_store_type* m_pnodes = nullptr;
   /// Dataframe for directed edges
   record_store_type* m_pedges = nullptr;
+  /// Map from vertex string to local record index
+  local_vertex_map_type* m_pnode_to_idx = nullptr;
+  /// String store
+  string_store_type* m_pstring_store = nullptr;
+
+  series_index_type m_u_col_idx;
+  series_index_type m_v_col_idx;
+  series_index_type m_dir_col_idx;
+  series_index_type m_node_col_idx;
 
   size_t local_num_nodes() const { return m_pnodes->num_records(); };
   size_t local_num_edges() const { return m_pedges->num_records(); };
@@ -531,6 +555,33 @@ class metall_graph {
   // every time.
   template <typename T>
   return_code set_node_column(series_name nodecol_name, const T& collection);
+
+  record_id_type priv_local_node_find_or_insert(std::string_view id) {
+    YGM_ASSERT_RELEASE(m_partitioner.owner(id) == m_comm.rank());
+    auto v_in_ss = compact_string::add_string(id, *m_pstring_store);
+    if (!m_pnode_to_idx->contains(v_in_ss)) {
+      auto ridx = m_pnodes->add_record();
+      m_pnodes->set(m_node_col_idx, ridx, id);
+      m_pnode_to_idx->insert_or_assign(v_in_ss, ridx);
+      return ridx;
+    }
+    return m_pnode_to_idx->at(v_in_ss);
+  }
+
+  std::optional<record_id_type> priv_local_node_find(
+    std::string_view id) const {
+    YGM_ASSERT_RELEASE(m_partitioner.owner(id) == m_comm.rank());
+    auto ret = compact_string::find_string(id, *m_pstring_store);
+    if (ret) {
+      return m_pnode_to_idx->at(ret.value());
+    }
+    return {};
+  }
+
+  // Using YGM's default partitioner to assign node owner
+  ygm::container::detail::hash_partitioner<
+    ygm::container::detail::hash<std::string_view>>
+    m_partitioner;
 
 };  // class metall_graph
 
