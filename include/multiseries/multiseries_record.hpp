@@ -428,26 +428,6 @@ class basic_record_store {
   }
 
   /// \brief Remove a single data
-  ///[[deprecated(Message, )]]
-  bool remove(const std::string_view series_name,
-              const record_id_type   record_id) {
-    auto itr = priv_find_series(series_name);
-    if (itr == m_series.end()) {
-      return false;
-    }
-
-    bool to_return = false;
-    std::visit(
-      [&record_id, &to_return](auto &container) {
-        if (container.contains(record_id)) {
-          to_return = container.erase(record_id);
-        }
-      },
-      itr->container);
-    return to_return;
-  }
-
-  /// \brief Remove a single data
   bool remove(const series_index_type series_index,
               const record_id_type    record_id) {
     if (series_index >= m_series.size()) {
