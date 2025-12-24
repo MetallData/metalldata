@@ -6,42 +6,6 @@
 #include "ygm/utility/assert.hpp"
 
 namespace metalldata {
-// template <typename Compare = std::greater<value_type>>
-// std::vector<value_type> gather_topk(size_t  k,
-//                                     Compare comp =
-//                                     std::greater<value_type>())
-//     const requires SingleItemTuple<for_all_args> {
-//   const auto*      derived_this = static_cast<const derived_type*>(this);
-//   const ygm::comm& mycomm       = derived_this->comm();
-//   std::vector<value_type> local_topk;
-
-//   //
-//   // Find local top_k
-//   for_all([&local_topk, comp, k](const value_type& value) {
-//     local_topk.push_back(value);
-//     std::sort(local_topk.begin(), local_topk.end(), comp);
-//     if (local_topk.size() > k) {
-//       local_topk.pop_back();
-//     }
-//   });
-
-//   //
-//   // All reduce global top_k
-//   auto to_return = ::ygm::all_reduce(
-//       local_topk,
-//       [comp, k](const std::vector<value_type>& va,
-//                 const std::vector<value_type>& vb) {
-//         std::vector<value_type> out(va.begin(), va.end());
-//         out.insert(out.end(), vb.begin(), vb.end());
-//         std::sort(out.begin(), out.end(), comp);
-//         while (out.size() > k) {
-//           out.pop_back();
-//         }
-//         return out;
-//       },
-//       mycomm);
-//   return to_return;
-// }
 
 template <typename Compare>
 std::vector<std::vector<metall_graph::data_types>> metall_graph::topk(
@@ -163,19 +127,5 @@ std::vector<std::vector<metall_graph::data_types>> metall_graph::topk(
     m_comm);
   return to_return;
 }
-//   auto to_return = ::ygm::all_reduce(
-//       local_topk,
-//       [comp, k](const std::vector<value_type>& va,
-//                 const std::vector<value_type>& vb) {
-//         std::vector<value_type> out(va.begin(), va.end());
-//         out.insert(out.end(), vb.begin(), vb.end());
-//         std::sort(out.begin(), out.end(), comp);
-//         while (out.size() > k) {
-//           out.pop_back();
-//         }
-//         return out;
-//       },
-//       mycomm);
-//   return to_return;
-// }
+
 }  // namespace metalldata
