@@ -55,10 +55,11 @@ TEST(MultiSeriesTest, GetValues) {
 
   // Use series names to retrieve values
   for (size_t i = 0; i < cities.size(); ++i) {
-    EXPECT_EQ(store.get<std::string_view>("name", i), names[i]);
-    EXPECT_EQ(store.get<uint64_t>("age", i), ages[i]);
-    EXPECT_EQ(store.get<std::string_view>("city", i), cities[i]);
-    EXPECT_EQ(store.get<bool>("flag", i), flags[i]);
+    EXPECT_EQ(store.get<std::string_view>(series_indices["name"], i), names[i]);
+    EXPECT_EQ(store.get<uint64_t>(series_indices["age"], i), ages[i]);
+    EXPECT_EQ(store.get<std::string_view>(series_indices["city"], i),
+              cities[i]);
+    EXPECT_EQ(store.get<bool>(series_indices["flag"], i), flags[i]);
   }
 }
 
@@ -100,13 +101,15 @@ TEST(MultiSeriesTest, IsNone) {
   record_store::string_store_type string_store;
   record_store                    store(&string_store);
 
-  EXPECT_TRUE(store.is_none("name", 0));
+  auto name_id = store.find_series("name");
+  EXPECT_TRUE(store.is_none(name_id, 0));
   store.add_series<std::string_view>("name");
-  EXPECT_TRUE(store.is_none("name", 0));
+  name_id = store.find_series("name");
+  EXPECT_TRUE(store.is_none(name_id, 0));
   store.add_record();
-  EXPECT_TRUE(store.is_none("name", 0));
-  store.set<std::string_view>("name", 0, "Alice");
-  EXPECT_FALSE(store.is_none("name", 0));
+  EXPECT_TRUE(store.is_none(name_id, 0));
+  store.set<std::string_view>(name_id, 0, "Alice");
+  EXPECT_FALSE(store.is_none(name_id, 0));
 }
 
 // remove_data
@@ -114,15 +117,15 @@ TEST(MultiSeriesTest, RemoveData) {
   record_store::string_store_type string_store;
   record_store                    store(&string_store);
 
-  store.add_series<std::string_view>("name");
-  EXPECT_FALSE(store.remove("name", 0));
+  auto name_idx = store.add_series<std::string_view>("name");
+  EXPECT_FALSE(store.remove(name_idx, 0));
 
   store.add_record();
-  EXPECT_FALSE(store.remove("name", 0));
+  EXPECT_FALSE(store.remove(name_idx, 0));
 
-  store.set<std::string_view>("name", 0, "Alice");
-  EXPECT_TRUE(store.remove("name", 0));
-  EXPECT_TRUE(store.is_none("name", 0));
+  store.set<std::string_view>(name_idx, 0, "Alice");
+  EXPECT_TRUE(store.remove(name_idx, 0));
+  EXPECT_TRUE(store.is_none(name_idx, 0));
 }
 
 TEST(MultiSeriesTest, SeriesTypeChecks) {

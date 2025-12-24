@@ -11,28 +11,28 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <boost/container_hash/hash.hpp>
 
 namespace compact_string {
-
 /// \brief Provides a way to access a string stored in a string store.
 /// If a string is short, it stores the string in the object itself.
 /// If a string is long, it stores the pointer to the string in the object.
 /// Can take only strings allocated by allocate_string_embedding_length(),
 /// however, w/o the length prefix.
 class string_accessor {
-public:
+ public:
   using size_type = std::size_t;
   using char_type = char;
-  using offset_t = std::ptrdiff_t;
+  using offset_t  = std::ptrdiff_t;
 
-private:
+ private:
   using self_type = string_accessor;
 
   static constexpr size_t k_num_blocks = sizeof(offset_t);
   static constexpr size_t k_short_str_max_length =
-      k_num_blocks - 2; // -1 for '\0' and -1 for metadata
+    k_num_blocks - 2;  // -1 for '\0' and -1 for metadata
 
-public:
+ public:
   string_accessor() = default;
 
   /// \brief Construct a string accessor from a pointer to string.
@@ -62,7 +62,7 @@ public:
       // as offset must be recalculated.
       priv_set_long_str_pointer(other.priv_to_long_str_pointer());
     }
-    other.m_entier_block = 0; // clear the data
+    other.m_entier_block = 0;  // clear the data
   }
 
   string_accessor &operator=(const string_accessor &other) {
@@ -83,7 +83,7 @@ public:
     } else {
       priv_set_long_str_pointer(other.priv_to_long_str_pointer());
     }
-    other.m_entier_block = 0; // clear the data
+    other.m_entier_block = 0;  // clear the data
     return *this;
   }
 
@@ -129,7 +129,24 @@ public:
     }
   }
 
-private:
+  friend bool operator==(const string_accessor &lhs,
+                         const string_accessor &rhs) {
+    if (lhs.length() != rhs.length()) {
+      return false;
+    }
+
+    if (lhs.is_short()) {
+      return std::char_traits<char>::compare(lhs.c_str(), rhs.c_str(),
+                                             lhs.length()) == 0;
+    }
+
+    // If the string is long, the same string is stored only once in the
+    // string store, so comparing c_str(), which returns chars*, is
+    // sufficient.
+    return lhs.c_str() == rhs.c_str();
+  }
+
+ private:
   bool priv_get_long_flag() const { return m_blocks[k_num_blocks - 1] & 0x1; }
 
   void priv_set_long_str_pointer(const char_type *const str) {
@@ -138,7 +155,7 @@ private:
 
     bool is_negative = false;
     if (off < 0) {
-      off = -off;
+      off         = -off;
       is_negative = true;
     }
     if (uint64_t(off) > (1ULL << 55)) {
@@ -156,9 +173,9 @@ private:
     // Finally set the metadata
     uint8_t metadata = 0;
     if (is_negative) {
-      metadata |= 0x2; // set the negative bit
+      metadata |= 0x2;  // set the negative bit
     }
-    metadata |= 0x1; // set the long string bit
+    metadata |= 0x1;  // set the long string bit
 
     m_blocks[k_num_blocks - 1] = metadata;
   }
@@ -174,7 +191,7 @@ private:
       off = -off;
     }
     auto addr =
-        reinterpret_cast<std::ptrdiff_t>(const_cast<self_type *>(this)) + off;
+      reinterpret_cast<std::ptrdiff_t>(const_cast<self_type *>(this)) + off;
 
     return reinterpret_cast<char_type *>(addr);
   }
@@ -217,4 +234,11 @@ private:
                   "sizeof(offset_ptr_t) != sizeof(uint64_t)");
   };
 };
-} // namespace compact_string
+
+struct string_accessor_hasher {
+  std::size_t operator()(const string_accessor &str) const {
+    return boost::hash_range(str.c_str(), str.c_str() + str.length());
+  }
+};
+
+}  // namespace compact_string
