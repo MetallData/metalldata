@@ -2,6 +2,7 @@
 #include <metalldata/metall_graph.hpp>
 #include <boost/json.hpp>
 #include <expected>
+#include <unordered_set>
 
 namespace metalldata {
 
@@ -35,6 +36,24 @@ obj2sn(const std::unordered_set<boost::json::object> &objset) {
       return std::unexpected(r.error());
     }
     sns.insert(metall_graph::series_name(r.value()));
+  }
+
+  return sns;
+}
+
+inline std::expected<std::vector<metall_graph::series_name>,
+                     metall_graph::return_code>
+obj2sn(const std::vector<boost::json::object> &objset) {
+  metall_graph::return_code to_return;
+
+  std::vector<metall_graph::series_name> sns;
+  for (const auto &obj : objset) {
+    auto r = obj2sn(obj);
+
+    if (!r.has_value()) {
+      return std::unexpected(r.error());
+    }
+    sns.push_back(metall_graph::series_name(r.value()));
   }
 
   return sns;

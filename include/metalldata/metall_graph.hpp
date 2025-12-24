@@ -297,11 +297,11 @@ class metall_graph {
                                Fn                               faker_func,
                                const where_clause& where = where_clause{});
 
-  template <typename T, typename Compare = std::greater<T>>
-  std::vector<data_types> topk(size_t k, const series_name& ser_name,
-                               const std::vector<series_name>& ser_inc,
-                               Compare                         comp = Compare(),
-                               const where_clause& where = where_clause());
+  template <typename Compare = std::greater<void>>
+  std::vector<std::vector<data_types>> topk(
+    size_t k, const series_name& ser_name,
+    const std::vector<series_name>& ser_inc, Compare comp = Compare(),
+    const where_clause& where = where_clause());
 
   std::map<std::string, std::string> get_edge_selector_info() {
     // Since the m_pedges schema is identical across ranks, we don't have to
@@ -563,27 +563,32 @@ class metall_graph {
   template <typename T>
   return_code set_node_column(series_name nodecol_name, const T& collection);
 
-  /// \brief Convert a multiseries::series_type to a metall_graph::data_types
-  static data_types convert_to_data_type(
-    const record_store_type::series_type& val) {
-    return std::visit(
-      [](const auto& v) -> data_types {
-        using T = std::decay_t<decltype(v)>;
-        if constexpr (std::is_same_v<T, std::monostate>) {
-          return std::monostate{};
-        } else if constexpr (std::is_same_v<T, bool>) {
-          return v;
-        } else if constexpr (std::is_same_v<T, double>) {
-          return v;
-        } else if constexpr (std::is_same_v<T, int64_t> ||
-                             std::is_same_v<T, uint64_t>) {
-          return static_cast<size_t>(v);
-        } else if constexpr (std::is_same_v<T, std::string_view>) {
-          return std::string(v);
-        }
-      },
-      val);
+  record_id_type priv_local_node_find_or_insert(std::string_view id) {
+    YGM_ASSERT_RELEASE(m_partitioner.owner(id) == m_comm.rank());
+    auto v_in_ss = compact_string::add_string(id, *m_pstring_store);
+    if (!m_pnode_to_idx->contains(v_in_ss)) {
+      auto ridx = m_pnodes->add_record();
+      m_pnodes->set(m_node_col_idx, ridx, id);
+      m_pnode_to_idx->insert_or_assign(v_in_ss, ridx);
+      return ridx;
+    }
+    return m_pnode_to_idx->at(v_in_ss);
   }
+
+  std::optional<record_id_type> priv_local_node_find(
+    std::string_view id) const {
+    YGM_ASSERT_RELEASE(m_partitioner.owner(id) == m_comm.rank());
+    auto ret = compact_string::find_string(id, *m_pstring_store);
+    if (ret) {
+      return m_pnode_to_idx->at(ret.value());
+    }
+    return {};
+  }
+
+  // Using YGM's default partitioner to assign node owner
+  ygm::container::detail::hash_partitioner<
+    ygm::container::detail::hash<std::string_view>>
+    m_partitioner;
 
 };  // class metall_graph
 
