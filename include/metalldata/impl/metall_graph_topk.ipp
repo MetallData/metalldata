@@ -1,5 +1,7 @@
 #pragma once
 #include <metalldata/metall_graph.hpp>
+#include <queue>
+#include "ygm/detail/collective.hpp"
 #include "ygm/utility/assert.hpp"
 
 namespace metalldata {
@@ -40,7 +42,7 @@ namespace metalldata {
 //   return to_return;
 // }
 
-template <typename T, typename Compare>
+template <typename Compare>
 std::vector<metall_graph::data_types> metall_graph::topk(
   size_t k, const series_name& ser_name,
   const std::vector<series_name>& ser_inc, Compare comp,
@@ -51,6 +53,8 @@ std::vector<metall_graph::data_types> metall_graph::topk(
       return {};
     }
 
+    // we make sure that the compared column is element 0. This
+    // also guarantees that the vector is not empty.
     std::vector<std::string> ser_inc_unq{std::string(ser_name.unqualified())};
 
     for (const auto& ser : ser_inc) {
@@ -58,34 +62,82 @@ std::vector<metall_graph::data_types> metall_graph::topk(
     }
 
     auto ser_idxs_opt = m_pnodes->find_series(ser_inc_unq);
-
-    std::vector<T> ser_vals;
-    auto           pnodes = m_pnodes;
+    auto pnodes       = m_pnodes;
     YGM_ASSERT_RELEASE(ser_idxs_opt.has_value());
-    std::vector<std::pair<metall_graph::data_types,
-                          std::vector<metall_graph::data_types>>>
-      row_pairs;
+    auto series_idxs = ser_idxs_opt.value();
+    YGM_ASSERT_RELEASE(!series_idxs.empty());
+
+    // Comparator for the priority queue (inverted for min-heap behavior)
+    auto row_comp = [&comp](const std::vector<data_types>& a,
+                            const std::vector<data_types>& b) {
+      return std::visit(
+        [&comp](const auto& va, const auto& vb) -> bool {
+          using A = std::decay_t<decltype(va)>;
+          using B = std::decay_t<decltype(vb)>;
+          if constexpr (std::is_same_v<A, B>) {
+            return comp(va, vb);
+          }
+          return false;
+        },
+        a.front(), b.front());
+    };
+
+    // Min-heap: keeps smallest at top, so we can pop it when size > k
+    std::priority_queue<std::vector<data_types>,
+                        std::vector<std::vector<data_types>>,
+                        decltype(row_comp)>
+      min_heap(row_comp);
 
     priv_for_all_nodes([&](auto rid) {
-      std::vector<metall_graph::data_types> row =
-        pnodes->get(ser_idxs_opt.value(), rid);
-      data_types key_val = row.front();
-
-      auto tup = std::make_pair(key_val, row);
-      row_pairs.push_back(tup);
+      std::vector<data_types> row = pnodes->get(ser_idxs_opt.value(), rid);
+      min_heap.push(std::move(row));
+      if (min_heap.size() > k) {
+        min_heap.pop();  // Remove the smallest
+      }
     });
-    std::sort(
-      row_pairs.begin(), row_pairs.end(),
-      [&comp](const auto& a, const auto& b) { return comp(a.first, b.first); });
-    row_pairs.resize(k);
 
-    // TODO: implement
+    // Extract results (will be in reverse order)
+    std::vector<std::vector<data_types>> topk_rows;
+    topk_rows.reserve(min_heap.size());
+    while (!min_heap.empty()) {
+      topk_rows.push_back(min_heap.top());
+      min_heap.pop();
+    }
+    // Reverse to get descending order
+    std::reverse(topk_rows.begin(), topk_rows.end());
+
+    YGM_ASSERT_RELEASE(topk_rows.size() <= k);
+    // topk_rows is now sorted and max length k.
+    // now we need to allgather.
+
+    auto to_return = ygm::all_reduce(
+      topk_rows,
+      [comp, k](const std::vector<data_types>& va,
+                const std::vector<data_types>& vb) {
+        std::vector<data_types> out(va.begin(), va.end());
+        out.insert(out.end(), vb.begin(), vb.end());
+
+        std::sort(out.begin(), out.end(), row_comp);
+        out.resize(k);
+      },
+      m_comm);
+    return to_return;
   }
-  // TODO: complete implementation
-  return {};
+  //   auto to_return = ::ygm::all_reduce(
+  //       local_topk,
+  //       [comp, k](const std::vector<value_type>& va,
+  //                 const std::vector<value_type>& vb) {
+  //         std::vector<value_type> out(va.begin(), va.end());
+  //         out.insert(out.end(), vb.begin(), vb.end());
+  //         std::sort(out.begin(), out.end(), comp);
+  //         while (out.size() > k) {
+  //           out.pop_back();
+  //         }
+  //         return out;
+  //       },
+  //       mycomm);
+  //   return to_return;
+  // }
 }
 
 }  // namespace metalldata
-//
-//
-//  namespace metalldata
