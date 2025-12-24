@@ -224,7 +224,7 @@ class metall_graph {
 
     where = edge.u.age > edge.v.age
 
-    unsuupported =  (node.age > 21 && node.zipcode = 77845) & (edge.u.age >
+    unsupported =  (node.age > 21 && node.zipcode = 77845) & (edge.u.age >
     edge.v.age)
 
 
@@ -281,6 +281,13 @@ class metall_graph {
   return_code add_faker_series(const metall_graph::series_name& name,
                                Fn                               faker_func,
                                const where_clause& where = where_clause{});
+
+  template <typename T, typename Compare = std::greater<T>>
+  std::vector<data_types> topk(size_t k, const series_name& ser_name,
+                               const std::vector<series_name>& ser_inc,
+                               Compare                         comp = Compare(),
+                               const where_clause& where = where_clause());
+
   std::map<std::string, std::string> get_edge_selector_info() {
     // Since the m_pedges schema is identical across ranks, we don't have to
     // collect. Also: the "edge" prefix (and "node" in the corresponding
@@ -532,6 +539,28 @@ class metall_graph {
   template <typename T>
   return_code set_node_column(series_name nodecol_name, const T& collection);
 
+  /// \brief Convert a multiseries::series_type to a metall_graph::data_types
+  static data_types convert_to_data_type(
+    const record_store_type::series_type& val) {
+    return std::visit(
+      [](const auto& v) -> data_types {
+        using T = std::decay_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, std::monostate>) {
+          return std::monostate{};
+        } else if constexpr (std::is_same_v<T, bool>) {
+          return v;
+        } else if constexpr (std::is_same_v<T, double>) {
+          return v;
+        } else if constexpr (std::is_same_v<T, int64_t> ||
+                             std::is_same_v<T, uint64_t>) {
+          return static_cast<size_t>(v);
+        } else if constexpr (std::is_same_v<T, std::string_view>) {
+          return std::string(v);
+        }
+      },
+      val);
+  }
+
 };  // class metall_graph
 
 }  // namespace metalldata
@@ -550,3 +579,4 @@ struct hash<metalldata::metall_graph::series_name> {
 #include <metalldata/impl/metall_graph_faker.ipp>
 #include <metalldata/impl/metall_graph_priv_for_all.ipp>
 #include <metalldata/impl/metall_graph_set_node_column.ipp>
+#include <metalldata/impl/metall_graph_topk.ipp>
