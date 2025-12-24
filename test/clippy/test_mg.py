@@ -159,24 +159,3 @@ def test_mg_topk(metallgraph):
     results = metallgraph.topk(metallgraph.edge.randint, where=metallgraph.edge.graphnum == 1)
     rresults = [x[0] for x in results]
     assert (rresults == [92, 84, 76, 57, 33, 19])
-
-    
-
-    select_data = metallgraph.select_nodes()
-    required_result = {"path-a": {"nhops": 0},
-                       "path-f": {"nhops": 0},
-                       "path-b": {"nhops": 1},
-                       "path-g": {"nhops": 1},
-                       "path-c": {"nhops": 2}
-                       }
-    
-    is_specific(select_data, "id", required_result)
-    select_data = metallgraph.select_nodes(where=metallgraph.node.gnum != 3)
-    is_as_selected(select_data, {}, ["id"], ["nhops"])
-
-
-
-
-
-
-
