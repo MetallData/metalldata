@@ -13,10 +13,18 @@ std::vector<std::vector<metall_graph::data_types>> metall_graph::topk(
   const std::vector<series_name>& ser_inc, Compare comp,
   const where_clause& where) {
   record_store_type* pdata;
+
+  if (!has_series(ser_name)) {
+    m_comm.cerr0() << "Warning: series " << ser_name << " does not exist.";
+    return {};
+  }
+  bool is_edge = false;
+
   std::function<void(std::function<void(size_t)>, const where_clause&)>
     for_all_func;
   if (ser_name.is_edge_series()) {
     pdata        = m_pedges;
+    is_edge      = true;
     for_all_func = [this](std::function<void(size_t)> func,
                           const where_clause&         where) {
       priv_for_all_edges(func, where);
@@ -31,16 +39,18 @@ std::vector<std::vector<metall_graph::data_types>> metall_graph::topk(
     return {};
   }
 
-  if (!has_series(ser_name)) {
-    return {};
-  }
-
   // we make sure that the compared column is element 0. This
   // also guarantees that the vector is not empty.
   std::vector<std::string> ser_inc_unq{std::string(ser_name.unqualified())};
 
   for (const auto& ser : ser_inc) {
-    ser_inc_unq.emplace_back(ser.unqualified());
+    if ((is_edge && !ser.is_edge_series()) ||
+        (!is_edge && !ser.is_node_series())) {
+      m_comm.cerr0() << "Warning: invalid series " << ser << " ignored.";
+      continue;
+    } else {
+      ser_inc_unq.emplace_back(ser.unqualified());
+    }
   }
 
   auto ser_idxs_opt = pdata->find_series(ser_inc_unq);
