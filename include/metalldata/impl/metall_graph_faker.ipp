@@ -1,6 +1,7 @@
 #pragma once
 #include <metalldata/metall_graph.hpp>
 #include <type_traits>
+#include <format>
 #include <faker-cxx/faker.h>  // or include specific module
 
 namespace metalldata {

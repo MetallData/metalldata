@@ -239,7 +239,7 @@ class metall_graph {
 
     where = edge.u.age > edge.v.age
 
-    unsuupported =  (node.age > 21 && node.zipcode = 77845) & (edge.u.age >
+    unsupported =  (node.age > 21 && node.zipcode = 77845) & (edge.u.age >
     edge.v.age)
 
 
@@ -296,6 +296,13 @@ class metall_graph {
   return_code add_faker_series(const metall_graph::series_name& name,
                                Fn                               faker_func,
                                const where_clause& where = where_clause{});
+
+  template <typename Compare = std::greater<void>>
+  std::vector<std::vector<data_types>> topk(
+    size_t k, const series_name& ser_name,
+    const std::vector<series_name>& ser_inc, Compare comp = Compare(),
+    const where_clause& where = where_clause());
+
   std::map<std::string, std::string> get_edge_selector_info() {
     // Since the m_pedges schema is identical across ranks, we don't have to
     // collect. Also: the "edge" prefix (and "node" in the corresponding
@@ -601,3 +608,4 @@ struct hash<metalldata::metall_graph::series_name> {
 #include <metalldata/impl/metall_graph_faker.ipp>
 #include <metalldata/impl/metall_graph_priv_for_all.ipp>
 #include <metalldata/impl/metall_graph_set_node_column.ipp>
+#include <metalldata/impl/metall_graph_topk.ipp>

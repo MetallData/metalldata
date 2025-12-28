@@ -164,12 +164,12 @@ class basic_record_store {
   /// \return The series data as a variant.
   /// If the series name doesn't exist, throw a runtime_error.
   /// If the series data does not exist, return std::monostate.
-  const series_type get_dynamic(const series_index_type series_index,
-                                const record_id_type    record_id) const {
+  series_type get_dynamic(const series_index_type series_index,
+                          const record_id_type    record_id) const {
     if (series_index >= m_series.size()) {
       throw std::runtime_error("Series not found");
     }
-    series_type to_return = std::monostate{};
+    series_type to_return = std::monostate{};  // default
     const auto &container = m_series[series_index].container;
     std::visit(
       [&to_return, record_id, series_index](const auto &container) {
@@ -186,9 +186,24 @@ class basic_record_store {
 
     return to_return;
   }
+
+  /// \brief Returns selected series data of a single record
+  /// \param ser_inc Vector of series indices to include
+  /// \param record_id Record ID
+  /// \return A vector of std::variant containing the selected series data
+  std::vector<series_type> get(const std::vector<series_index_type> &ser_inc,
+                               const record_id_type record_id) const {
+    std::vector<series_type> to_return;
+
+    for (const auto &ser : ser_inc) {
+      to_return.push_back(get_dynamic(ser, record_id));
+    }
+    return to_return;
+  }
+
   /// \brief Returns all series data of a single record
-  ///\param record_id Record ID
-  ///\return A vector of std::variant containing all series data
+  /// \param record_id Record ID
+  /// \return A vector of std::variant containing all series data
   std::vector<series_type> get(const record_id_type record_id) const {
     if (!contains_record(record_id)) {
       return {};

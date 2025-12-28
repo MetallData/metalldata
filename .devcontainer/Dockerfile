@@ -13,5 +13,7 @@ RUN apt -y install openmpi-bin openmpi-doc libopenmpi-dev
 RUN apt -y install python3-pip python3-venv
 RUN pip3 install --break-system-packages pandas pyarrow faker 
 
+# RUN apt -y upgrade
+
 RUN update-alternatives --install /usr/bin/clangd clangd /usr/bin/clangd-19 100
 RUN update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-19 100
