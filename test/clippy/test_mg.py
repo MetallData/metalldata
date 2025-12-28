@@ -85,6 +85,10 @@ def test_mg_assign(metallgraph):
 
 @pytest.mark.order(4)
 def test_mg_add_faker(metallgraph):
+    metallgraph.add_faker("node.randpct", "percentage")
+    select_data = metallgraph.select_nodes()
+    is_as_selected(select_data, {}, ["randpct", "id"], ["field_does_not_exist"])
+
     metallgraph.add_faker("node.uuid", "uuid4")
     select_data = metallgraph.select_nodes()
     is_as_selected(select_data, {}, ["uuid", "id"], ["field_does_not_exist"])
@@ -127,10 +131,31 @@ def test_mg_nhops(metallgraph):
     is_as_selected(select_data, {}, ["id"], ["nhops"])
 
 
+@pytest.mark.order(7)
+def test_mg_topk(metallgraph):    
 
+    # test edges with k = 5 and additional data
+    results = metallgraph.topk(metallgraph.edge.randint, k=5, addl_series=[metallgraph.edge.name])
 
+    assert (len(results) == 5)
+    curr_max = 10000;
+    for result in results:
+        assert len(result) == 2
+        assert result[0] <= curr_max
+        curr_max = result[0]
 
+    # test nodes with k > numrows
+    results = metallgraph.topk(metallgraph.node.randpct, k=50000)
 
+    assert (len(results) == metallgraph.describe()["nv"])
 
+    curr_max = 10000;
+    for result in results:
+        assert len(result) == 1
+        assert result[0] <= curr_max
+        curr_max = result[0]
 
-
+    # test edges with where clause
+    results = metallgraph.topk(metallgraph.edge.randint, where=metallgraph.edge.graphnum == 1)
+    rresults = [x[0] for x in results]
+    assert (rresults == [92, 84, 76, 57, 33, 19])

@@ -1,7 +1,7 @@
-s,t,graphnum,weight,color,name,relevant
-path-a,path-b,3,1,red,Adam,true
-path-b,path-c,3,1,orange,Beth,true
-path-c,path-d,3,1,yellow,Charlie,true
-path-d,path-e,3,1,green,David,true
-path-e,path-f,3,1,blue,Edward,true
-path-f,path-g,3,1,indigo,Fred,true
+s,t,graphnum,weight,color,name,relevant,randint
+path-a,path-b,3,1,red,Adam,true,42
+path-b,path-c,3,1,orange,Beth,true,73
+path-c,path-d,3,1,yellow,Charlie,true,15
+path-d,path-e,3,1,green,David,true,88
+path-e,path-f,3,1,blue,Edward,true,29
+path-f,path-g,3,1,indigo,Fred,true,61
