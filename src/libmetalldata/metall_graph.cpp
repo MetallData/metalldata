@@ -551,10 +551,9 @@ metall_graph::return_code metall_graph::degrees2(
   return to_return;
 }
 
-metall_graph::return_code metall_graph::nhops(series_name              out_name,
-                                              size_t                   nhops,
-                                              std::vector<std::string> sources,
-                                              const where_clause&      where) {
+metall_graph::return_code metall_graph::nhops(
+  const series_name& out_name, size_t nhops,
+  const std::vector<std::string>& sources, const where_clause& where) {
   return_code to_return;
 
   if (!out_name.is_node_series()) {
