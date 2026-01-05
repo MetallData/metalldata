@@ -2,7 +2,7 @@
 #include <metalldata/metall_graph.hpp>
 
 namespace metalldata {
-;
+
 // Sets a node metadata column based on a lookup from an associative data
 // structure.
 // Node names are extracted from the key.
@@ -41,5 +41,4 @@ metall_graph::return_code metall_graph::set_node_column(
 
   return to_return;
 }
-
 }  // namespace metalldata

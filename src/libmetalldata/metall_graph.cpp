@@ -28,14 +28,6 @@
 
 namespace metalldata {
 
-/**
- * @brief Converts a JSONLogic rule into a lambda for use within a where clause.
- *
- * @param jl_rule A boost::json::value containing the JSONLogic rule
- * @return A tuple containing the compiled lambda function and a vector of
- * variable names
- */
-
 metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
                            bool overwrite)
     : m_comm(comm), m_metall_path(path), m_partitioner(m_comm) {
@@ -255,8 +247,7 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
     }
   }
 
-  size_t               local_num_edges = 0;
-  size_t               local_num_nodes = m_pnode_to_idx->size();
+  size_t               local_nedges    = 0;
   static metall_graph* sthis           = nullptr;
   sthis                                = this;
   parquetp.for_all(
@@ -306,17 +297,16 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
           } else {
             m_pedges->set(metall_ser_idx, rec, val);
           };
-          ++local_num_edges;
+          ++local_nedges;
         };
         std::visit(add_val, parquet_val);
       }  // for loop
     });  // for_all
 
   m_comm.barrier();
-  to_return.return_info["num_edges_ingested"] =
-    ygm::sum(local_num_edges, m_comm);
+  to_return.return_info["num_edges_ingested"] = ygm::sum(local_nedges, m_comm);
   to_return.return_info["num_new_nodes_ingested"] =
-    ygm::sum(m_pnode_to_idx->size() - local_num_edges, m_comm);
+    ygm::sum(m_pnode_to_idx->size() - local_nedges, m_comm);
   return to_return;
 }
 
@@ -622,5 +612,4 @@ metall_graph::return_code metall_graph::nhops(series_name              out_name,
 
   return to_return;
 }
-
 }  // namespace metalldata

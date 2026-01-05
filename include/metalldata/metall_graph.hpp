@@ -417,7 +417,7 @@ class metall_graph {
   };
 
   size_t num_edges(const where_clause& where = where_clause{}) const {
-    size_t local_size = local_num_edges();
+    size_t local_size = priv_local_num_edges();
     if (!where.empty()) {
       local_size = 0;
       priv_for_all_edges([&](auto) { ++local_size; }, where);
@@ -426,7 +426,7 @@ class metall_graph {
   }
 
   size_t num_nodes(const where_clause& where = where_clause{}) const {
-    size_t local_size = local_num_nodes();
+    size_t local_size = priv_local_num_nodes();
     if (!where.empty()) {
       local_size = 0;
       priv_for_all_nodes([&](auto) { ++local_size; }, where);
@@ -498,6 +498,12 @@ class metall_graph {
   return_code assign(series_name series_name, const data_types& val,
                      const where_clause& = where_clause());
 
+  return_code sample_edges(const series_name& series_name, size_t k,
+                           const where_clause& = where_clause());
+
+  bjsn::array select_sample_edges(
+    size_t k, const std::vector<metall_graph::series_name>& metadata,
+    const metall_graph::where_clause& where);
   // struct shortest_path_options {
   //   std::optional<std::string> dist_series;
   //   std::optional<std::string> parent_series;
@@ -535,8 +541,8 @@ class metall_graph {
   series_index_type m_dir_col_idx;
   series_index_type m_node_col_idx;
 
-  size_t local_num_nodes() const { return m_pnodes->num_records(); };
-  size_t local_num_edges() const { return m_pedges->num_records(); };
+  size_t priv_local_num_nodes() const { return m_pnodes->num_records(); };
+  size_t priv_local_num_edges() const { return m_pedges->num_records(); };
 
   return_code priv_in_out_degree(series_name name, const where_clause&,
                                  bool        outdeg);
@@ -563,6 +569,11 @@ class metall_graph {
   template <typename T>
   return_code set_node_column(series_name nodecol_name, const T& collection);
 
+  // The collection here is a mapping from local record id to value.
+  template <typename T>
+  return_code priv_set_edge_column_by_idx(series_name edgecol_name,
+                                          const T&    collection);
+
   record_id_type priv_local_node_find_or_insert(std::string_view id) {
     YGM_ASSERT_RELEASE(m_partitioner.owner(id) == m_comm.rank());
     auto v_in_ss = compact_string::add_string(id, *m_pstring_store);
@@ -584,6 +595,9 @@ class metall_graph {
     }
     return {};
   }
+
+  std::unordered_set<record_id_type> priv_random_edge_idx(
+    const size_t k, const metall_graph::where_clause& where);
 
   // Using YGM's default partitioner to assign node owner
   ygm::container::detail::hash_partitioner<
@@ -608,4 +622,5 @@ struct hash<metalldata::metall_graph::series_name> {
 #include <metalldata/impl/metall_graph_faker.ipp>
 #include <metalldata/impl/metall_graph_priv_for_all.ipp>
 #include <metalldata/impl/metall_graph_set_node_column.ipp>
+#include <metalldata/impl/metall_graph_priv_set_edge_column_by_idx.ipp>
 #include <metalldata/impl/metall_graph_topk.ipp>
