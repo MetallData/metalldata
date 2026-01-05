@@ -8,7 +8,8 @@ namespace metalldata {
 // The indices are uniformly chosen from all the edges in the graph.
 // Only indices that exist on this rank are returned in the set.
 std::unordered_set<metall_graph::record_id_type>
-metall_graph::priv_random_edge_idx(const size_t k, const where_clause& where) {
+metall_graph::priv_random_edge_idx(const size_t k, uint64_t seed,
+                                   const where_clause& where) {
   std::unordered_set<metall_graph::record_id_type> local_data;
 
   // this builds a set of local edges.
@@ -38,8 +39,7 @@ metall_graph::priv_random_edge_idx(const size_t k, const where_clause& where) {
   // uniform distribution.
   if (m_comm.rank0()) {
     std::unordered_set<size_t>            selected_edge_set;
-    std::random_device                    rd;
-    std::mt19937                          gen(rd());
+    std::mt19937 gen(seed);  // Use the seed parameter here
     std::uniform_int_distribution<size_t> dist(0, global_ne - 1);
 
     while (selected_edge_set.size() < sample_size) {
@@ -73,7 +73,7 @@ metall_graph::priv_random_edge_idx(const size_t k, const where_clause& where) {
 // selected during the random sample.
 metall_graph::return_code metall_graph::sample_edges(
   const metall_graph::series_name& series_name, size_t k,
-  const metall_graph::where_clause& where) {
+  std::optional<uint64_t> optseed, const metall_graph::where_clause& where) {
   metall_graph::return_code to_return;
 
   if (has_edge_series(series_name)) {
@@ -82,7 +82,15 @@ metall_graph::return_code metall_graph::sample_edges(
     return to_return;
   }
 
-  auto local_data = priv_random_edge_idx(k, where);
+  uint64_t seed;
+  if (optseed.has_value()) {
+    seed = optseed.value();
+  } else {
+    std::random_device rd;
+    seed = rd();
+  }
+
+  auto local_data = priv_random_edge_idx(k, seed, where);
   std::unordered_map<metall_graph::record_id_type, bool> local_map{};
 
   for (const auto rid : local_data) {
@@ -95,8 +103,16 @@ metall_graph::return_code metall_graph::sample_edges(
 
 bjsn::array metall_graph::select_sample_edges(
   size_t k, const std::vector<metall_graph::series_name>& metadata,
-  const metall_graph::where_clause& where) {
-  auto local_data = priv_random_edge_idx(k, where);
+  std::optional<uint64_t> optseed, const metall_graph::where_clause& where) {
+  uint64_t seed;
+  if (optseed.has_value()) {
+    seed = optseed.value();
+  } else {
+    std::random_device rd;
+    seed = rd();
+  }
+
+  auto local_data = priv_random_edge_idx(k, seed, where);
 
   std::vector<std::string> unqual_metadata;
   for (const auto& sn : metadata) {

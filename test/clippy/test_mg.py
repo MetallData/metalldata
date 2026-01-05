@@ -190,6 +190,19 @@ def test_mg_select_sample_edges(metallgraph):
         sample_data = metallgraph.select_sample_edges(k=total_edges + 10)
         assert len(sample_data) <= total_edges
 
+    # test seeds
+    for seed in range(5):
+        sd1 = metallgraph.select_sample_edges(10, series_names=[metallgraph.edge.u, metallgraph.edge.v, metallgraph.edge.graphnum], seed=seed)
+
+        sd2 = metallgraph.select_sample_edges(10, series_names=[metallgraph.edge.u, metallgraph.edge.v, metallgraph.edge.graphnum], seed=seed)
+
+        sd3 = metallgraph.select_sample_edges(10, [metallgraph.edge.u, metallgraph.edge.v, metallgraph.edge.graphnum], seed=seed+1)
+
+        assert len(sd1) == len(sd2) == len(sd3)
+        assert sd1 == sd2
+        assert sd2 != sd3
+
+
 @pytest.mark.order(9)
 def test_mg_sample_edges(metallgraph):
     # test column creation

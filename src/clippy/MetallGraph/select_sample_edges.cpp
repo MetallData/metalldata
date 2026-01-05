@@ -27,6 +27,9 @@ int main(int argc, char** argv) {
   clip.add_optional<boost::json::object>("where", "where clause",
                                          boost::json::object{});
 
+  clip.add_optional<std::optional<uint64_t>>(
+    "seed", "The seed to use for the RNG", std::nullopt);
+
   clip.add_optional<std::unordered_set<boost::json::object>>(
     "series_names",
     "Series names to include (default: none). All series must be edge series.",
@@ -41,6 +44,7 @@ int main(int argc, char** argv) {
   auto where = clip.get<boost::json::object>("where");
 
   auto k = clip.get<size_t>("k");
+  auto optseed = clip.get<std::optional<uint64_t>>("seed");
 
   metalldata::metall_graph::where_clause where_c;
   if (where.contains("rule")) {
@@ -60,7 +64,7 @@ int main(int argc, char** argv) {
   auto series_set = try_obj.value();
   std::vector<metalldata::metall_graph::series_name> metadata(
     series_set.begin(), series_set.end());
-  auto res = mg.select_sample_edges(k, metadata, where_c);
+  auto res = mg.select_sample_edges(k, metadata, optseed, where_c);
   clip.to_return(res);
 
   return 0;

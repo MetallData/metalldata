@@ -499,11 +499,12 @@ class metall_graph {
                      const where_clause& = where_clause());
 
   return_code sample_edges(const series_name& series_name, size_t k,
+                           std::optional<uint64_t> optseed,
                            const where_clause& = where_clause());
 
   bjsn::array select_sample_edges(
     size_t k, const std::vector<metall_graph::series_name>& metadata,
-    const metall_graph::where_clause& where);
+    std::optional<uint64_t> optseed, const metall_graph::where_clause& where);
   // struct shortest_path_options {
   //   std::optional<std::string> dist_series;
   //   std::optional<std::string> parent_series;
@@ -597,7 +598,7 @@ class metall_graph {
   }
 
   std::unordered_set<record_id_type> priv_random_edge_idx(
-    const size_t k, const metall_graph::where_clause& where);
+    const size_t k, uint64_t seed, const metall_graph::where_clause& where);
 
   // Using YGM's default partitioner to assign node owner
   ygm::container::detail::hash_partitioner<
