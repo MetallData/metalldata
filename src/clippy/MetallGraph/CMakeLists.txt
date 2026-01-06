@@ -45,6 +45,8 @@ add_metallgraph_executable(erase_edges erase_edges.cpp)
 add_metallgraph_executable(topk topk.cpp)
 add_metallgraph_executable(sample_edges sample_edges.cpp)
 add_metallgraph_executable(select_sample_edges select_sample_edges.cpp)
+add_metallgraph_executable(sample_nodes sample_nodes.cpp)
+add_metallgraph_executable(select_sample_nodes select_sample_nodes.cpp)
 
 
 add_custom_command(

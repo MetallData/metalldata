@@ -2,6 +2,30 @@
 #include <metalldata/metall_graph.hpp>
 
 namespace metalldata {
+template <typename T>
+// This function takes a series name, a store (m_pnodes or m_pedges), and a map
+// of record_id_type to value and:
+// 1. Creates the series
+// 2. For each record id, sets the series value at that record id to the value.
+// This is not a method - it is a friend of the metall_graph class.
+metall_graph::return_code set_column_by_idx(
+  const metall_graph::series_name& col_name,
+  metall_graph::record_store_type* store, const T& collection) {
+  metall_graph::return_code to_return;
+
+  using record_id_type = metall_graph::record_store_type::record_id_type;
+  using val_type       = typename T::mapped_type;
+
+  // create series
+  auto col_idx = store->add_series<val_type>(col_name.unqualified());
+
+  size_t invalid_nodes = 0;
+  for (const auto& [rid, value] : collection) {
+    store->set(col_idx, rid, value);
+  }
+
+  return to_return;
+}
 
 // Sets a node metadata column based on a lookup from an associative data
 // structure.
@@ -16,7 +40,7 @@ namespace metalldata {
 // every time.
 template <typename T>
 metall_graph::return_code metall_graph::set_node_column(
-  series_name nodecol_name, const T& collection) {
+  const series_name& nodecol_name, const T& collection) {
   return_code to_return;
 
   using record_id_type = record_store_type::record_id_type;
@@ -41,4 +65,5 @@ metall_graph::return_code metall_graph::set_node_column(
 
   return to_return;
 }
+
 }  // namespace metalldata

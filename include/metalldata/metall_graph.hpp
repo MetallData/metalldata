@@ -161,12 +161,6 @@ class metall_graph {
     }
   };  // series_name
 
-  /// if the where_clause is default constructed, m_has_predicate is false,
-  /// which means:
-  // 1) is_node_clause and is_edge_clause are both true
-  // 2) evaluate() will always return true
-  // TODO: get rid of node and edge differentiation.
-  // TODO: get rid of initialized
   struct where_clause {
    private:
     using pred_function = std::function<bool(const std::vector<data_types>&)>;
@@ -505,6 +499,15 @@ class metall_graph {
   bjsn::array select_sample_edges(
     size_t k, const std::vector<metall_graph::series_name>& metadata,
     std::optional<uint64_t> optseed, const metall_graph::where_clause& where);
+
+  return_code sample_nodes(const series_name& series_name, size_t k,
+                           std::optional<uint64_t> optseed,
+                           const where_clause& = where_clause());
+
+  bjsn::array select_sample_nodes(
+    size_t k, const std::vector<metall_graph::series_name>& metadata,
+    std::optional<uint64_t> optseed, const metall_graph::where_clause& where);
+
   // struct shortest_path_options {
   //   std::optional<std::string> dist_series;
   //   std::optional<std::string> parent_series;
@@ -568,12 +571,8 @@ class metall_graph {
   // TODO: memoize / persist the node_to_id map so that we're not building it
   // every time.
   template <typename T>
-  return_code set_node_column(series_name nodecol_name, const T& collection);
-
-  // The collection here is a mapping from local record id to value.
-  template <typename T>
-  return_code priv_set_edge_column_by_idx(series_name edgecol_name,
-                                          const T&    collection);
+  return_code set_node_column(const series_name& nodecol_name,
+                              const T&           collection);
 
   record_id_type priv_local_node_find_or_insert(std::string_view id) {
     YGM_ASSERT_RELEASE(m_partitioner.owner(id) == m_comm.rank());
@@ -597,13 +596,24 @@ class metall_graph {
     return {};
   }
 
+  std::unordered_set<record_id_type> priv_random_idx(bool   sample_edges,
+                                                     size_t k, uint64_t seed,
+                                                     const where_clause& where);
+
   std::unordered_set<record_id_type> priv_random_edge_idx(
-    const size_t k, uint64_t seed, const metall_graph::where_clause& where);
+    const size_t k, uint64_t seed, const where_clause& where);
+
+  std::unordered_set<record_id_type> priv_random_node_idx(
+    const size_t k, uint64_t seed, const where_clause& where);
 
   // Using YGM's default partitioner to assign node owner
   ygm::container::detail::hash_partitioner<
     ygm::container::detail::hash<std::string_view>>
     m_partitioner;
+
+  template <typename T>
+  friend metall_graph::return_code set_column_by_idx(
+    const series_name& col_name, record_store_type* store, const T& collection);
 
 };  // class metall_graph
 
@@ -622,6 +632,5 @@ struct hash<metalldata::metall_graph::series_name> {
 
 #include <metalldata/impl/metall_graph_faker.ipp>
 #include <metalldata/impl/metall_graph_priv_for_all.ipp>
-#include <metalldata/impl/metall_graph_set_node_column.ipp>
-#include <metalldata/impl/metall_graph_priv_set_edge_column_by_idx.ipp>
+#include <metalldata/impl/metall_graph_set_column.ipp>
 #include <metalldata/impl/metall_graph_topk.ipp>
