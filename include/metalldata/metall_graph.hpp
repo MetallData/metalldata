@@ -490,9 +490,9 @@ class metall_graph {
   //   std::optional<std::string> v_included;
   // };
 
-  return_code nhops(series_name out_node_series, size_t nhops,
-                    std::vector<std::string> sources,
-                    const where_clause&      where = where_clause());
+  return_code nhops(const series_name& out_node_series, size_t nhops,
+                    const std::vector<std::string>& sources,
+                    const where_clause&             where = where_clause());
 
   // TODO: also allow val a function
   return_code assign(series_name series_name, const data_types& val,
