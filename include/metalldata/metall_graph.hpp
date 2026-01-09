@@ -596,15 +596,9 @@ class metall_graph {
     return {};
   }
 
-  std::unordered_set<record_id_type> priv_random_idx(bool   sample_edges,
-                                                     size_t k, uint64_t seed,
-                                                     const where_clause& where);
-
-  std::unordered_set<record_id_type> priv_random_edge_idx(
-    const size_t k, uint64_t seed, const where_clause& where);
-
-  std::unordered_set<record_id_type> priv_random_node_idx(
-    const size_t k, uint64_t seed, const where_clause& where);
+  std::unordered_set<record_id_type> priv_random_idx(
+    const std::unordered_set<record_id_type>& filtered_ids_set, size_t k,
+    uint64_t seed);
 
   // Using YGM's default partitioner to assign node owner
   ygm::container::detail::hash_partitioner<
@@ -612,8 +606,9 @@ class metall_graph {
     m_partitioner;
 
   template <typename T>
-  friend metall_graph::return_code set_column_by_idx(
-    const series_name& col_name, record_store_type* store, const T& collection);
+  metall_graph::return_code priv_set_column_by_idx(bool edge_store,
+                                                   const series_name& col_name,
+                                                   const T& collection);
 
 };  // class metall_graph
 

@@ -7,17 +7,8 @@ namespace metalldata {
 // Returns randomly-selected record ids (edges when sample_edges is true, nodes
 // otherwise) that exist on this rank. Selection is uniform across all ranks.
 std::unordered_set<metall_graph::record_id_type> metall_graph::priv_random_idx(
-  bool sample_edges, const size_t k, uint64_t seed, const where_clause& where) {
-  std::unordered_set<record_id_type> filtered_ids_set;
-
-  if (sample_edges) {
-    priv_for_all_edges(
-      [&](record_id_type rid) { filtered_ids_set.insert(rid); }, where);
-  } else {
-    priv_for_all_nodes(
-      [&](record_id_type rid) { filtered_ids_set.insert(rid); }, where);
-  }
-
+  const std::unordered_set<record_id_type>& filtered_ids_set, const size_t k,
+  uint64_t seed) {
   std::vector<record_id_type> filtered_ids(filtered_ids_set.begin(),
                                            filtered_ids_set.end());
 
@@ -48,11 +39,9 @@ std::unordered_set<metall_graph::record_id_type> metall_graph::priv_random_idx(
   std::unordered_set<record_id_type> local_data;
 
   for (const auto idx : selected_indices) {
-    int64_t local_idx =
-      static_cast<int64_t>(idx) - static_cast<int64_t>(lower_bound);
-
-    if (local_idx >= 0 && local_idx < static_cast<int64_t>(local_count)) {
-      record_id_type rid = filtered_ids.at(local_idx);
+    if ((idx >= lower_bound) && (idx < lower_bound + local_count)) {
+      // local idx is guaranteed to be >= 0
+      record_id_type rid = filtered_ids.at(idx - lower_bound);
       YGM_ASSERT_RELEASE(!local_data.contains(rid));
       local_data.insert(rid);
     }
@@ -88,14 +77,18 @@ metall_graph::return_code metall_graph::sample_edges(
     seed = rd();
   }
 
-  auto local_data = priv_random_idx(true, k, seed, where);
+  std::unordered_set<record_id_type> filtered_ids_set;
+  priv_for_all_edges([&](record_id_type rid) { filtered_ids_set.insert(rid); },
+                     where);
+
+  auto local_data = priv_random_idx(filtered_ids_set, k, seed);
   std::unordered_map<metall_graph::record_id_type, bool> local_map{};
 
   for (const auto rid : local_data) {
     local_map[rid] = true;
   }
   m_comm.barrier();
-  set_column_by_idx(series_name, m_pedges, local_map);
+  priv_set_column_by_idx(true, series_name, local_map);
   return to_return;
 }
 
@@ -110,7 +103,10 @@ bjsn::array metall_graph::select_sample_edges(
     seed = rd();
   }
 
-  auto local_data = priv_random_idx(true, k, seed, where);
+  std::unordered_set<record_id_type> filtered_ids_set;
+  priv_for_all_edges([&](record_id_type rid) { filtered_ids_set.insert(rid); },
+                     where);
+  auto local_data = priv_random_idx(filtered_ids_set, k, seed);
 
   std::vector<std::string> unqual_metadata;
   for (const auto& sn : metadata) {
@@ -206,14 +202,18 @@ metall_graph::return_code metall_graph::sample_nodes(
     seed = rd();
   }
 
-  auto local_data = priv_random_idx(false, k, seed, where);
+  std::unordered_set<record_id_type> filtered_ids_set;
+  priv_for_all_nodes([&](record_id_type rid) { filtered_ids_set.insert(rid); },
+                     where);
+
+  auto local_data = priv_random_idx(filtered_ids_set, k, seed);
   std::unordered_map<metall_graph::record_id_type, bool> local_map{};
 
   for (const auto rid : local_data) {
     local_map[rid] = true;
   }
   m_comm.barrier();
-  set_column_by_idx(series_name, m_pnodes, local_map);
+  priv_set_column_by_idx(false, series_name, local_map);
   return to_return;
 }
 
@@ -228,7 +228,11 @@ bjsn::array metall_graph::select_sample_nodes(
     seed = rd();
   }
 
-  auto local_data = priv_random_idx(false, k, seed, where);
+  std::unordered_set<record_id_type> filtered_ids_set;
+  priv_for_all_nodes([&](record_id_type rid) { filtered_ids_set.insert(rid); },
+                     where);
+
+  auto local_data = priv_random_idx(filtered_ids_set, k, seed);
 
   std::vector<std::string> unqual_metadata;
   for (const auto& sn : metadata) {
