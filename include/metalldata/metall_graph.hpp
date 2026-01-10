@@ -498,7 +498,8 @@ class metall_graph {
 
   bjsn::array select_sample_edges(
     size_t k, const std::vector<metall_graph::series_name>& metadata,
-    std::optional<uint64_t> optseed, const metall_graph::where_clause& where);
+    std::optional<uint64_t>           optseed,
+    const metall_graph::where_clause& where = where_clause{});
 
   return_code sample_nodes(const series_name& series_name, size_t k,
                            std::optional<uint64_t> optseed,
@@ -506,7 +507,8 @@ class metall_graph {
 
   bjsn::array select_sample_nodes(
     size_t k, const std::vector<metall_graph::series_name>& metadata,
-    std::optional<uint64_t> optseed, const metall_graph::where_clause& where);
+    std::optional<uint64_t>           optseed,
+    const metall_graph::where_clause& where = where_clause{});
 
   // struct shortest_path_options {
   //   std::optional<std::string> dist_series;
@@ -606,8 +608,7 @@ class metall_graph {
     m_partitioner;
 
   template <typename T>
-  metall_graph::return_code priv_set_column_by_idx(bool edge_store,
-                                                   const series_name& col_name,
+  metall_graph::return_code priv_set_column_by_idx(const series_name& col_name,
                                                    const T& collection);
 
 };  // class metall_graph

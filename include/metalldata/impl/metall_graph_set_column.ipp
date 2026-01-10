@@ -3,20 +3,18 @@
 
 namespace metalldata {
 template <typename T>
-// This function takes a series name, a store (m_pnodes or m_pedges), and a map
+// This function takes a series name and a map
 // of record_id_type to value and:
 // 1. Creates the series
 // 2. For each record id, sets the series value at that record id to the value.
-// This is not a method - it is a friend of the metall_graph class.
 metall_graph::return_code metall_graph::priv_set_column_by_idx(
-  bool edge_store, const metall_graph::series_name& col_name,
-  const T& collection) {
+  const metall_graph::series_name& col_name, const T& collection) {
   metall_graph::return_code to_return;
 
   using record_id_type = metall_graph::record_store_type::record_id_type;
   using val_type       = typename T::mapped_type;
 
-  auto store = edge_store ? m_pedges : m_pnodes;
+  auto store = col_name.is_edge_series() ? m_pedges : m_pnodes;
   // create series
   auto col_idx = store->add_series<val_type>(col_name.unqualified());
 

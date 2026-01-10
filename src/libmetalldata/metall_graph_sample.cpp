@@ -88,7 +88,7 @@ metall_graph::return_code metall_graph::sample_edges(
     local_map[rid] = true;
   }
   m_comm.barrier();
-  priv_set_column_by_idx(true, series_name, local_map);
+  priv_set_column_by_idx(series_name, local_map);
   return to_return;
 }
 
@@ -213,7 +213,7 @@ metall_graph::return_code metall_graph::sample_nodes(
     local_map[rid] = true;
   }
   m_comm.barrier();
-  priv_set_column_by_idx(false, series_name, local_map);
+  priv_set_column_by_idx(series_name, local_map);
   return to_return;
 }
 
