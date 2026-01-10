@@ -159,3 +159,131 @@ def test_mg_topk(metallgraph):
     results = metallgraph.topk(metallgraph.edge.randint, where=metallgraph.edge.graphnum == 1)
     rresults = [x[0] for x in results]
     assert (rresults == [92, 84, 76, 57, 33, 19])
+
+
+@pytest.mark.order(8)
+def test_mg_select_sample_edges(metallgraph):
+    # test basic sampling with k < total edges
+    for _ in range(20):
+        sample_data = metallgraph.select_sample_edges(k=10, series_names=[metallgraph.edge.u, metallgraph.edge.v])
+        assert len(sample_data) == 10
+        is_as_selected(sample_data, {}, ["u", "v"], [])
+
+    # test sampling with where clause
+    for _ in range(5):
+        sample_data = metallgraph.select_sample_edges(k=5, series_names=[metallgraph.edge.u, metallgraph.edge.v, metallgraph.edge.graphnum], where=metallgraph.edge.graphnum == 0)
+        assert len(sample_data) == 5
+        for el in sample_data:
+            assert el["graphnum"] == 0
+        is_as_selected(sample_data, {"graphnum": 0}, ["u", "v"], [])
+
+    # test sampling with k > available edges with where clause
+    for _ in range(5):
+        sample_data = metallgraph.select_sample_edges(k=1000, series_names=[metallgraph.edge.u, metallgraph.edge.v, metallgraph.edge.graphnum], where=metallgraph.edge.graphnum == 1)
+        total_edges_g1 = len(metallgraph.select_edges(where=metallgraph.edge.graphnum == 1))
+        assert len(sample_data) <= total_edges_g1
+        is_as_selected(sample_data, {"graphnum": 1}, ["u", "v"], [])
+
+    # test sampling all edges when k >= total edges
+    for _ in range(5):
+        total_edges = metallgraph.describe()["ne"]
+        sample_data = metallgraph.select_sample_edges(k=total_edges + 10)
+        assert len(sample_data) <= total_edges
+
+    # test seeds
+    for seed in range(5):
+        sd1 = metallgraph.select_sample_edges(10, series_names=[metallgraph.edge.u, metallgraph.edge.v, metallgraph.edge.graphnum], seed=seed)
+
+        sd2 = metallgraph.select_sample_edges(10, series_names=[metallgraph.edge.u, metallgraph.edge.v, metallgraph.edge.graphnum], seed=seed)
+
+        sd3 = metallgraph.select_sample_edges(10, [metallgraph.edge.u, metallgraph.edge.v, metallgraph.edge.graphnum], seed=seed+1)
+
+        assert len(sd1) == len(sd2) == len(sd3)
+        assert sd1 == sd2
+        assert sd2 != sd3
+
+
+@pytest.mark.order(9)
+def test_mg_sample_edges(metallgraph):
+    # test column creation
+    metallgraph.sample_edges(k=10, series_name="samp1")
+    select_data = metallgraph.select_edges(where=metallgraph.edge.samp1 == True)
+    is_as_selected(select_data, {"samp1": True}, ["u", "v"], [])
+    assert len(select_data) == 10
+
+    metallgraph.sample_edges(k=3, series_name="samp2", where=metallgraph.edge.graphnum == 1)
+    select_data = metallgraph.select_edges(where=metallgraph.edge.samp2 == True)
+    is_as_selected(select_data, {"samp2": True, "graphnum": 1}, ["u", "v"], [])
+    assert len(select_data) == 3
+
+
+@pytest.mark.order(10)
+def test_mg_select_sample_nodes(metallgraph):
+    for _ in range(20):
+        sample_data = metallgraph.select_sample_nodes(
+            k=10, series_names=[metallgraph.node.id]
+        )
+        assert len(sample_data) == 10
+        is_as_selected(sample_data, {}, ["id"], [])
+
+    for _ in range(5):
+        sample_data = metallgraph.select_sample_nodes(
+            k=5,
+            series_names=[metallgraph.node.id, metallgraph.node.gnum],
+            where=metallgraph.node.gnum == 3,
+        )
+        assert len(sample_data) == 5
+        for el in sample_data:
+            assert el["gnum"] == 3
+        is_as_selected(sample_data, {"gnum": 3}, ["id"], [])
+
+    for _ in range(5):
+        sample_data = metallgraph.select_sample_nodes(
+            k=1000,
+            series_names=[metallgraph.node.id, metallgraph.node.gnum],
+            where=metallgraph.node.gnum == 3,
+        )
+        total_nodes_g3 = len(
+            metallgraph.select_nodes(where=metallgraph.node.gnum == 3)
+        )
+        assert len(sample_data) <= total_nodes_g3
+        is_as_selected(sample_data, {"gnum": 3}, ["id"], [])
+
+    for _ in range(5):
+        total_nodes = metallgraph.describe()["nv"]
+        sample_data = metallgraph.select_sample_nodes(k=total_nodes + 10)
+        assert len(sample_data) <= total_nodes
+
+    for seed in range(5):
+        sd1 = metallgraph.select_sample_nodes(
+            10, series_names=[metallgraph.node.id, metallgraph.node.gnum], seed=seed
+        )
+        sd2 = metallgraph.select_sample_nodes(
+            10, series_names=[metallgraph.node.id, metallgraph.node.gnum], seed=seed
+        )
+        sd3 = metallgraph.select_sample_nodes(
+            10,
+            series_names=[metallgraph.node.id, metallgraph.node.gnum],
+            seed=seed + 1,
+        )
+
+        assert len(sd1) == len(sd2) == len(sd3)
+        assert sd1 == sd2
+        assert sd2 != sd3
+
+
+@pytest.mark.order(11)
+def test_mg_sample_nodes(metallgraph):
+    metallgraph.sample_nodes(k=10, series_name="nsamp1")
+    select_data = metallgraph.select_nodes(where=metallgraph.node.nsamp1 == True)
+    is_as_selected(select_data, {"nsamp1": True}, ["id"], [])
+    assert len(select_data) == 10
+
+    metallgraph.sample_nodes(
+        k=3, series_name="nsamp2", where=metallgraph.node.gnum == 3
+    )
+    select_data = metallgraph.select_nodes(where=metallgraph.node.nsamp2 == True)
+    is_as_selected(select_data, {"nsamp2": True, "gnum": 3}, ["id"], [])
+    assert len(select_data) == 3
+
+
