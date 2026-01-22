@@ -265,6 +265,19 @@ class basic_record_store {
     return std::abs(std::distance(m_series.begin(), itr));
   }
 
+  bool rename_series(std::string_view old_name, std::string_view new_name) {
+    auto itr = priv_find_series(old_name);
+    if (itr == m_series.end()) {
+      return false;
+    }
+
+    if (contains_series(new_name)) {
+      return false;
+    }
+
+    itr->name = new_name;
+    return true;
+  }
   std::optional<std::vector<series_index_type>> find_series(
     const std::vector<std::string> &series_names) const {
     std::vector<size_t> to_return{};
