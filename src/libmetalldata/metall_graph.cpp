@@ -132,34 +132,39 @@ bool metall_graph::drop_series(const series_name& name) {
   return false;
 }
 
-std::expected<bool, std::string> metall_graph::rename_series(
+metall_graph::return_code metall_graph::rename_series(
   const series_name& old_name, const series_name& new_name) {
+  metall_graph::return_code to_return;
   if (RESERVED_COLUMN_NAMES.contains(old_name)) {
-    return std::unexpected(
-      std::format("Cannot rename reserved column {}", old_name.qualified()));
+    to_return.error =
+      std::format("Cannot rename reserved column {}", old_name.qualified());
+    return to_return;
   }
 
   if (RESERVED_COLUMN_NAMES.contains(new_name)) {
-    return std::unexpected(std::format("{} is a reserved name; cannot rename",
-                                       new_name.qualified()));
+    to_return.error =
+      std::format("{} is a reserved name; cannot rename", new_name.qualified());
+    return to_return;
   }
 
   if (old_name.prefix() != new_name.prefix()) {
-    return std::unexpected(
+    to_return.error =
       std::format("Series must be of the same type (got {} and {}) ",
-                  old_name.prefix(), new_name.prefix()));
+                  old_name.prefix(), new_name.prefix());
+    return to_return;
   }
 
   if (old_name.is_node_series()) {
-    return m_pnodes->rename_series(old_name.unqualified(),
-                                   new_name.unqualified());
+    m_pnodes->rename_series(old_name.unqualified(), new_name.unqualified());
+    return to_return;
   }
   if (old_name.is_edge_series()) {
-    return m_pedges->rename_series(old_name.unqualified(),
-                                   new_name.unqualified());
+    m_pedges->rename_series(old_name.unqualified(), new_name.unqualified());
+    return to_return;
   }
-  return std::unexpected(
-    std::format("Unknown series name", old_name.qualified()));
+  to_return.error =
+    std::format("Unknown series type: {}", old_name.qualified());
+  return to_return;
 }
 
 metall_graph::return_code metall_graph::ingest_parquet_edges(

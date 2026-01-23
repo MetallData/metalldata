@@ -367,8 +367,8 @@ class metall_graph {
   // edge.)
   bool drop_series(const series_name& name);
 
-  std::expected<bool, std::string> rename_series(const series_name& old_name,
-                                                 const series_name& new_name);
+  return_code rename_series(const series_name& old_name,
+                            const series_name& new_name);
 
   // has_node_series requires an UNqualified (stripped) selector name.
   bool has_node_series(std::string_view unqualified_name) const {
