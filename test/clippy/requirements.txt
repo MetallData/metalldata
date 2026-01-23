@@ -1,4 +1,4 @@
 pytest
--e /host-home/dev/infinityshore/clippy/py
+llnl-clippy
 pytest-cov
 pytest-ordering
