@@ -40,7 +40,7 @@ set(YGM_REQUIRE_PARQUET ON)
 set(YGM_INSTALL_PARQUET ON)
 FetchContent_Declare(YGM
     GIT_REPOSITORY https://github.com/llnl/ygm.git
-    GIT_TAG v0.9-dev
+    GIT_TAG v0.9
         )
 FetchContent_MakeAvailable(YGM)
 
