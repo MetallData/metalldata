@@ -6,6 +6,7 @@ import os
 from clippy.error import ClippyValidationError, ClippyInvalidSelectorError
 from clippy.backends.fs.execution import NonZeroReturnCodeError
 import logging
+import shutil
 
 DATA_DIR = os.environ.get("DATA_DIR", "../../data/metall_graph")
 
@@ -46,6 +47,7 @@ def temp_file(tmp_path_factory):
 
 @pytest.fixture()
 def metallgraph(temp_file):
+    shutil.rmtree('path/to/dir', ignore_errors=True)
     return MetallGraph(temp_file)
 
 @pytest.mark.order(1)
