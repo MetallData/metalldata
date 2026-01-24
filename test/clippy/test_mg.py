@@ -42,12 +42,12 @@ def is_specific(data_list: list[dict[str, Any]], key: str, keydict: dict[str, di
 @pytest.fixture(scope="module")
 def temp_file(tmp_path_factory):
     temp_name = tmp_path_factory.mktemp("data") / "metallgraph.db"
+    shutil.rmtree(str(temp_name), ignore_errors=True)
     yield str(temp_name)
 
 
 @pytest.fixture()
 def metallgraph(temp_file):
-    shutil.rmtree('path/to/dir', ignore_errors=True)
     return MetallGraph(temp_file)
 
 @pytest.mark.order(1)
