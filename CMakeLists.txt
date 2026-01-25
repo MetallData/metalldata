@@ -97,7 +97,7 @@ message(STATUS "jsonlogic include dir: ${jsonlogic_INCLUDE_DIR}")
 set(JUST_INSTALL_METALL_HEADER TRUE)
 FetchContent_Declare(Metall
         GIT_REPOSITORY ${METALL_FETCH_GIT}
-        GIT_TAG "v0.32"
+        GIT_TAG v0.32
 )
 FetchContent_MakeAvailable(Metall)
 
