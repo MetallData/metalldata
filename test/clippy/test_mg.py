@@ -289,3 +289,43 @@ def test_mg_sample_nodes(metallgraph):
     assert len(select_data) == 3
 
 
+@pytest.mark.order(12)
+def test_mg_rename_series(metallgraph):
+    metallgraph.rename_series(metallgraph.node.nsamp1, "testrename1")
+    select_data = metallgraph.select_nodes(where=metallgraph.node.testrename1 == True)
+    is_as_selected(select_data, {"testrename1": True}, ["id"], [])
+
+    metallgraph.rename_series(metallgraph.node.testrename1, "node.testrename2")
+    select_data = metallgraph.select_nodes(where=metallgraph.node.testrename2 == True)
+    is_as_selected(select_data, {"testrename2": True}, ["id"], [])
+
+    metallgraph.rename_series(metallgraph.node.testrename2, "nsamp1")
+    select_data = metallgraph.select_nodes(where=metallgraph.node.nsamp1 == True)
+    is_as_selected(select_data, {"nsamp1": True}, ["id"], [])
+
+    metallgraph.rename_series(metallgraph.edge.samp1, "testrename1")
+    select_data = metallgraph.select_edges(where=metallgraph.edge.testrename1 == True)
+    is_as_selected(select_data, {"testrename1": True}, ["u", "v"], [])
+
+    metallgraph.rename_series(metallgraph.edge.testrename1, "edge.testrename2")
+    select_data = metallgraph.select_edges(where=metallgraph.edge.testrename2 == True)
+    is_as_selected(select_data, {"testrename2": True}, ["u", "v"], [])
+
+    metallgraph.rename_series(metallgraph.edge.testrename2, "samp1")
+    select_data = metallgraph.select_edges(where=metallgraph.edge.samp1 == True)
+    is_as_selected(select_data, {"samp1": True}, ["u", "v"], [])
+
+    with pytest.raises(NonZeroReturnCodeError):
+        metallgraph.rename_series(metallgraph.edge.samp1, "edge.u")
+        metallgraph.rename_series(metallgraph.node.nsamp1, "node.id")
+
+        metallgraph.rename_series(metallgraph.edge.samp1, "node.testrename")
+        metallgraph.rename_series(metallgraph.node.nsamp1, "edge.testrename")
+        metallgraph.rename_series(metallgraph.edge.samp1, "samp1")
+        metallgraph.rename_series(metallgraph.edge.samp1, "edge.samp1")
+        metallgraph.rename_series(metallgraph.node.nsamp1, "nsamp1")
+        metallgraph.rename_series(metallgraph.node.nsamp1, "node.nsamp1")
+
+
+    
+
