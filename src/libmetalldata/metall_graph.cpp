@@ -132,6 +132,41 @@ bool metall_graph::drop_series(const series_name& name) {
   return false;
 }
 
+metall_graph::return_code metall_graph::rename_series(
+  const series_name& old_name, const series_name& new_name) {
+  metall_graph::return_code to_return;
+  if (RESERVED_COLUMN_NAMES.contains(old_name)) {
+    to_return.error =
+      std::format("Cannot rename reserved column {}", old_name.qualified());
+    return to_return;
+  }
+
+  if (RESERVED_COLUMN_NAMES.contains(new_name)) {
+    to_return.error =
+      std::format("{} is a reserved name; cannot rename", new_name.qualified());
+    return to_return;
+  }
+
+  if (old_name.prefix() != new_name.prefix()) {
+    to_return.error =
+      std::format("Series must be of the same type (got {} and {}) ",
+                  old_name.prefix(), new_name.prefix());
+    return to_return;
+  }
+
+  if (old_name.is_node_series()) {
+    m_pnodes->rename_series(old_name.unqualified(), new_name.unqualified());
+    return to_return;
+  }
+  if (old_name.is_edge_series()) {
+    m_pedges->rename_series(old_name.unqualified(), new_name.unqualified());
+    return to_return;
+  }
+  to_return.error =
+    std::format("Unknown series type: {}", old_name.qualified());
+  return to_return;
+}
+
 metall_graph::return_code metall_graph::ingest_parquet_edges(
   std::string_view path, bool recursive, std::string_view col_u,
   std::string_view col_v, bool directed,
