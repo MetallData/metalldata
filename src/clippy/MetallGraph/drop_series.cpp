@@ -39,6 +39,7 @@ int main(int argc, char **argv) {
   auto rule_obj = rule.get_object();
   if (!rule_obj.contains("var")) {
     comm.cerr0("Series name invalid (novar); aborting");
+    return 1;
   }
 
   auto name_str = std::string(rule_obj["var"].as_string());
