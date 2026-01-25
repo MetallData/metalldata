@@ -14,9 +14,27 @@ set(FETCHCONTENT_QUIET OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
+#
+# FetchContent dependencies that can be overridden on the command line.
+#
 set(BOOST_FETCH_URL
     "https://github.com/boostorg/boost/releases/download/boost-1.87.0/boost-1.87.0-cmake.tar.gz"
     CACHE STRING "URL to fetch Boost tarball")
+set(YGM_FETCH_GIT 
+    "https://github.com/llnl/ygm.git" 
+    CACHE STRING "GIT to fetch YGM")
+set(FAKER_FETCH_GIT 
+    "https://github.com/cieslarmichal/faker-cxx" 
+    CACHE STRING "GIT to fetch Faker-CXX")
+set(CLIPPY_FETCH_GIT 
+    "https://github.com/LLNL/clippy.git" 
+    CACHE STRING "GIT to fetch CLIPPy")
+set(METALL_FETCH_GIT 
+    "https://github.com/LLNL/metall.git" 
+    CACHE STRING "GIT to fetch Metall")
+set(SPDLOG_FETCH_GIT 
+    "https://github.com/gabime/spdlog.git" 
+    CACHE STRING "GIT to fetch SPDLOG")
 
 #
 # Boost
@@ -39,7 +57,7 @@ FetchContent_MakeAvailable(Boost)
 set(YGM_REQUIRE_PARQUET ON)
 set(YGM_INSTALL_PARQUET ON)
 FetchContent_Declare(YGM
-    GIT_REPOSITORY https://github.com/llnl/ygm.git
+    GIT_REPOSITORY ${YGM_FETCH_GIT}
     GIT_TAG v0.9
         )
 FetchContent_MakeAvailable(YGM)
@@ -47,9 +65,11 @@ FetchContent_MakeAvailable(YGM)
 #
 #  Faker
 #
+#set(BUILD_TESTING OFF)
 FetchContent_Declare(faker
-    GIT_REPOSITORY https://github.com/cieslarmichal/faker-cxx
+    GIT_REPOSITORY ${FAKER_FETCH_GIT}
     GIT_TAG v4.0.1
+#    GIT_SUBMODULES ""
         )
 FetchContent_MakeAvailable(faker)
 
@@ -60,8 +80,8 @@ FetchContent_MakeAvailable(faker)
 set(JSONLOGIC_ENABLE_BENCH OFF)
 set(JSONLOGIC_ENABLE_TESTS OFF)
 FetchContent_Declare(CLIPPy
-        GIT_REPOSITORY https://github.com/LLNL/clippy.git
-        GIT_TAG v0.5.0
+        GIT_REPOSITORY ${CLIPPY_FETCH_GIT}
+        GIT_TAG v0.5.1
         SOURCE_SUBDIR cpp
         )
         FetchContent_MakeAvailable(CLIPPy)
@@ -75,10 +95,9 @@ message(STATUS "jsonlogic include dir: ${jsonlogic_INCLUDE_DIR}")
 #  Metall
 #
 set(JUST_INSTALL_METALL_HEADER TRUE)
-set(METALL_GIT_TAG "master")
 FetchContent_Declare(Metall
-        GIT_REPOSITORY https://github.com/LLNL/metall.git
-        GIT_TAG ${METALL_GIT_TAG}
+        GIT_REPOSITORY ${METALL_FETCH_GIT}
+        GIT_TAG v0.32
 )
 FetchContent_MakeAvailable(Metall)
 
@@ -125,7 +144,7 @@ endfunction()
 #
 FetchContent_Declare(
   spdlog
-  GIT_REPOSITORY https://github.com/gabime/spdlog.git
+  GIT_REPOSITORY ${SPDLOG_FETCH_GIT}
   GIT_TAG v1.14.1)
 FetchContent_MakeAvailable(spdlog)
 
