@@ -65,11 +65,11 @@ FetchContent_MakeAvailable(YGM)
 #
 #  Faker
 #
-set(BUILD_TESTING OFF)
+#set(BUILD_TESTING OFF)
 FetchContent_Declare(faker
     GIT_REPOSITORY ${FAKER_FETCH_GIT}
     GIT_TAG v4.0.1
-    GIT_SUBMODULES ""
+#    GIT_SUBMODULES ""
         )
 FetchContent_MakeAvailable(faker)
 
