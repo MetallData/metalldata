@@ -60,11 +60,12 @@ FetchContent_MakeAvailable(faker)
 set(JSONLOGIC_ENABLE_BENCH OFF)
 set(JSONLOGIC_ENABLE_TESTS OFF)
 FetchContent_Declare(CLIPPy
-        GIT_REPOSITORY https://github.com/LLNL/clippy-cpp.git
-        GIT_TAG v0.4.2
+        GIT_REPOSITORY https://github.com/LLNL/clippy.git
+        GIT_TAG v0.5.0
+        SOURCE_SUBDIR cpp
         )
         FetchContent_MakeAvailable(CLIPPy)
-set(CLIPPy_INCLUDE_DIR "${clippy_SOURCE_DIR}/include")
+set(CLIPPy_INCLUDE_DIR "${clippy_SOURCE_DIR}/cpp/include")
 set(jsonlogic_INCLUDE_DIR ${jsonlogic_SOURCE_DIR}/include)
 message(STATUS "jsonlogic source dir: ${jsonlogic_SOURCE_DIR}")
 message(STATUS "jsonlogic include dir: ${jsonlogic_INCLUDE_DIR}")
