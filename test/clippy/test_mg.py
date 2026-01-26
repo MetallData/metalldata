@@ -6,6 +6,7 @@ import os
 from clippy.error import ClippyValidationError, ClippyInvalidSelectorError
 from clippy.backends.fs.execution import NonZeroReturnCodeError
 import logging
+import shutil
 
 DATA_DIR = os.environ.get("DATA_DIR", "../../data/metall_graph")
 
@@ -41,6 +42,7 @@ def is_specific(data_list: list[dict[str, Any]], key: str, keydict: dict[str, di
 @pytest.fixture(scope="module")
 def temp_file(tmp_path_factory):
     temp_name = tmp_path_factory.mktemp("data") / "metallgraph.db"
+    shutil.rmtree(str(temp_name), ignore_errors=True)
     yield str(temp_name)
 
 

@@ -8,9 +8,7 @@
 #include <ygm/comm.hpp>
 #include <metalldata/metall_graph.hpp>
 
-static const std::string method_name    = "drop_series";
-static const std::string state_name     = "INTERNAL";
-static const std::string sel_state_name = "selectors";
+static const std::string method_name = "drop_series";
 
 using series_name = metalldata::metall_graph::series_name;
 

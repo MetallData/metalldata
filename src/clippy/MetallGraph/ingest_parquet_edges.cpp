@@ -8,16 +8,19 @@
 #include <ygm/comm.hpp>
 #include <metalldata/metall_graph.hpp>
 #include <format>
+#include "utils.hpp"
 
 static const std::string method_name    = "ingest_parquet_edges";
 static const std::string state_name     = "INTERNAL";
-static const std::string sel_state_name = "selectors";
+static const std::string log_state_name = "loglevel";
 
 int main(int argc, char **argv) {
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{method_name, "Reads a parquet file of edge data"};
   clip.add_required_state<std::string>("path", "Storage path for MetallGraph");
+  clip.add_required_state<int>(log_state_name,
+                               "Log level (as Python logging integer)");
   clip.add_required<std::string>("input_path", "Path to parquet input");
   clip.add_required<std::string>("col_u", "Edge U column name");
   clip.add_required<std::string>("col_v", "Edge V column name");
@@ -32,6 +35,11 @@ int main(int argc, char **argv) {
   }
 
   auto path       = clip.get_state<std::string>("path");
+  auto loglevel   = clip.get_state<int>("loglevel");
+
+  comm.set_logger_target(ygm::logger_target::stderr);
+  comm.set_log_level(metalldata::loglevel_py2ygm(loglevel));
+
   auto input_path = clip.get<std::string>("input_path");
   auto col_u      = clip.get<std::string>("col_u");
   auto col_v      = clip.get<std::string>("col_v");
