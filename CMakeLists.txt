@@ -58,7 +58,7 @@ set(YGM_REQUIRE_PARQUET ON)
 set(YGM_INSTALL_PARQUET ON)
 FetchContent_Declare(YGM
     GIT_REPOSITORY ${YGM_FETCH_GIT}
-    GIT_TAG v0.9
+    GIT_TAG 7b0ccc69ccb944a42fb1b3021b5d03ade3e4e2b0
         )
 FetchContent_MakeAvailable(YGM)
 
