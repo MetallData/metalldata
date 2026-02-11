@@ -17,6 +17,7 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
+#include <expected>
 
 #include <boost/container/deque.hpp>
 #include <boost/container/string.hpp>
@@ -164,10 +165,11 @@ class basic_record_store {
   /// \return The series data as a variant.
   /// If the series name doesn't exist, throw a runtime_error.
   /// If the series data does not exist, return std::monostate.
-  series_type get_dynamic(const series_index_type series_index,
-                          const record_id_type    record_id) const {
+  std::expected<series_type, std::string> get_dynamic(
+    const series_index_type series_index,
+    const record_id_type    record_id) const {
     if (series_index >= m_series.size()) {
-      throw std::runtime_error("Series not found");
+      return std::unexpected("Series not found");
     }
     series_type to_return = std::monostate{};  // default
     const auto &container = m_series[series_index].container;
