@@ -12,16 +12,17 @@ import json
 import os
 import subprocess
 import sys
+from typing import Any
 
 
-def find_methods(class_dir):
+def find_methods(class_dir: str) -> list[str]:
     """Find method executables in a class directory.
 
     Methods are regular files with no extension, excluding Makefile.
     """
-    methods = []
+    methods: list[str] = []
     for name in os.listdir(class_dir):
-        path = os.path.join(class_dir, name)
+        path: str = os.path.join(class_dir, name)
         if not os.path.isfile(path):
             continue
         if "." in name or name == "Makefile":
@@ -30,20 +31,20 @@ def find_methods(class_dir):
     return sorted(methods)
 
 
-def get_class_doc(class_dir):
+def get_class_doc(class_dir: str) -> str:
     """Read class-level documentation from meta.json if present."""
-    meta_path = os.path.join(class_dir, "meta.json")
+    meta_path: str = os.path.join(class_dir, "meta.json")
     if not os.path.isfile(meta_path):
         return ""
     try:
         with open(meta_path) as f:
-            meta = json.load(f)
+            meta: dict[str, Any] = json.load(f)
         return meta.get("__doc__", "")
     except (json.JSONDecodeError, OSError):
         return ""
 
 
-def get_method_doc(exe_path):
+def get_method_doc(exe_path: str) -> dict[str, Any] | None:
     """Run an executable with --clippy-help and return parsed JSON."""
     result = subprocess.run(
         [exe_path, "--clippy-help"],
@@ -55,13 +56,13 @@ def get_method_doc(exe_path):
     return json.loads(result.stdout)
 
 
-def format_method(data):
+def format_method(data: dict[str, Any]) -> str:
     """Format a method's documentation as markdown."""
-    lines = []
-    name = data.get("method_name", "")
-    desc = data.get("desc", "")
-    state = data.get("_state", {})
-    args = data.get("args", {})
+    lines: list[str] = []
+    name: str = data.get("method_name", "")
+    desc: str = data.get("desc", "")
+    state: dict[str, Any] = data.get("_state", {})
+    args: dict[str, Any] = data.get("args", {})
 
     lines.append(f"### `{name}`")
     lines.append("")
@@ -70,10 +71,10 @@ def format_method(data):
         lines.append("")
 
     # Separate positional args (position >= 0) from keyword args (position == -1)
-    positional = []
-    keyword = []
+    positional: list[tuple[int, str, dict[str, Any]]] = []
+    keyword: list[tuple[str, dict[str, Any]]] = []
     for aname, ainfo in args.items():
-        pos = ainfo.get("position", -1)
+        pos: int = ainfo.get("position", -1)
         if pos >= 0:
             positional.append((pos, aname, ainfo))
         else:
@@ -119,7 +120,7 @@ def format_method(data):
     return "\n".join(lines)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate markdown documentation from clippy executables."
     )
@@ -129,16 +130,16 @@ def main():
         metavar="class_dir",
         help="Path to a class directory containing method executables",
     )
-    args = parser.parse_args()
+    args: argparse.Namespace = parser.parse_args()
 
     # Sort class directories alphabetically by basename
-    sorted_dirs = sorted(args.class_dirs, key=lambda d: os.path.basename(d).lower())
+    sorted_dirs: list[str] = sorted(args.class_dirs, key=lambda d: os.path.basename(d).lower())
 
     # First pass: collect methods per class
-    class_data = []
+    class_data: list[tuple[str, str, list[str]]] = []
     for class_dir in sorted_dirs:
-        class_name = os.path.basename(class_dir)
-        methods = find_methods(class_dir)
+        class_name: str = os.path.basename(class_dir)
+        methods: list[str] = find_methods(class_dir)
         class_data.append((class_name, class_dir, methods))
 
     # Header
@@ -156,7 +157,7 @@ def main():
 
     # Documentation
     for class_name, class_dir, methods in class_data:
-        class_doc = get_class_doc(class_dir)
+        class_doc: str = get_class_doc(class_dir)
 
         print(f"## {class_name}")
         print()
@@ -165,9 +166,9 @@ def main():
             print()
 
         for method in methods:
-            exe_path = os.path.join(class_dir, method)
+            exe_path: str = os.path.join(class_dir, method)
             try:
-                data = get_method_doc(exe_path)
+                data: dict[str, Any] | None = get_method_doc(exe_path)
             except (json.JSONDecodeError, OSError) as e:
                 print(
                     f"warning: {class_name}/{method} --clippy-help failed: {e}",
