@@ -613,6 +613,22 @@ metall_graph::return_code metall_graph::nhops(
     },
     where);
 
+  std::vector<std::string> missing_vertices;
+  for (const auto& source : sources) {
+    if (!adj_list.contains(source)) {
+      missing_vertices.push_back(source);
+    }
+  }
+  if (!missing_vertices.empty()) {
+    std::string error = "source vertex/vertices invalid or missing: ";
+    for (size_t i = 0; i < missing_vertices.size(); ++i) {
+      if (i > 0) error += ", ";
+      error += missing_vertices[i];
+    }
+    to_return.error = error;
+    return to_return;
+  }
+
   std::map<std::string, size_t>    local_nhop_map;
   ygm::container::set<std::string> visited(m_comm, sources), cur_level(m_comm),
     next_level(m_comm, sources);
