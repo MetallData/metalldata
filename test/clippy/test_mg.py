@@ -56,7 +56,7 @@ def test_mg_create(metallgraph):
 
 @pytest.mark.order(2)
 def test_mg_ingest_parquet(metallgraph):
-    metallgraph.ingest_parquet_edges(DATA_DIR + "/pq", "s", "t")
+    metallgraph.ingest_parquet_edges(DATA_DIR + "/test", "s", "t")
     is_as_described(metallgraph, 21, 28)
     el = metallgraph.select_edges()
     is_as_selected(el, {}, ["u", "v", "graphnum", "relevant"], ["foo", "field_does_not_exist"])

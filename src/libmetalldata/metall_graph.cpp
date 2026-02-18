@@ -219,7 +219,9 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
   bool got_u = false;
   bool got_v = false;
 
-  // we have parquet_cols already
+  size_t u_col_idx;
+  size_t v_col_idx;
+  // we have parquet_cols already - it's mapped 1:1 to schema.
   for (size_t i = 0; i < schema.size(); ++i) {
     std::string pcol_name = schema[i].name;
     auto        pcol_type = schema[i].type;
@@ -230,10 +232,12 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
         mapped_name = U_COL;
         got_u       = true;
+        u_col_idx   = i;
       } else if (pcol_name == col_v) {
         YGM_ASSERT_RELEASE(pcol_type.equal(parquet::Type::BYTE_ARRAY));
         mapped_name = V_COL;
         got_v       = true;
+        v_col_idx   = i;
       }
       parquet_to_metall[pcol_name] = mapped_name;
 
@@ -288,6 +292,21 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
   parquetp.for_all(
     parquet_cols,
     [&](const std::vector<ygm::io::parquet_parser::parquet_type_variant>& row) {
+      // for each row, check to make sure u and v are set. If they're
+      // monostate/null, skip the entire row.
+
+      auto u_val = row[u_col_idx];
+      auto v_val = row[v_col_idx];
+
+      if (std::holds_alternative<std::monostate>(u_val)) {
+        to_return.warnings["invalid u value skipped"]++;
+        return;
+      }
+      if (std::holds_alternative<std::monostate>(v_val)) {
+        to_return.warnings["invalid v value skipped"]++;
+        return;
+      }
+
       auto rec = m_pedges->add_record();
       // first, set the directedness.
       m_pedges->set(m_dir_col_idx, rec, directed);
