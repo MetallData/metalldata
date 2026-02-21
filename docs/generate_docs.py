@@ -61,7 +61,6 @@ def format_method(data: dict[str, Any]) -> str:
     lines: list[str] = []
     name: str = data.get("method_name", "")
     desc: str = data.get("desc", "")
-    state: dict[str, Any] = data.get("_state", {})
     args: dict[str, Any] = data.get("args", {})
 
     lines.append(f"### `{name}`")
@@ -103,16 +102,6 @@ def format_method(data: dict[str, Any]) -> str:
                 else "*required*"
             )
             lines.append(f"| `{aname}` | {adesc} | keyword | {default_str} |")
-        lines.append("")
-
-    if state:
-        lines.append("#### State")
-        lines.append("")
-        lines.append("| Name | Description |")
-        lines.append("|------|-------------|")
-        for sname, sinfo in sorted(state.items()):
-            sdesc = sinfo.get("desc", "") if isinstance(sinfo, dict) else str(sinfo)
-            lines.append(f"| `{sname}` | {sdesc} |")
         lines.append("")
 
     lines.append("---")
