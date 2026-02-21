@@ -3,7 +3,10 @@
 # so that cmake can find Boost.Unordered header files.
 name: CI Test
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  merge_group:
 
 jobs:
   test:
