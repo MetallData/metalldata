@@ -410,20 +410,35 @@ metall_graph::return_code metall_graph::priv_in_out_degree(
   }
 
   auto                                      edges_ = m_pedges;
-  ygm::container::counting_set<std::string> degrees(m_comm);
+  ygm::container::map<std::string, size_t>  degrees(m_comm);
+
+  auto node_col_id = m_pnodes->find_series(NODE_COL.unqualified());
+
+  std::vector<std::string> nodes;
+  priv_for_all_nodes(
+    [&](record_id_type id) {
+      std::string_view node_name =
+        m_pnodes->get<std::string_view>(node_col_id, id);
+      degrees.async_insert(std::string(node_name), 0);
+    },
+    where);
+
+  m_comm.barrier();
+  // ygm::container::counting_set<std::string> found_degrees(m_comm, nodes);
   priv_for_all_edges(
     [&](record_id_type id) {
       // Note: clangd may report a false positive error on the next line
       // The code compiles and runs correctly
       std::string_view edge_name = m_pedges->get<std::string_view>(degcol, id);
-      degrees.async_insert(std::string(edge_name));
-
+      degrees.async_visit(std::string(edge_name),
+                          [](const auto& key, auto& val) { val++; });
       // for undirected edges, add the reverse.
       bool is_directed = m_pedges->get<bool>(m_dir_col_idx, id);
       if (!is_directed) {
         auto reverseedge_name =
           m_pedges->get<std::string_view>(otherdegcol, id);
-        degrees.async_insert(std::string(reverseedge_name));
+        degrees.async_visit(std::string(reverseedge_name),
+                            [](const auto& key, auto& val) { val++; });
       }
     },
     where);
@@ -433,6 +448,11 @@ metall_graph::return_code metall_graph::priv_in_out_degree(
   // explicit here.
   m_comm.barrier();
 
+  // for (const auto& [node_name, deg_ct] : found_degrees) {
+  //   degrees.async_insert_or_assign(node_name, deg_ct);
+  // }
+
+  m_comm.barrier();
   set_node_column(name, degrees);
 
   return to_return;
@@ -468,9 +488,23 @@ metall_graph::return_code metall_graph::degrees(
     return to_return;
   }
 
-  auto                                      edges_ = m_pedges;
-  ygm::container::counting_set<std::string> indegrees(m_comm);
-  ygm::container::counting_set<std::string> outdegrees(m_comm);
+  ygm::container::map<std::string, size_t> indegrees(m_comm);
+  ygm::container::map<std::string, size_t> outdegrees(m_comm);
+
+  auto node_col_id = m_pnodes->find_series(NODE_COL.unqualified());
+
+  priv_for_all_nodes(
+    [&](record_id_type id) {
+      std::string_view node_name =
+        m_pnodes->get<std::string_view>(node_col_id, id);
+      indegrees.async_insert(std::string(node_name), 0);
+      outdegrees.async_insert(std::string(node_name), 0);
+    },
+    where);
+
+  m_comm.barrier();
+
+  auto edges_ = m_pedges;
   priv_for_all_edges(
     [&](record_id_type id) {
       // Note: clangd may report a false positive error on the next line
@@ -479,13 +513,19 @@ metall_graph::return_code metall_graph::degrees(
         std::string(m_pedges->get<std::string_view>(m_v_col_idx, id));
       auto out_edge_name =
         std::string(m_pedges->get<std::string_view>(m_u_col_idx, id));
-      indegrees.async_insert(in_edge_name);
-      outdegrees.async_insert(out_edge_name);
+      indegrees.async_visit(in_edge_name,
+                            [&](const auto& key, auto& val) { val++; });
+
+      outdegrees.async_visit(out_edge_name,
+                             [&](const auto& key, auto& val) { val++; });
 
       bool is_directed = m_pedges->get<bool>(m_dir_col_idx, id);
       if (!is_directed) {
-        indegrees.async_insert(out_edge_name);
-        outdegrees.async_insert(in_edge_name);
+        indegrees.async_visit(out_edge_name,
+                              [&](const auto& key, auto& val) { val++; });
+
+        outdegrees.async_visit(in_edge_name,
+                               [&](const auto& key, auto& val) { val++; });
       }
     },
     where);
@@ -513,15 +553,10 @@ metall_graph::return_code metall_graph::degrees(
   // that the node information is local from the degrees shared counting set
   // because it uses the same partitioning scheme as we used when we added the
   // nodes in ingest.
-  for (const auto& [k, v] : indegrees) {
-    auto rec_idx = node_to_id.at(k);
-    m_pnodes->set(in_deg_idx, rec_idx, v);
-  }
 
-  for (const auto& [k, v] : outdegrees) {
-    auto rec_idx = node_to_id.at(k);
-    m_pnodes->set(out_deg_idx, rec_idx, v);
-  }
+  to_return       = set_node_column(in_name, indegrees);
+  auto to_return2 = set_node_column(out_name, outdegrees);
+  to_return.merge_warnings(to_return2);
 
   return to_return;
 }
