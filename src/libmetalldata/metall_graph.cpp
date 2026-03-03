@@ -691,7 +691,7 @@ metall_graph::return_code metall_graph::nhops(
   static auto* sp_visited    = &visited;
   static auto* sp_next_level = &next_level;
 
-  while (next_level.size() > 0) {
+  while (next_level.size() > 0 && cur_level_dist <= nhops) {
     cur_level.swap(next_level);
     next_level.clear();
     for (const std::string& v : cur_level) {
