@@ -35,7 +35,9 @@ def is_specific(data_list: list[dict[str, Any]], key: str, keydict: dict[str, di
         if key in el:  # "id"
             keyval = el[key] # "path-a" or similar node value
             if keyval in keydict:
-                assert keydict[keyval].items() <= el.items()
+                assert keydict[keyval].items() <= el.items() and len(keydict[keyval].items()) > 0
+            
+                
 
 
     
@@ -128,6 +130,10 @@ def test_mg_nhops(metallgraph):
                        "path-c": {"nhops": 2}
                        }
     
+    for d in select_data:
+        if "nhops" in d:
+            assert d["nhops"] <= 2
+
     is_specific(select_data, "id", required_result)
     select_data = metallgraph.select_nodes(where=metallgraph.node.gnum != 3)
     is_as_selected(select_data, {}, ["id"], ["nhops"])
