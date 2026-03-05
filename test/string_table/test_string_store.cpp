@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cstring>
 #include <metall/metall.hpp>
 
 #include <string_table/string_store.hpp>
@@ -48,6 +49,23 @@ TEST(StringTableTest, Basic) {
     EXPECT_EQ(store->find("key1"), *ptr1);
 
     EXPECT_EQ(store->size(), size_t(2));
+
+    int  count      = 0;
+    bool found_key0 = false;
+    bool found_key1 = false;
+    for (const auto &item : *store) {
+      EXPECT_TRUE(std::strcmp(item.c_str(), "key0") == 0 ||
+                  std::strcmp(item.c_str(), "key1") == 0);
+      if (std::strcmp(item.c_str(), "key0") == 0) {
+        found_key0 = true;
+      } else if (std::strcmp(item.c_str(), "key1") == 0) {
+        found_key1 = true;
+      }
+      ++count;
+    }
+    EXPECT_EQ(count, 2);
+    EXPECT_TRUE(found_key0);
+    EXPECT_TRUE(found_key1);
   }
 }
 
