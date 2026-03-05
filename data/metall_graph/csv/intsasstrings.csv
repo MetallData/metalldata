@@ -1,0 +1,5 @@
+u,v,time_seen,valid
+"A","B","1",true
+"B","C","2",true
+"C","D","9",false
+"D","A","12",false
