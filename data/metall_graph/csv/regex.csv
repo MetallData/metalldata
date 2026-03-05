@@ -1,0 +1,10 @@
+s,t,times_seen,relevant
+A<T1>,B<T1>,1,true
+A<T1>,B<T2>,2,true
+A<T1>,A<T2>,3,false
+A<T1>,C<T3>,4,false
+B<T1>,B<T2>,5,true
+B<T3>,C<T1>,6,true
+B<T2>,C<T2>,7,false
+B<T1>,A<T1>,8,true
+C<T3>,A<B2>,9,false
