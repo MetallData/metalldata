@@ -7,6 +7,7 @@
 
 #include <cassert>
 #include <cstddef>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <scoped_allocator>
@@ -15,10 +16,16 @@
 #include <vector>
 
 #include <boost/container/string.hpp>
+#include <boost/container/vector.hpp>
 #include <boost/functional/hash.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
+#include <metall/utility/hash.hpp>
 
 #include "string_table/string_accessor.hpp"
+
+#ifndef METALLDATA_STRING_TABLE_NUM_BUCKETS
+#define METALLDATA_STRING_TABLE_NUM_BUCKETS 1024
+#endif
 
 namespace compact_string {
 namespace csdtl {
@@ -81,6 +88,8 @@ class string_store {
 
   class str_holder {
    public:
+    using value_type = char;
+
     str_holder() = default;
 
     /// \brief Construct a string holder from a pointer to the string data.
@@ -99,6 +108,8 @@ class string_store {
       static_assert(sizeof(char) == 1, "char must be one byte");
       return std::to_address(&m_ptr[sizeof(size_type)]);
     }
+
+    const char *c_str() const { return str(); }
 
     size_type length() const {
       // First entry is the length
@@ -136,17 +147,23 @@ class string_store {
     }
   };
 
-  // Hash function for basic_string_view
-  struct set_hasher {
+  template <unsigned int hash_seed>
+  struct str_hasher {
     using is_transparent = void;
 
     std::size_t operator()(const str_holder &str) const {
-      return boost::hash_range(str.str(), str.str() + str.length());
+      return metall::mtlldetail::MurmurHash64A(str.c_str(), str.length(),
+                                               hash_seed);
     }
     std::size_t operator()(const std::string_view &str) const {
-      return boost::hash_range(str.data(), str.data() + str.length());
+      return metall::mtlldetail::MurmurHash64A(str.data(), str.length(),
+                                               hash_seed);
     }
   };
+
+  // Hash function for basic_string_view
+  static constexpr unsigned int k_string_set_hash_seed = 0xd1340ca;
+  using set_hasher = str_hasher<k_string_set_hash_seed>;
 
   struct set_equal {
     using is_transparent = void;
@@ -170,13 +187,26 @@ class string_store {
   };
 
   using set_allocator_type = other_scoped_allocator<str_holder>;
-  using set_type = boost::unordered_flat_set<str_holder, set_hasher, set_equal,
-                                             set_allocator_type>;
+  using string_set_type =
+    boost::unordered_flat_set<str_holder, set_hasher, set_equal,
+                              set_allocator_type>;
+
+  static constexpr size_t k_num_string_sets =
+    METALLDATA_STRING_TABLE_NUM_BUCKETS;
+  using string_set_vector_allocator_type =
+    other_scoped_allocator<string_set_type>;
+  using string_sets_table_type =
+    std::vector<string_set_type, string_set_vector_allocator_type>;
+  static constexpr unsigned int k_bucket_hash_seed = 0xb47a63bc;
+  static_assert(k_bucket_hash_seed != k_string_set_hash_seed,
+                "k_bucket_hash_seed and k_set_hash_seed must be different");
+
+  class const_sets_iterator;
 
  public:
   /// \brief Get the length of the string
-  /// \param str A pointer to actual string data (not the address that points to
-  /// the length data).
+  /// \param str A pointer to actual string data (not the address that points
+  /// to the length data).
   static constexpr size_t str_length(const char *const str) {
     const auto *ptr = reinterpret_cast<const size_type *>(str);
     return *(ptr - 1);
@@ -184,7 +214,8 @@ class string_store {
 
   string_store() = default;
 
-  explicit string_store(allocator_type allocator) : m_set(allocator) {}
+  explicit string_store(allocator_type allocator)
+      : m_str_sets_table(k_num_string_sets, allocator) {}
 
   string_store(const string_store &)                = delete;
   string_store(string_store &&) noexcept            = default;
@@ -195,14 +226,15 @@ class string_store {
 
   /// Return the pointer to the string data if the string is found in the store.
   const char *find_or_add(std::string_view str) {
-    auto itr = m_set.find(str);
-    if (itr != m_set.end()) {
+    auto &set = m_str_sets_table[priv_str_set_no(str)];
+    auto  itr = set.find(str);
+    if (itr != set.end()) {
       // Found in the store
       return std::to_address(itr->str());
     }
     // Not found, add it
     char *len_str_buf = priv_allocate_string(str);
-    auto  ret         = m_set.emplace(len_str_buf);
+    auto  ret         = set.emplace(len_str_buf);
     assert(ret.second);  // must be inserted
     const auto &str_holder = *(ret.first);
     assert(str_holder.length() == str.length());
@@ -212,31 +244,56 @@ class string_store {
   }
 
   const char *find(std::string_view str) const {
-    auto itr = m_set.find(str);
-    if (itr == m_set.end()) {
+    auto &set = m_str_sets_table[priv_str_set_no(str)];
+    auto  itr = set.find(str);
+    if (itr == set.end()) {
       return nullptr;
     }
     return std::to_address(itr->str());
   }
 
-  std::size_t size() const { return m_set.size(); }
-
-  typename set_type::const_iterator begin() const { return m_set.begin(); }
-  typename set_type::const_iterator end() const { return m_set.end(); }
-
-  void clear() {
-    for (auto &item : m_set) {
-      priv_deallocate_string(item);
+  std::size_t size() const {
+    size_t size = 0;
+    for (const auto &set : m_str_sets_table) {
+      size += set.size();
     }
-    m_set.clear();
+    return size;
   }
 
-  allocator_type get_allocator() const { return m_set.get_allocator(); }
+  const_sets_iterator begin() const {
+    return const_sets_iterator(m_str_sets_table.begin(), m_str_sets_table.end(),
+                               false);
+  }
+  const_sets_iterator end() const {
+    return const_sets_iterator(m_str_sets_table.end(), m_str_sets_table.end(),
+                               true);
+  }
+
+  void clear() {
+    for (auto &set : m_str_sets_table) {
+      for (auto &item : set) {
+        priv_deallocate_string(item);
+      }
+      set.clear();
+    }
+  }
+
+  allocator_type get_allocator() const {
+    return m_str_sets_table.at(0).get_allocator();
+  }
 
  private:
+  static int priv_str_set_no(const std::string_view &str) {
+    if constexpr (k_num_string_sets == 1) {
+      return 0;
+    } else {
+      return str_hasher<k_bucket_hash_seed>{}(str) % k_num_string_sets;
+    }
+  }
+
   char *priv_allocate_string(const std::string_view &str) {
-    return csdtl::allocate_string_embedding_length<size_type>(
-      str, m_set.get_allocator());
+    return csdtl::allocate_string_embedding_length<size_type>(str,
+                                                              get_allocator());
   }
 
   void priv_deallocate_string(const std::string_view &str) {
@@ -246,11 +303,83 @@ class string_store {
       "allocator_type::value_type must be the same as char");
 
     std::allocator_traits<allocator_type>::deallocate(
-      m_set.get_allocator(), const_cast<char *>(str.data()),
+      get_allocator(), const_cast<char *>(str.data()) - sizeof(size_type),
       sizeof(size_type) + str.size() + 1);
   }
 
-  set_type m_set;
+  void priv_deallocate_string(const str_holder &str) {
+    priv_deallocate_string(std::string_view(str.str(), str.length()));
+  }
+
+  string_sets_table_type m_str_sets_table;
+};
+
+template <typename Alloc>
+class string_store<Alloc>::const_sets_iterator {
+ public:
+  using iterator_category = std::forward_iterator_tag;
+  using value_type        = string_store<Alloc>::str_holder;
+  using difference_type   = std::ptrdiff_t;
+  using pointer           = const value_type *;
+  using reference         = const value_type &;
+
+  const_sets_iterator(
+    typename string_store<Alloc>::string_sets_table_type::const_iterator
+      set_itr,
+    typename string_store<Alloc>::string_sets_table_type::const_iterator
+         set_end_itr,
+    bool is_end)
+      : m_set_itr(set_itr), m_set_end_itr(set_end_itr) {
+    if (is_end) {
+      m_set_itr = m_set_end_itr;
+    } else {
+      // Move to the first non-empty set
+      while (m_set_itr != m_set_end_itr && (*m_set_itr).empty()) {
+        ++m_set_itr;
+      }
+    }
+    if (m_set_itr != m_set_end_itr) {
+      m_item_itr = (*m_set_itr).begin();
+    }
+  }
+
+  reference operator*() const { return *m_item_itr; }
+
+  pointer operator->() const { return &operator*(); }
+
+  const_sets_iterator &operator++() {
+    ++m_item_itr;
+    // If we reach the end of the current set, move to the next non-empty set
+    while (m_set_itr != m_set_end_itr && m_item_itr == (*m_set_itr).end()) {
+      ++m_set_itr;
+      if (m_set_itr != m_set_end_itr) {
+        m_item_itr = (*m_set_itr).begin();
+      }
+    }
+    return *this;
+  }
+
+  const_sets_iterator operator++(int) {
+    const_sets_iterator temp = *this;
+    ++(*this);
+    return temp;
+  }
+
+  bool operator==(const const_sets_iterator &other) const {
+    return m_set_itr == other.m_set_itr &&
+           (m_set_itr == m_set_end_itr || m_item_itr == other.m_item_itr);
+  }
+
+  bool operator!=(const const_sets_iterator &other) const {
+    return !(*this == other);
+  }
+
+ private:
+  typename string_store<Alloc>::string_sets_table_type::const_iterator
+    m_set_itr;
+  typename string_store<Alloc>::string_sets_table_type::const_iterator
+                                                                m_set_end_itr;
+  typename string_store<Alloc>::string_set_type::const_iterator m_item_itr;
 };
 
 /// \brief Helper function to add a string to the string store
