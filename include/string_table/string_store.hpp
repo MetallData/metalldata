@@ -13,7 +13,6 @@
 #include <scoped_allocator>
 #include <string_view>
 #include <utility>
-#include <vector>
 
 #include <boost/container/string.hpp>
 #include <boost/container/vector.hpp>
@@ -196,7 +195,7 @@ class string_store {
   using string_set_vector_allocator_type =
     other_scoped_allocator<string_set_type>;
   using string_sets_table_type =
-    std::vector<string_set_type, string_set_vector_allocator_type>;
+    boost::container::vector<string_set_type, string_set_vector_allocator_type>;
   static constexpr unsigned int k_bucket_hash_seed = 0xb47a63bc;
   static_assert(k_bucket_hash_seed != k_string_set_hash_seed,
                 "k_bucket_hash_seed and k_set_hash_seed must be different");
