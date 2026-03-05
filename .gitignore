@@ -16,3 +16,4 @@ compile_commands.json
 venv/
 __pycache__/
 mg[0-9]/
+nosync-*
