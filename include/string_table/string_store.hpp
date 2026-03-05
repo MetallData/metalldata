@@ -211,7 +211,7 @@ class string_store {
     return *(ptr - 1);
   }
 
-  string_store() = default;
+  string_store() : m_str_sets_table(k_num_string_sets) {}
 
   explicit string_store(allocator_type allocator)
       : m_str_sets_table(k_num_string_sets, allocator) {}
@@ -225,7 +225,9 @@ class string_store {
 
   /// Return the pointer to the string data if the string is found in the store.
   const char *find_or_add(std::string_view str) {
-    auto &set = m_str_sets_table[priv_str_set_no(str)];
+    const auto set_no = priv_str_set_no(str);
+    assert(m_str_sets_table.size() > set_no);
+    auto &set = m_str_sets_table[set_no];
     auto  itr = set.find(str);
     if (itr != set.end()) {
       // Found in the store
