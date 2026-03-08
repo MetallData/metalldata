@@ -65,10 +65,10 @@ FetchContent_MakeAvailable(YGM)
 #
 #  Faker
 #
-set(BUILD_TESTING OFF)
+set(FAKER_BUILD_TESTING OFF)
 FetchContent_Declare(faker
     GIT_REPOSITORY ${FAKER_FETCH_GIT}
-    GIT_TAG v4.2.0
+    GIT_TAG v4.3.2
     GIT_SUBMODULES ""
         )
 FetchContent_MakeAvailable(faker)
@@ -81,7 +81,7 @@ set(JSONLOGIC_ENABLE_BENCH OFF)
 set(JSONLOGIC_ENABLE_TESTS OFF)
 FetchContent_Declare(CLIPPy
         GIT_REPOSITORY ${CLIPPY_FETCH_GIT}
-        GIT_TAG v0.5.1
+        GIT_TAG v0.5.3
         SOURCE_SUBDIR cpp
         )
         FetchContent_MakeAvailable(CLIPPy)
