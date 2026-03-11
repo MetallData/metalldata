@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.14)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 project(MetallData
-        VERSION 0.3
+        VERSION 0.2
         DESCRIPTION "Metall Containers"
         LANGUAGES CXX)
 
