@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.14)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 project(MetallData
-        VERSION 0.3
+        VERSION 0.2
         DESCRIPTION "Metall Containers"
         LANGUAGES CXX)
 
@@ -58,7 +58,7 @@ set(YGM_REQUIRE_PARQUET ON)
 set(YGM_INSTALL_PARQUET ON)
 FetchContent_Declare(YGM
     GIT_REPOSITORY ${YGM_FETCH_GIT}
-    GIT_TAG 7b0ccc69ccb944a42fb1b3021b5d03ade3e4e2b0
+    GIT_TAG a66df3e3c51d9b58df7641894062c9fdb782b571
         )
 FetchContent_MakeAvailable(YGM)
 
