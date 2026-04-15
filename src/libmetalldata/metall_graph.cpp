@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 #include <string>
+#include <variant>
 #include <vector>
 #include <set>
 #include <map>
@@ -228,13 +229,16 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
     series_name mapped_name{"edge", pcol_name};
     if (metaset.contains(mapped_name)) {
       if (pcol_name == col_u) {
-        YGM_ASSERT_RELEASE(pcol_type.equal(parquet::Type::BYTE_ARRAY));
+        // we're no longer checking to see what the pcol_type is since
+        // we will be coercing.
+        // YGM_ASSERT_RELEASE(pcol_type.equal(parquet::Type::BYTE_ARRAY));
 
         mapped_name = U_COL;
         got_u       = true;
         u_col_idx   = i;
       } else if (pcol_name == col_v) {
-        YGM_ASSERT_RELEASE(pcol_type.equal(parquet::Type::BYTE_ARRAY));
+        // see above
+        // YGM_ASSERT_RELEASE(pcol_type.equal(parquet::Type::BYTE_ARRAY));
         mapped_name = V_COL;
         got_v       = true;
         v_col_idx   = i;
@@ -318,40 +322,75 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
           continue;
         }
 
+        
         auto parquet_val = row[i];
 
         auto              metall_ser = parquet_to_metall[parquet_ser];
+        // memoization since we use this a few times.
+        bool is_u_or_v = (metall_ser == U_COL || metall_ser == V_COL);
+        // an edge is invalid if we have a type coercion problem
+        bool              invalid_edge = false;
         series_index_type metall_ser_idx =
           m_pedges->find_series(metall_ser.unqualified());
 
         auto add_val = [&](const auto& val) {
           using T = std::decay_t<decltype(val)>;
 
-          // these are overrides for static_cast
-          if constexpr (std::is_same_v<T, std::monostate>) {
-            // do nothing
-          } else if constexpr (std::is_same_v<T, int>) {
-            m_pedges->set(metall_ser_idx, rec, static_cast<int64_t>(val));
-          } else if constexpr (std::is_same_v<T, long>) {
-            m_pedges->set(metall_ser_idx, rec, static_cast<int64_t>(val));
-          } else if constexpr (std::is_same_v<T, float>) {
-            m_pedges->set(metall_ser_idx, rec, static_cast<double>(val));
-          } else if constexpr (std::is_same_v<T, std::string>) {
-            m_pedges->set(metall_ser_idx, rec, std::string_view(val));
-            // if this is u or v, add to the distributed nodeset.
-            if (metall_ser == U_COL || metall_ser == V_COL) {
-              int owner = m_partitioner.owner(val);
-              m_comm.async(
-                owner,
-                [](const std::string& s) {
-                  sthis->priv_local_node_find_or_insert(s);
-                },
-                val);
+          // if we're dealing with the u column or the v column,
+          // coerce the value to a string or log a warning, and
+          // then add to the nodeset.
+          if (is_u_or_v) {
+            std::string uv_invalid = std::format(
+              "invalid {} value skipped", metall_ser == U_COL ? "u" : "v");
+
+            // if monostate, just skip and log.
+            if constexpr (std::is_same_v<T, std::monostate>) {
+              to_return.warnings[uv_invalid]++;
+              invalid_edge = true;
+            } else {
+              try {
+                // first, stringify.
+                std::string stringified_val =
+                  std::format("{}", static_cast<T>(val));
+
+                // next, set the stringified value
+                m_pedges->set(metall_ser_idx, rec,
+                              std::string_view(stringified_val));
+
+                // next, add to the distributed nodeset.
+                int owner = m_partitioner.owner(stringified_val);
+                m_comm.async(
+                  owner,
+                  [](const std::string& s) {
+                    sthis->priv_local_node_find_or_insert(s);
+                  },
+                  stringified_val);
+                // finally, increase local_n_edges
+                ++local_nedges;
+              } catch (const std::exception) {
+                // something went wrong with the try block. Skip.
+                to_return.warnings[uv_invalid]++;
+                invalid_edge = true;
+              }
             }
-          } else {
-            m_pedges->set(metall_ser_idx, rec, val);
+          } else {  // not u column or v column; these can be any type.
+            // these are overrides for static_cast
+            if constexpr (std::is_same_v<T, std::monostate>) {
+              // do nothing
+            } else if constexpr (std::is_same_v<T, int>) {
+              m_pedges->set(metall_ser_idx, rec, static_cast<int64_t>(val));
+            } else if constexpr (std::is_same_v<T, long>) {
+              m_pedges->set(metall_ser_idx, rec, static_cast<int64_t>(val));
+
+            } else if constexpr (std::is_same_v<T, float>) {
+              m_pedges->set(metall_ser_idx, rec, static_cast<double>(val));
+            } else if constexpr (std::is_same_v<T, std::string>) {
+              m_pedges->set(metall_ser_idx, rec, std::string_view(val));
+            } else {
+              m_pedges->set(metall_ser_idx, rec, val);
+            };
           };
-          ++local_nedges;
+          if (!invalid_edge) ++local_nedges;
         };
         std::visit(add_val, parquet_val);
       }  // for loop
