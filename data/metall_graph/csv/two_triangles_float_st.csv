@@ -1,0 +1,7 @@
+s,t,graphnum,weight,color,name,relevant,randint
+1.1,2.2,0,1.1,blue,Adam,false,67
+2.2,3.3,0,2.2,blue,,false,45
+3.3,1.1,0,1.1,blue,Charlie,false,23
+3.3,4.4,0,1.1,red,,false,89
+4.4,5.5,0,4.4,red,Edward,false,12
+5.5,3.3,0,3.3,red,Fred,false,78
