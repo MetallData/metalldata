@@ -13,6 +13,12 @@ set(FETCHCONTENT_QUIET OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+#
+# Configuration options
+#
+option(METALLDATA_FIND_PARQUET_IN_SYSTEM "Find Arrow Parquet installed in the system." ON)
+option(METALLDATA_INSTALL_PARQUET "Installs Arrow Parquet. If METALLDATA_FIND_PARQUET_IN_SYSTEM is ON, this option is executed only if Arrow Parquet is not found in the system." ON)
+set(METALLDATA_PYTHON_VENV_ROOT CACHE PATH "Path to a Python virtual environment root. If set, MetallData will use this virtual environment for Python dependencies.")
 
 #
 # FetchContent dependencies that can be overridden on the command line.
@@ -20,20 +26,20 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(BOOST_FETCH_URL
     "https://github.com/boostorg/boost/releases/download/boost-1.87.0/boost-1.87.0-cmake.tar.gz"
     CACHE STRING "URL to fetch Boost tarball")
-set(YGM_FETCH_GIT 
-    "https://github.com/llnl/ygm.git" 
+set(YGM_FETCH_GIT
+    "https://github.com/llnl/ygm.git"
     CACHE STRING "GIT to fetch YGM")
-set(FAKER_FETCH_GIT 
-    "https://github.com/cieslarmichal/faker-cxx" 
+set(FAKER_FETCH_GIT
+    "https://github.com/cieslarmichal/faker-cxx"
     CACHE STRING "GIT to fetch Faker-CXX")
-set(CLIPPY_FETCH_GIT 
-    "https://github.com/LLNL/clippy.git" 
+set(CLIPPY_FETCH_GIT
+    "https://github.com/LLNL/clippy.git"
     CACHE STRING "GIT to fetch CLIPPy")
-set(METALL_FETCH_GIT 
-    "https://github.com/LLNL/metall.git" 
+set(METALL_FETCH_GIT
+    "https://github.com/LLNL/metall.git"
     CACHE STRING "GIT to fetch Metall")
-set(SPDLOG_FETCH_GIT 
-    "https://github.com/gabime/spdlog.git" 
+set(SPDLOG_FETCH_GIT
+    "https://github.com/gabime/spdlog.git"
     CACHE STRING "GIT to fetch SPDLOG")
 
 #
@@ -52,10 +58,23 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 FetchContent_MakeAvailable(Boost)
 
 #
+# Arrow Parquet
+#
+include(FindArrowParquet)
+if (METALLDATA_FIND_PARQUET_IN_SYSTEM)
+    find_arrow_parquet_config()
+endif ()
+
+# Install Arrow Parquet
+if (METALLDATA_INSTALL_PARQUET AND (NOT Arrow_FOUND AND NOT Parquet_FOUND))
+    install_arrow_parquet()
+endif ()
+
+#
 #  YGM
 #
-set(YGM_REQUIRE_PARQUET ON)
-set(YGM_INSTALL_PARQUET ON)
+set(YGM_FIND_PARQUET_IN_SYSTEM OFF)
+set(YGM_INSTALL_PARQUET OFF)
 FetchContent_Declare(YGM
     GIT_REPOSITORY ${YGM_FETCH_GIT}
     GIT_TAG a66df3e3c51d9b58df7641894062c9fdb782b571
@@ -133,8 +152,7 @@ function(add_metalldata_executable name source)
     add_common_compile_options(${name})
     target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include ${BOOST_INCLUDE_DIRS} ${jsonlogic_INCLUDE_DIR})
     target_link_libraries(${name} PRIVATE Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph Boost::program_options jsonlogic)
-    target_link_libraries(${name} PRIVATE Arrow::arrow_shared)
-    target_link_libraries(${name} PRIVATE Parquet::parquet_shared)
+    link_arrow_parquet(${name} PRIVATE)
     target_compile_definitions(${name} PRIVATE METALLDATA_USE_PARQUET)
 endfunction()
 
@@ -193,8 +211,7 @@ function(setup_metall_target exe_name)
     endif ()
 
     if (METALLDATA_USE_PARQUET AND Arrow_FOUND AND Parquet_FOUND)
-        target_link_libraries(${exe_name} PRIVATE Arrow::arrow_shared)
-        target_link_libraries(${exe_name} PRIVATE Parquet::parquet_shared)
+        link_arrow_parquet(${exe_name} PRIVATE)
         target_compile_definitions(${exe_name} PRIVATE METALLDATA_USE_PARQUET)
     endif ()
     target_compile_definitions(${exe_name} PRIVATE "METALL_DISABLE_CONCURRENCY")
