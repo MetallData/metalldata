@@ -4,12 +4,12 @@ setup_metall_target(test_parquet_writer)
 setup_ygm_target(test_parquet_writer)
 
 # Add include directory so the test can find the header
-target_include_directories(test_parquet_writer PRIVATE 
+target_include_directories(test_parquet_writer PRIVATE
     ${CMAKE_SOURCE_DIR}/include/parquet_writer)
 
 target_link_libraries(test_parquet_writer PUBLIC
-                parquet_writer_lib
-                Arrow::arrow_shared Parquet::parquet_shared)
+                parquet_writer_lib)
+link_arrow_parquet(test_parquet_writer PUBLIC)
 
 # Main comprehensive test
 add_test(NAME ParquetWriter_Tests COMMAND test_parquet_writer)
