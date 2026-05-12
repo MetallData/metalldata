@@ -48,11 +48,11 @@ class metall_graph {
   /// multiseries record store are the dataframes
   using record_store_type =
     multiseries::basic_record_store<metall::manager::allocator_type<std::byte>>;
-  using record_id_type    = record_store_type::record_id_type;
+  using record_id_type = record_store_type::record_id_type;
   using series_index_type = record_store_type::series_index_type;
 
   /// string table deduplicates strings
-  using string_store_type     = record_store_type::string_store_type;
+  using string_store_type = record_store_type::string_store_type;
   using string_table_accessor = compact_string::string_accessor;
 
   /// hash table to index local node's record ids
@@ -95,8 +95,8 @@ class metall_graph {
     series_name() = default;
     series_name(std::string_view name) {
       auto [prefix, unqualified] = priv_split_series_str(name);
-      m_prefix                   = prefix;
-      m_unqualified              = unqualified;
+      m_prefix = prefix;
+      m_unqualified = unqualified;
     };
 
     series_name(std::string_view prefix, std::string_view unqualified)
@@ -151,10 +151,10 @@ class metall_graph {
       std::string_view unqualified;
       size_t           pos = str.find('.');
       if (pos != std::string_view::npos) {
-        prefix      = str.substr(0, pos);
+        prefix = str.substr(0, pos);
         unqualified = str.substr(pos + 1);
       } else {
-        prefix      = std::string_view{};
+        prefix = std::string_view{};
         unqualified = str;
       }
       return std::make_pair(prefix, unqualified);
@@ -191,7 +191,7 @@ class metall_graph {
       }
 
       auto first_series_name = m_series_names.front();
-      auto first_prefix      = first_series_name.prefix();
+      auto first_prefix = first_series_name.prefix();
 
       for (const auto& name : m_series_names) {
         if (first_prefix != name.prefix()) {
@@ -240,9 +240,9 @@ class metall_graph {
   */
 
   // these are "full qualified" selectors.
-  const series_name           U_COL    = series_name("edge.u");
-  const series_name           V_COL    = series_name("edge.v");
-  const series_name           DIR_COL  = series_name("edge.directed");
+  const series_name           U_COL = series_name("edge.u");
+  const series_name           V_COL = series_name("edge.v");
+  const series_name           DIR_COL = series_name("edge.directed");
   const series_name           NODE_COL = series_name("node.id");
   const std::set<series_name> RESERVED_COLUMN_NAMES = {DIR_COL, U_COL, V_COL};
 
@@ -303,13 +303,13 @@ class metall_graph {
     // function) need to match the corresponding meta.json values.
     std::map<std::string, std::string> sels;
     for (const auto& el : m_pedges->get_series_names()) {
-      auto sel  = std::format("edge.{}", el);
+      auto sel = std::format("edge.{}", el);
       sels[sel] = "default";
     }
     for (const auto& el : m_pnodes->get_series_names()) {
-      auto sel  = std::format("{}.{}", U_COL.qualified(), el);
+      auto sel = std::format("{}.{}", U_COL.qualified(), el);
       sels[sel] = "inherited";
-      sel       = std::format("{}.{}", V_COL.qualified(), el);
+      sel = std::format("{}.{}", V_COL.qualified(), el);
       sels[sel] = "inherited";
     }
 
@@ -321,7 +321,7 @@ class metall_graph {
     // collect.
     std::map<std::string, std::string> sels;
     for (const auto& el : m_pnodes->get_series_names()) {
-      auto sel  = std::format("node.{}", el);
+      auto sel = std::format("node.{}", el);
       sels[sel] = "default";
     }
     return sels;
@@ -561,8 +561,24 @@ class metall_graph {
                           const where_clause& where = where_clause()) const;
 
   template <typename Fn>
+  void priv_for_all_edges_nwhere(
+    Fn func, const where_clause& where = where_clause()) const;
+
+  template <typename Fn>
+  void priv_for_all_edges_ewhere(
+    Fn func, const where_clause& where = where_clause()) const;
+
+  template <typename Fn>
   void priv_for_all_nodes(Fn                  func,
                           const where_clause& where = where_clause()) const;
+
+  template <typename Fn>
+  void priv_for_all_nodes_nwhere(
+    Fn func, const where_clause& where = where_clause()) const;
+
+  template <typename Fn>
+  void priv_for_all_nodes_ewhere(
+    Fn func, const where_clause& where = where_clause()) const;
 
   // Sets a node metadata column based on a lookup from an associative data
   // structure.
