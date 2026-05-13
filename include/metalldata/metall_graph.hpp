@@ -477,9 +477,6 @@ class metall_graph {
   return_code degrees2(series_name in_name, series_name out_name,
                        const where_clause& = where_clause());
 
-  return_code connected_components(series_name out_name,
-                                   const where_clause& = where_clause());
-
   // struct ego_net_options {
   //   std::optional<std::string> v_dist_closest;
   //   std::optional<std::string> v_closest_source;
@@ -490,6 +487,9 @@ class metall_graph {
   return_code nhops(const series_name& out_node_series, size_t nhops,
                     const std::vector<std::string>& sources,
                     const where_clause&             where = where_clause());
+
+  return_code connected_components(const series_name&  out_node_series,
+                                   const where_clause& where = where_clause());
 
   // TODO: also allow val a function
   return_code assign(series_name series_name, const data_types& val,
