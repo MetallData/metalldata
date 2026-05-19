@@ -54,8 +54,12 @@ metall_graph::return_code metall_graph::nhops(
 
   priv_for_all_edges(
     [&](record_id_type id) {
-      std::string u(m_pedges->get<std::string_view>(u_col, id));
-      std::string v(m_pedges->get<std::string_view>(v_col, id));
+      auto u_opt = m_pedges->get<std::string_view>(u_col, id);
+      auto v_opt = m_pedges->get<std::string_view>(v_col, id);
+      YGM_ASSERT_RELEASE(u_opt.has_value());
+      YGM_ASSERT_RELEASE(v_opt.has_value());
+      std::string u(u_opt.value());
+      std::string v(v_opt.value());
       auto        is_directed = m_pedges->get<bool>(is_directed_col, id);
       auto adj_inserter = [](const std::string&, std::vector<std::string>& adj,
                              const std::string& vert) { adj.push_back(vert); };

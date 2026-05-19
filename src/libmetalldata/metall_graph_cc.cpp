@@ -54,8 +54,12 @@ metall_graph::return_code metall_graph::connected_components(
 
   priv_for_all_edges(
     [&](record_id_type id) {
-      std::string u(m_pedges->get<std::string_view>(m_u_col_idx, id));
-      std::string v(m_pedges->get<std::string_view>(m_v_col_idx, id));
+      auto u_opt = m_pedges->get<std::string_view>(m_u_col_idx, id);
+      auto v_opt = m_pedges->get<std::string_view>(m_v_col_idx, id);
+      YGM_ASSERT_RELEASE(u_opt.has_value());
+      YGM_ASSERT_RELEASE(v_opt.has_value());
+      std::string u(u_opt.value());
+      std::string v(v_opt.value());
       auto        is_directed = m_pedges->get<bool>(m_dir_col_idx, id);
       auto        adj_inserter =
         [](const std::string&                                ccid,
@@ -75,7 +79,9 @@ metall_graph::return_code metall_graph::connected_components(
     priv_for_all_nodes_nwhere(
       [&](record_id_type id) {
         // Do something with each node
-        std::string v(m_pnodes->get<std::string_view>(m_node_col_idx, id));
+        auto v_opt = m_pnodes->get<std::string_view>(m_node_col_idx, id);
+        YGM_ASSERT_RELEASE(v_opt.has_value());
+        std::string v(v_opt.value());
         adj_list.async_visit(
           v, [](const std::string&                                ccid,
                 std::pair<std::string, std::vector<std::string>>& adj) {

@@ -435,6 +435,14 @@ class metall_graph {
 
   size_t num_edge_series() const { return m_pedges->num_series(); };
 
+  std::map<metall_graph::series_name, size_t> nunique_edge(
+    std::unordered_set<metall_graph::series_name> series_names,
+    const where_clause&                           where = where_clause{});
+
+  std::map<metall_graph::series_name, size_t> nunique_node(
+    std::unordered_set<metall_graph::series_name> series_names,
+    const where_clause&                           where = where_clause{});
+
   template <typename Fn>
   void visit_node_field(series_name name, size_t record_id, Fn func) const {
     assert(name.is_node_series());

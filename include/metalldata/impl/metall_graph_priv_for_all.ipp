@@ -167,8 +167,10 @@ void metall_graph::priv_for_all_nodes_ewhere(
       auto u = m_pedges->get<std::string_view>(u_col_idx, record_idx);
       auto v = m_pedges->get<std::string_view>(v_col_idx, record_idx);
 
-      nodeset.async_insert(std::string(u));
-      nodeset.async_insert(std::string(v));
+      YGM_ASSERT_RELEASE(u.has_value());
+      YGM_ASSERT_RELEASE(v.has_value());
+      nodeset.async_insert(std::string(u.value()));
+      nodeset.async_insert(std::string(v.value()));
     },
     where);
 
