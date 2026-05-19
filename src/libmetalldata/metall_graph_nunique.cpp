@@ -29,6 +29,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
     m_comm.cerr0() << "trying sname = " << sname << "\n";
     auto sid = m_pedges->find_series(sname.unqualified());
     if (m_pedges->is_series_type<std::string_view>(sid)) {
+      m_comm.cerr0() << "SERIES " << sname << " TYPE STRING_VIEW\n";
       ygm::container::set<std::string> distinct(m_comm);
       for (auto rid : rids) {
         auto val_opt = m_pedges->get<std::string_view>(sid, rid);
@@ -44,6 +45,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
         nunique[sname] = sz;
       }
     } else if (m_pedges->is_series_type<int64_t>(sid)) {
+      m_comm.cerr0() << "SERIES " << sname << " TYPE INT64_T\n";
       ygm::container::set<int64_t> distinct(m_comm);
       for (auto rid : rids) {
         auto val_opt = m_pedges->get<int64_t>(sid, rid);
@@ -57,9 +59,10 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
         nunique[sname] = sz;
       }
     } else if (m_pedges->is_series_type<uint64_t>(sid)) {
+      m_comm.cerr0() << "SERIES " << sname << " TYPE UINT64_T\n";
       ygm::container::set<uint64_t> distinct(m_comm);
       for (auto rid : rids) {
-        auto val_opt = m_pedges->get<int64_t>(sid, rid);
+        auto val_opt = m_pedges->get<uint64_t>(sid, rid);
         if (val_opt.has_value()) {
           distinct.async_insert(val_opt.value());
         }
@@ -71,6 +74,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
         nunique[sname] = distinct.size();
       }
     } else if (m_pedges->is_series_type<bool>(sid)) {
+      m_comm.cerr0() << "SERIES " << sname << " TYPE BOOL\n";
       bool has_true = false;
       bool has_false = false;
       // How can we share a value across ranks? A set of bool makes no sense
@@ -98,6 +102,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
         nunique[sname] = sz;
       }
     } else if (m_pedges->is_series_type<double>(sid)) {
+      m_comm.cerr0() << "SERIES " << sname << " TYPE DOUBLE\n";
       ygm::container::set<double> distinct(m_comm);
       for (auto rid : rids) {
         auto val_opt = m_pedges->get<double>(sid, rid);
@@ -162,7 +167,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
     } else if (m_pnodes->is_series_type<uint64_t>(sid)) {
       ygm::container::set<uint64_t> distinct(m_comm);
       for (auto rid : rids) {
-        auto val_opt = m_pnodes->get<int64_t>(sid, rid);
+        auto val_opt = m_pnodes->get<uint64_t>(sid, rid);
         if (val_opt.has_value()) {
           distinct.async_insert(val_opt.value());
         }
