@@ -26,10 +26,8 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
   // map the series names to indices
   std::vector<series_index_type> sids;
   for (const auto &sname : series_names) {
-    m_comm.cerr0() << "trying sname = " << sname << "\n";
     auto sid = m_pedges->find_series(sname.unqualified());
     if (m_pedges->is_series_type<std::string_view>(sid)) {
-      m_comm.cerr0() << "SERIES " << sname << " TYPE STRING_VIEW\n";
       ygm::container::set<std::string> distinct(m_comm);
       for (auto rid : rids) {
         auto val_opt = m_pedges->get<std::string_view>(sid, rid);
@@ -40,12 +38,9 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
 
       size_t sz = distinct.size();
       if (m_comm.rank0()) {
-        m_comm.cerr0() << "in " << sname << " string_view with size " << sz
-                       << "\n";
         nunique[sname] = sz;
       }
     } else if (m_pedges->is_series_type<int64_t>(sid)) {
-      m_comm.cerr0() << "SERIES " << sname << " TYPE INT64_T\n";
       ygm::container::set<int64_t> distinct(m_comm);
       for (auto rid : rids) {
         auto val_opt = m_pedges->get<int64_t>(sid, rid);
@@ -55,11 +50,9 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
       }
       size_t sz = distinct.size();
       if (m_comm.rank0()) {
-        m_comm.cerr0() << "in " << sname << " int64_t with size " << sz << "\n";
         nunique[sname] = sz;
       }
     } else if (m_pedges->is_series_type<uint64_t>(sid)) {
-      m_comm.cerr0() << "SERIES " << sname << " TYPE UINT64_T\n";
       ygm::container::set<uint64_t> distinct(m_comm);
       for (auto rid : rids) {
         auto val_opt = m_pedges->get<uint64_t>(sid, rid);
@@ -67,14 +60,12 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
           distinct.async_insert(val_opt.value());
         }
       }
-      m_comm.barrier();
+
+      size_t sz = distinct.size();
       if (m_comm.rank0()) {
-        m_comm.cerr0() << "in " << sname << " uint64_t with size "
-                       << distinct.size() << "\n";
-        nunique[sname] = distinct.size();
+        nunique[sname] = sz;
       }
     } else if (m_pedges->is_series_type<bool>(sid)) {
-      m_comm.cerr0() << "SERIES " << sname << " TYPE BOOL\n";
       bool has_true = false;
       bool has_false = false;
       // How can we share a value across ranks? A set of bool makes no sense
@@ -98,11 +89,9 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
 
       if (m_comm.rank0()) {
         size_t sz = size_t(global_has_true) + size_t(global_has_false);
-        m_comm.cerr0() << "in " << sname << " bool with size " << sz << "\n";
         nunique[sname] = sz;
       }
     } else if (m_pedges->is_series_type<double>(sid)) {
-      m_comm.cerr0() << "SERIES " << sname << " TYPE DOUBLE\n";
       ygm::container::set<double> distinct(m_comm);
       for (auto rid : rids) {
         auto val_opt = m_pedges->get<double>(sid, rid);
@@ -112,7 +101,6 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
       }
       size_t sz = distinct.size();
       if (m_comm.rank0()) {
-        m_comm.cerr0() << "in " << sname << " double with size " << sz << "\n";
         nunique[sname] = sz;
       }
     }
@@ -134,7 +122,6 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
   // map the series names to indices
   std::vector<series_index_type> sids;
   for (const auto &sname : series_names) {
-    m_comm.cerr0() << "trying sname = " << sname << "\n";
     auto sid = m_pnodes->find_series(sname.unqualified());
     if (m_pnodes->is_series_type<std::string_view>(sid)) {
       ygm::container::set<std::string> distinct(m_comm);
@@ -147,8 +134,6 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
 
       size_t sz = distinct.size();
       if (m_comm.rank0()) {
-        m_comm.cerr0() << "in " << sname << " string_view with size " << sz
-                       << "\n";
         nunique[sname] = sz;
       }
     } else if (m_pnodes->is_series_type<int64_t>(sid)) {
@@ -161,7 +146,6 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
       }
       size_t sz = distinct.size();
       if (m_comm.rank0()) {
-        m_comm.cerr0() << "in " << sname << " int64_t with size " << sz << "\n";
         nunique[sname] = sz;
       }
     } else if (m_pnodes->is_series_type<uint64_t>(sid)) {
@@ -172,11 +156,10 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
           distinct.async_insert(val_opt.value());
         }
       }
-      m_comm.barrier();
+
+      size_t sz = distinct.size();
       if (m_comm.rank0()) {
-        m_comm.cerr0() << "in " << sname << " uint64_t with size "
-                       << distinct.size() << "\n";
-        nunique[sname] = distinct.size();
+        nunique[sname] = sz;
       }
     } else if (m_pnodes->is_series_type<bool>(sid)) {
       bool has_true = false;
@@ -202,7 +185,6 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
 
       if (m_comm.rank0()) {
         size_t sz = size_t(global_has_true) + size_t(global_has_false);
-        m_comm.cerr0() << "in " << sname << " bool with size " << sz << "\n";
         nunique[sname] = sz;
       }
     } else if (m_pnodes->is_series_type<double>(sid)) {
@@ -215,7 +197,6 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
       }
       size_t sz = distinct.size();
       if (m_comm.rank0()) {
-        m_comm.cerr0() << "in " << sname << " double with size " << sz << "\n";
         nunique[sname] = sz;
       }
     }
