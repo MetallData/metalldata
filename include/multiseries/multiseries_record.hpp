@@ -582,12 +582,14 @@ class basic_record_store {
   }
 
   template <typename series_type>
-  const auto priv_get_series_data(const container_variant &series_store,
-                                  const record_id_type     record_id) const {
+  const std::optional<series_type> priv_get_series_data(
+    const container_variant &series_store,
+    const record_id_type     record_id) const {
     if constexpr (std::is_same_v<series_type, std::string_view>) {
       if (!priv_get_series_container<series_type>(series_store)
              .contains(record_id)) {
-        throw std::runtime_error("Series data not found");
+        return std::nullopt;
+        // throw std::runtime_error("Series data not found");
       }
       // Returns a string_view (not reference)
       return priv_get_series_container<series_type>(series_store)
