@@ -450,3 +450,60 @@ def test_mg_nunique_mixed_where(metallgraph):
     assert result["edge.color"] == 6      # red, orange, yellow, green, blue, indigo
     assert result["node.id"] == 7         # path-a through path-g
     assert result["node.gnum"] == 1       # only value 3
+
+
+@pytest.mark.order(14)
+def test_mg_value_counts_edge(metallgraph):
+    # edge.graphnum has 4 distinct values; total edges = 28
+    results = metallgraph.value_counts(metallgraph.edge.graphnum, k=100)
+    assert len(results) == 4
+    assert sum(r[1] for r in results) == 28
+    # five_clique (graphnum==2) has 10 edges — the most
+    counts = {r[0]: r[1] for r in results}
+    assert counts[2] == 10
+
+
+@pytest.mark.order(14)
+def test_mg_value_counts_top_bottom_k(metallgraph):
+    results_top = metallgraph.value_counts(metallgraph.edge.graphnum, k=2)
+    assert len(results_top) == 2
+
+    results_bottom = metallgraph.value_counts(metallgraph.edge.graphnum, k=-2)
+    assert len(results_bottom) == 2
+
+    # top and bottom values should not overlap (five_clique is uniquely the largest)
+    top_vals = {r[0] for r in results_top}
+    bottom_vals = {r[0] for r in results_bottom}
+    assert 2 in top_vals
+    assert 2 not in bottom_vals
+
+
+@pytest.mark.order(14)
+def test_mg_value_counts_where(metallgraph):
+    # restrict to graphnum==0 edges — only one distinct value
+    results = metallgraph.value_counts(
+        metallgraph.edge.graphnum, k=100, where=metallgraph.edge.graphnum == 0
+    )
+    assert len(results) == 1
+    assert results[0][0] == 0
+    assert results[0][1] == 6  # two_triangles has 6 edges
+
+
+@pytest.mark.order(14)
+def test_mg_value_counts_bool(metallgraph):
+    # relevant is True for four_clique+path_graph (12 edges), False for five_clique+two_triangles (16)
+    results = metallgraph.value_counts(metallgraph.edge.relevant, k=100)
+    assert len(results) == 2
+    counts = {r[0]: r[1] for r in results}
+    assert counts[True] == 12
+    assert counts[False] == 16
+
+
+@pytest.mark.order(14)
+def test_mg_value_counts_node(metallgraph):
+    # node.gnum was assigned value 3 to nodes reachable via graphnum==3 edges;
+    # remaining 14 nodes have no value (None/monostate)
+    results = metallgraph.value_counts(metallgraph.node.gnum, k=100)
+    counts = {r[0]: r[1] for r in results}
+    assert counts[3] == 7
+    assert counts[None] == 14
