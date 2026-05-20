@@ -48,11 +48,11 @@ std::map<metall_graph::data_types, size_t> metall_graph::value_counts_topk(
 
   std::vector<std::pair<metalldata::metall_graph::data_types, size_t>> kresults;
   if (k < 0) {
-    kresults =
-      counts.topk(-k, [&](auto &&i, auto &&j) { return i.second < j.second; });
+    kresults = counts.gather_topk(
+      -k, [&](auto &&i, auto &&j) { return i.second < j.second; });
   } else {
-    kresults =
-      counts.topk(k, [&](auto &&i, auto &&j) { return i.second > j.second; });
+    kresults = counts.gather_topk(
+      k, [&](auto &&i, auto &&j) { return i.second > j.second; });
   }
 
   std::map<metall_graph::data_types, size_t> topk;
