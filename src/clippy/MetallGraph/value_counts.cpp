@@ -57,8 +57,8 @@ int main(int argc, char **argv) try {
 
   clip.to_return(counts);
   return 0;
-} catch (std::runtime_error *e) {
-  std::cerr << "Error in execution: " << e << "; aborting.";
+} catch (const std::runtime_error &e) {
+  std::cerr << "Error in execution: " << e.what() << "; aborting.";
 } catch (...) {
   std::cerr << "Unknown error in execution; aborting.";
 }
