@@ -52,6 +52,7 @@ add_metallgraph_executable(sample_nodes sample_nodes.cpp)
 add_metallgraph_executable(select_sample_nodes select_sample_nodes.cpp)
 add_metallgraph_executable(connected_components connected_components.cpp)
 add_metallgraph_executable(nunique nunique.cpp)
+add_metallgraph_executable(value_counts value_counts.cpp)
 
 add_custom_command(
         TARGET __init__ POST_BUILD

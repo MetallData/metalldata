@@ -25,6 +25,7 @@
 #include <expected>
 #include <optional>
 #include <ygm/utility/assert.hpp>
+#include "ygm/container/counting_set.hpp"
 
 namespace bjsn = boost::json;
 
@@ -443,6 +444,12 @@ class metall_graph {
     std::unordered_set<metall_graph::series_name> series_names,
     const where_clause&                           where = where_clause{});
 
+  ygm::container::counting_set<metall_graph::data_types> value_counts(
+    metall_graph::series_name sname, const where_clause& where);
+
+  std::map<metall_graph::data_types, size_t> value_counts_topk(
+    metall_graph::series_name sname, int k, const where_clause& where);
+
   template <typename Fn>
   void visit_node_field(series_name name, size_t record_id, Fn func) const {
     assert(name.is_node_series());
@@ -638,6 +645,9 @@ class metall_graph {
   metall_graph::return_code priv_set_column_by_idx(const series_name& col_name,
                                                    const T& collection);
 
+  static data_types priv_series_to_data_type(
+    const record_store_type::series_type& sv);
+
 };  // class metall_graph
 
 }  // namespace metalldata
@@ -649,6 +659,20 @@ struct hash<metalldata::metall_graph::series_name> {
   std::size_t operator()(
     const metalldata::metall_graph::series_name& sn) const {
     return std::hash<std::string>{}(sn.qualified());
+  }
+};
+
+template <>
+struct hash<metalldata::metall_graph::data_types> {
+  std::size_t operator()(
+    const metalldata::metall_graph::data_types& v) const noexcept {
+    std::size_t type_hash = hash<std::size_t>{}(v.index());
+    std::size_t val_hash = std::visit(
+      [](const auto& val) -> std::size_t {
+        return hash<std::decay_t<decltype(val)>>{}(val);
+      },
+      v);
+    return type_hash ^ (val_hash << 1);
   }
 };
 }  // namespace std
