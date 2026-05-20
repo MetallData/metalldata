@@ -382,4 +382,71 @@ def test_mg_outdegree(metallgraph):
     select_data = metallgraph.select_nodes()
     is_specific(select_data, "id", degs2)
 
+
 # {'id': '5clique-a', 'indeg1': 0, 'randpct': 4.519041400698163, 'uuid': 'bffdb73b-e003-4904-b4c4-fcfb6de44ded'}, {'id': '5clique-b', 'indeg1': 1, 'nsamp1': True, 'randpct': 18.729939416659157, ...}, {'id': '5clique-c', 'indeg1': 2, 'randpct': 57.53399788992132, 'uuid': 'bffdb73b-e003-4904-b4c4-fcfb6de44ded'}, {'id': '5clique-d', 'indeg1': 3, 'randpct': 3.4017999660346714, 'uuid': 'bffdb73b-e003-4904-b4c4-fcfb6de44ded'}
+
+@pytest.mark.order(13)
+def test_mg_nunique_edge(metallgraph):
+    # int series: graphnum takes values 0,1,2,3 across all subgraphs
+    result = metallgraph.nunique(series_names=["edge.graphnum"])
+    assert result["edge.graphnum"] == 4
+
+    # string series: 8 distinct colors across all edges (nulls excluded)
+    result = metallgraph.nunique(series_names=["edge.color"])
+    assert result["edge.color"] == 8
+
+    # bool series: relevant is True in path_graph/four_clique, False in five_clique/two_triangles
+    result = metallgraph.nunique(series_names=["edge.relevant"])
+    assert result["edge.relevant"] == 2
+
+    # bool series with only one value: samp1 marks exactly k edges True, rest unset
+    result = metallgraph.nunique(series_names=["edge.samp1"])
+    assert result["edge.samp1"] == 1
+
+    # int series with many values
+    result = metallgraph.nunique(series_names=["edge.randint"])
+    assert result["edge.randint"] == 22
+
+    # multiple series in one call
+    result = metallgraph.nunique(series_names=["edge.graphnum", "edge.color", "edge.relevant"])
+    assert result["edge.graphnum"] == 4
+    assert result["edge.color"] == 8
+    assert result["edge.relevant"] == 2
+
+
+@pytest.mark.order(13)
+def test_mg_nunique_edge_where(metallgraph):
+    # graphnum==0 edges are only from two_triangles — one distinct graphnum value
+    result = metallgraph.nunique(series_names=["edge.graphnum"], where=metallgraph.edge.graphnum == 0)
+    assert result["edge.graphnum"] == 1
+
+    # two_triangles has only "blue" and "red" edges
+    result = metallgraph.nunique(series_names=["edge.color"], where=metallgraph.edge.graphnum == 0)
+    assert result["edge.color"] == 2
+
+    # two_triangles has only False for relevant
+    result = metallgraph.nunique(series_names=["edge.relevant"], where=metallgraph.edge.graphnum == 0)
+    assert result["edge.relevant"] == 1
+
+
+@pytest.mark.order(13)
+def test_mg_nunique_node(metallgraph):
+    # all 21 node IDs are distinct
+    result = metallgraph.nunique(series_names=["node.id"])
+    assert result["node.id"] == 21
+    # gnum was assigned value 3 for all nodes reachable via graphnum==3 edges — only one distinct value
+    result = metallgraph.nunique(series_names=["node.gnum"])
+    assert result["node.gnum"] == 1
+
+
+@pytest.mark.order(13)
+def test_mg_nunique_mixed_where(metallgraph):
+    # path_graph is graphnum==3: 6 edges, 7 nodes (path-a through path-g)
+    result = metallgraph.nunique(
+        series_names=["edge.graphnum", "edge.color", "node.id", "node.gnum"],
+        where=metallgraph.edge.graphnum == 3
+    )
+    assert result["edge.graphnum"] == 1   # only value 3
+    assert result["edge.color"] == 6      # red, orange, yellow, green, blue, indigo
+    assert result["node.id"] == 7         # path-a through path-g
+    assert result["node.gnum"] == 1       # only value 3

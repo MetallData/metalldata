@@ -1,4 +1,5 @@
 #include <metalldata/metall_graph.hpp>
+#include "ygm/utility/assert.hpp"
 
 namespace metalldata {
 metall_graph::return_code metall_graph::erase_edges(const where_clause &where) {
@@ -22,8 +23,9 @@ metall_graph::return_code metall_graph::erase_edges(
   auto idx = m_pedges->find_series(name.unqualified());
 
   priv_for_all_edges([&](auto rid) {
-    auto val = m_pedges->get<std::string_view>(idx, rid);
-    if (haystack.contains(std::string(val))) {
+    auto val_opt = m_pedges->get<std::string_view>(idx, rid);
+    YGM_ASSERT_RELEASE(val_opt.has_value());
+    if (haystack.contains(std::string(val_opt.value()))) {
       m_pedges->remove_record(rid);
     }
   });
