@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 
+#include <stdexcept>
 #include <utility>
 #define WITH_YGM 1
 #include <clippy/clippy.hpp>
@@ -56,6 +57,8 @@ int main(int argc, char **argv) try {
 
   clip.to_return(counts);
   return 0;
-} catch (const char *e) {
+} catch (std::runtime_error *e) {
   std::cerr << "Error in execution: " << e << "; aborting.";
+} catch (...) {
+  std::cerr << "Unknown error in execution; aborting.";
 }
