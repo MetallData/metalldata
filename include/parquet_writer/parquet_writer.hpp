@@ -61,10 +61,10 @@ class DelimiterNotFoundError : public ParseError {
 };
 
 // Type definitions
-using metall_series_type = std::variant<std::monostate, bool, int64_t, uint64_t,
-                                        double, std::string_view>;
+using metall_series_type =
+  std::variant<std::monostate, bool, int64_t, double, std::string_view>;
 
-enum class Metall_Type { Bool, Int64, UInt64, Double, String };
+enum class Metall_Type { Bool, Int64, Double, String };
 
 using name_to_type = std::unordered_map<std::string, Metall_Type>;
 

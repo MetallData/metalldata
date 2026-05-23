@@ -8,17 +8,17 @@ int main() {
   try {
     // Create sample data - a vector of vectors representing a dataframe
     std::vector<std::vector<metall_series_type>> dataframe = {
-        {int64_t(1), uint64_t(100), 3.14, std::string_view("hello"), true},
-        {int64_t(2), uint64_t(200), 2.71, std::string_view("world"), false},
-        {int64_t(3), uint64_t(300), 1.41, std::string_view("test"), true}};
+      {int64_t(1), int64_t(-100), 3.14, std::string_view("hello"), true},
+      {int64_t(2), int64_t(-200), 2.71, std::string_view("world"), false},
+      {int64_t(3), int64_t(-300), 1.41, std::string_view("test"), true}};
 
     // Define columns using field specification strings
     std::vector<std::string> field_specs = {
-        "id:i",     // int64_t
-        "count:u",  // uint64_t
-        "value:f",  // double/float
-        "name:s",   // string
-        "flag:b"    // bool
+      "id:i",     // int64_t
+      "count:i",  // uint64_t
+      "value:f",  // double/float
+      "name:s",   // string
+      "flag:b"    // bool
     };
 
     arrow::Status status;
@@ -167,11 +167,11 @@ int main() {
 
       // Add another row with different null pattern
       std::vector<metall_series_type> row_with_more_nulls = {
-          std::monostate{},           // id: null (monostate)
-          uint64_t(500),              // count: valid value
-          std::monostate{},           // value: null (monostate)
-          std::string_view("mixed"),  // name: valid value
-          std::monostate{}            // flag: null (monostate)
+        std::monostate{},           // id: null (monostate)
+        int64_t(500),               // count: valid value
+        std::monostate{},           // value: null (monostate)
+        std::string_view("mixed"),  // name: valid value
+        std::monostate{}            // flag: null (monostate)
       };
 
       status = writer4.write_row(row_with_more_nulls);
@@ -210,11 +210,11 @@ int main() {
           true               // flag: valid value
       };
       std::vector<metall_series_type> row2 = {
-          std::monostate{},           // id: null (monostate)
-          uint64_t(500),              // count: valid value
-          std::monostate{},           // value: null (monostate)
-          std::string_view("mixed"),  // name: valid value
-          std::monostate{}            // flag: null (monostate)
+        std::monostate{},           // id: null (monostate)
+        int64_t(500),               // count: valid value
+        std::monostate{},           // value: null (monostate)
+        std::string_view("mixed"),  // name: valid value
+        std::monostate{}            // flag: null (monostate)
       };
 
       std::vector<std::vector<metall_series_type>> rows{row1, row2};

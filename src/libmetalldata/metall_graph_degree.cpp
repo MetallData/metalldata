@@ -76,7 +76,7 @@ metall_graph::return_code metall_graph::priv_in_out_degree(
   }
 
   auto                                      edges_ = m_pedges;
-  ygm::container::map<std::string, size_t>  degrees(m_comm);
+  ygm::container::map<std::string, int64_t> degrees(m_comm);
 
   auto node_col_id = m_pnodes->find_series(NODE_COL.unqualified());
 
@@ -159,8 +159,8 @@ metall_graph::return_code metall_graph::degrees(
     return to_return;
   }
 
-  ygm::container::map<std::string, size_t> indegrees(m_comm);
-  ygm::container::map<std::string, size_t> outdegrees(m_comm);
+  ygm::container::map<std::string, int64_t> indegrees(m_comm);
+  ygm::container::map<std::string, int64_t> outdegrees(m_comm);
 
   auto node_col_id = m_pnodes->find_series(NODE_COL.unqualified());
 
@@ -222,8 +222,8 @@ metall_graph::return_code metall_graph::degrees(
   });
 
   // create series and store index so we don't have to keep looking it up.
-  auto in_deg_idx  = m_pnodes->add_series<size_t>(in_name.unqualified());
-  auto out_deg_idx = m_pnodes->add_series<size_t>(out_name.unqualified());
+  auto in_deg_idx = m_pnodes->add_series<int64_t>(in_name.unqualified());
+  auto out_deg_idx = m_pnodes->add_series<int64_t>(out_name.unqualified());
 
   // add the values to the degrees series. We are taking advantage of the fact
   // that the node information is local from the degrees shared counting set

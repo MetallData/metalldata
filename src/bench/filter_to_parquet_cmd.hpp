@@ -34,8 +34,6 @@ template <typename T>
 constexpr std::optional<char> get_type_char() {
   if constexpr (std::is_same_v<T, int64_t>)
     return 'i';
-  else if constexpr (std::is_same_v<T, uint64_t>)
-    return 'u';
   else if constexpr (std::is_same_v<T, std::string_view>)
     return 's';
   else if constexpr (std::is_same_v<T, double>)
@@ -194,7 +192,7 @@ class filter_to_parquet_cmd : public base_subcommand {
     auto series = record_store->get_series_names();
 
     auto   pwr = &pwriter.value();
-    size_t i   = 0;
+    size_t i = 0;
     // TODO: what should we do if there's an arrow error in write_row?
     apply_jl(jl_rule, *record_store,
              [pwr, &i, &comm](record_store_type::record_id_type index,

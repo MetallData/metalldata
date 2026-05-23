@@ -35,12 +35,12 @@ int main(int argc, char **argv) {
 
   metalldata::metall_graph mg(comm, path, false);
 
-  size_t nv = mg.num_nodes(where_c);
-  size_t ne = mg.num_edges(where_c);
+  auto nv = mg.num_nodes(where_c);
+  auto ne = mg.num_edges(where_c);
 
   std::map<std::string, metalldata::metall_graph::data_types> return_dict;
-  return_dict["nv"]   = nv;
-  return_dict["ne"]   = ne;
+  return_dict["nv"] = static_cast<int64_t>(nv);
+  return_dict["ne"] = static_cast<int64_t>(ne);
   return_dict["path"] = path;
 
   clip.to_return(return_dict);

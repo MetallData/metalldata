@@ -88,9 +88,7 @@ std::vector<std::vector<metall_graph::data_types>> metall_graph::topk(
         data_types dt = std::visit(
           [](const auto& val) -> data_types {
             using T = std::decay_t<decltype(val)>;
-            if constexpr (std::is_same_v<T, int64_t>) {
-              return static_cast<size_t>(val);
-            } else if constexpr (std::is_same_v<T, std::string_view>) {
+            if constexpr (std::is_same_v<T, std::string_view>) {
               return std::string(val);
             } else {
               return val;

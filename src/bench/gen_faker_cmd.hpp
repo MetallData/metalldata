@@ -89,13 +89,6 @@ inline GeneratorRegistry create_registry() {
       });
 
   registry.register_generator(
-      "uint", [](record_store_type& store, size_t series_idx,
-                 record_store::record_id_type record_id) {
-        store.set<uint64_t>(series_idx, record_id,
-                            faker::number::integer<uint64_t>(10'000'000));
-      });
-
-  registry.register_generator(
       "double", [](record_store_type& store, size_t series_idx,
                    record_store::record_id_type record_id) {
         store.set<double>(series_idx, record_id,
@@ -110,11 +103,11 @@ inline GeneratorRegistry create_registry() {
       });
 
   registry.register_generator(
-      "int_percentage", [](record_store_type& store, size_t series_idx,
-                           record_store::record_id_type record_id) {
-        store.set<uint64_t>(series_idx, record_id,
-                            faker::number::integer<uint64_t>(100));
-      });
+    "int_percentage", [](record_store_type& store, size_t series_idx,
+                         record_store::record_id_type record_id) {
+      store.set<int64_t>(series_idx, record_id,
+                         faker::number::integer<int64_t>(0, 100));
+    });
 
   registry.register_generator(
       "two_char_string",
@@ -174,10 +167,9 @@ struct SeriesConfig {
     if (type == "uuid4" || type == "name" || type == "email" ||
         type == "username" || type == "two_char_string") {
       return store.add_series<std::string_view>(name);
-    } else if (type == "integer" || type == "timestamp") {
+    } else if (type == "integer" || type == "timestamp" ||
+               type == "int_percentage") {
       return store.add_series<int64_t>(name);
-    } else if (type == "uint" || type == "int_percentage") {
-      return store.add_series<uint64_t>(name);
     } else if (type == "double" || type == "percentage") {
       return store.add_series<double>(name);
     } else if (type == "bool") {

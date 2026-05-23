@@ -30,7 +30,7 @@
 namespace metalldata {
 
 metall_graph::return_code metall_graph::nhops(
-  const series_name& out_name, size_t nhops,
+  const series_name& out_name, int64_t nhops,
   const std::vector<std::string>& sources, const where_clause& where) {
   return_code to_return;
 
@@ -86,10 +86,10 @@ metall_graph::return_code metall_graph::nhops(
     return to_return;
   }
 
-  std::map<std::string, size_t>    local_nhop_map;
+  std::map<std::string, int64_t>   local_nhop_map;
   ygm::container::set<std::string> visited(m_comm, sources), cur_level(m_comm),
     next_level(m_comm, sources);
-  size_t cur_level_dist = 0;
+  int64_t cur_level_dist = 0;
 
   static auto* sp_visited = &visited;
   static auto* sp_next_level = &next_level;
@@ -119,6 +119,4 @@ metall_graph::return_code metall_graph::nhops(
 
   return to_return;
 }
-
-
 }

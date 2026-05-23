@@ -34,8 +34,8 @@ static auto priv_compile_jl_rule(bjsn::value jl_rule) {
             jl_row.push_back(std::monostate{});
           } else if constexpr (std::is_same_v<T, bool>) {
             jl_row.push_back(arg);
-          } else if constexpr (std::is_same_v<T, size_t>) {
-            jl_row.push_back(static_cast<std::uint64_t>(arg));
+          } else if constexpr (std::is_same_v<T, int64_t>) {
+            jl_row.push_back(arg);
           } else if constexpr (std::is_same_v<T, double>) {
             jl_row.push_back(arg);
           } else if constexpr (std::is_same_v<T, std::string>) {

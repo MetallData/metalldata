@@ -13,18 +13,16 @@ namespace parquet_writer {
 
 // Type mappings
 const std::unordered_map<char, Metall_Type> char_to_type = {
-    {'b', Metall_Type::Bool},
-    {'i', Metall_Type::Int64},
-    {'u', Metall_Type::UInt64},
-    {'f', Metall_Type::Double},
-    {'s', Metall_Type::String}};
+  {'b', Metall_Type::Bool},
+  {'i', Metall_Type::Int64},
+  {'f', Metall_Type::Double},
+  {'s', Metall_Type::String}};
 
 const std::unordered_map<Metall_Type, std::shared_ptr<arrow::DataType>>
-    metall_to_arrow_type = {{Metall_Type::Bool, arrow::boolean()},
-                            {Metall_Type::Int64, arrow::int64()},
-                            {Metall_Type::UInt64, arrow::uint64()},
-                            {Metall_Type::Double, arrow::float64()},
-                            {Metall_Type::String, arrow::utf8()}};
+  metall_to_arrow_type = {{Metall_Type::Bool, arrow::boolean()},
+                          {Metall_Type::Int64, arrow::int64()},
+                          {Metall_Type::Double, arrow::float64()},
+                          {Metall_Type::String, arrow::utf8()}};
 
 // Helper to validate that variant type matches expected column type
 bool validate_variant_type(const metall_series_type& value,
@@ -35,9 +33,6 @@ bool validate_variant_type(const metall_series_type& value,
              std::holds_alternative<std::monostate>(value);
     case Metall_Type::Int64:
       return std::holds_alternative<int64_t>(value) ||
-             std::holds_alternative<std::monostate>(value);
-    case Metall_Type::UInt64:
-      return std::holds_alternative<uint64_t>(value) ||
              std::holds_alternative<std::monostate>(value);
     case Metall_Type::Double:
       return std::holds_alternative<double>(value) ||
@@ -62,8 +57,6 @@ arrow::Status append_value_to_builder(arrow::ArrayBuilder*      builder,
           return static_cast<arrow::BooleanBuilder*>(builder)->Append(val);
         } else if constexpr (std::is_same_v<T, int64_t>) {
           return static_cast<arrow::Int64Builder*>(builder)->Append(val);
-        } else if constexpr (std::is_same_v<T, uint64_t>) {
-          return static_cast<arrow::UInt64Builder*>(builder)->Append(val);
         } else if constexpr (std::is_same_v<T, double>) {
           return static_cast<arrow::DoubleBuilder*>(builder)->Append(val);
         } else if constexpr (std::is_same_v<T, std::string_view>) {
@@ -184,10 +177,6 @@ ParquetWriter::ParquetWriter(const std::string&              filename,
         case Metall_Type::Int64:
           column_builders_.emplace_back(
               std::make_unique<arrow::Int64Builder>());
-          break;
-        case Metall_Type::UInt64:
-          column_builders_.emplace_back(
-              std::make_unique<arrow::UInt64Builder>());
           break;
         case Metall_Type::Double:
           column_builders_.emplace_back(

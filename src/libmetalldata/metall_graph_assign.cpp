@@ -25,9 +25,8 @@ metall_graph::return_code metall_graph::assign(
         } else if constexpr (std::is_same_v<T, std::string> ||
                              std::is_same_v<T, std::string_view>) {
           pedges_->add_series<std::string_view>(name.unqualified());
-        } else if constexpr (std::is_same_v<T, size_t> ||
-                             std::is_same_v<T, uint64_t>) {
-          pedges_->add_series<size_t>(name.unqualified());
+        } else if constexpr (std::is_same_v<T, int64_t>) {
+          pedges_->add_series<int64_t>(name.unqualified());
         } else if constexpr (std::is_same_v<T, bool>) {
           pedges_->add_series<bool>(name.unqualified());
         } else {
@@ -49,8 +48,6 @@ metall_graph::return_code metall_graph::assign(
             // Skip monostate
           } else if constexpr (std::is_same_v<T, std::string>) {
             pedges_->set(name_idx, record_id, std::string_view(v));
-          } else if constexpr (std::is_same_v<T, size_t>) {
-            pedges_->set(name_idx, record_id, static_cast<uint64_t>(v));
           } else {
             pedges_->set(name_idx, record_id, v);
           }
@@ -69,9 +66,8 @@ metall_graph::return_code metall_graph::assign(
         } else if constexpr (std::is_same_v<T, std::string> ||
                              std::is_same_v<T, std::string_view>) {
           pnodes_->add_series<std::string_view>(name.unqualified());
-        } else if constexpr (std::is_same_v<T, size_t> ||
-                             std::is_same_v<T, uint64_t>) {
-          pnodes_->add_series<size_t>(name.unqualified());
+        } else if constexpr (std::is_same_v<T, int64_t>) {
+          pnodes_->add_series<int64_t>(name.unqualified());
         } else if constexpr (std::is_same_v<T, bool>) {
           pnodes_->add_series<bool>(name.unqualified());
         } else {
@@ -93,8 +89,6 @@ metall_graph::return_code metall_graph::assign(
             // Skip monostate
           } else if constexpr (std::is_same_v<T, std::string>) {
             pnodes_->set(name_idx, record_id, std::string_view(v));
-          } else if constexpr (std::is_same_v<T, size_t>) {
-            pnodes_->set(name_idx, record_id, static_cast<uint64_t>(v));
           } else {
             pnodes_->set(name_idx, record_id, v);
           }
