@@ -1,0 +1,7 @@
+s,t,graphnum,weight,color,name,relevant,randint,tag
+2tri-a,2tri-b,0,1.1,blue,Adam,false,67,άλφα
+2tri-b,2tri-c,0,2.2,blue,,false,45,βήτα
+2tri-c,2tri-a,0,1.1,blue,Charlie,false,23,γάμμα
+2tri-c,2tri-d,0,1.1,red,,false,89,γάμμα
+2tri-d,2tri-e,0,4.4,red,Edward,false,12,βήτα
+2tri-e,2tri-c,0,3.3,red,Fred,false,78,άλφα
