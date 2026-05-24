@@ -49,7 +49,7 @@ metall_graph::return_code metall_graph::set_node_column(
   // create series
   size_t nodecol_idx;
   size_t invalid_nodes = 0;
-  if constexpr (std::is_same_v<val_type, size_t>) {
+  if constexpr (std::unsigned_integral<val_type>) {
     nodecol_idx = m_pnodes->add_series<int64_t>(nodecol_name.unqualified());
 
     for (const auto& [node_name, value] : collection) {

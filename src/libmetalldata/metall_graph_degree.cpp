@@ -3,6 +3,9 @@
 //
 // SPDX-License-Identifier: MIT
 
+// TODO: we could probably implement this with a counting set instead
+// of a map.
+
 #include <string>
 #include <variant>
 #include <vector>

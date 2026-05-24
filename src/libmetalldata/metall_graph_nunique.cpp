@@ -12,10 +12,10 @@
 
 namespace metalldata {
 
-std::map<metall_graph::series_name, int64_t> metall_graph::nunique_edge(
+std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
   std::unordered_set<metall_graph::series_name> series_names,
   const where_clause                           &where) {
-  std::map<metall_graph::series_name, int64_t> nunique;
+  std::map<metall_graph::series_name, size_t> nunique;
   std::map<metall_graph::series_name,
            std::set<multiseries::basic_record_store<>::series_type>>
     uniques;
@@ -38,7 +38,7 @@ std::map<metall_graph::series_name, int64_t> metall_graph::nunique_edge(
 
       size_t sz = distinct.size();
       if (m_comm.rank0()) {
-        nunique[sname] = static_cast<int64_t>(sz);
+        nunique[sname] = sz;
       }
     } else if (m_pedges->is_series_type<int64_t>(sid)) {
       ygm::container::set<int64_t> distinct(m_comm);
@@ -50,7 +50,7 @@ std::map<metall_graph::series_name, int64_t> metall_graph::nunique_edge(
       }
       size_t sz = distinct.size();
       if (m_comm.rank0()) {
-        nunique[sname] = static_cast<int64_t>(sz);
+        nunique[sname] = sz;
       }
     } else if (m_pedges->is_series_type<bool>(sid)) {
       bool has_true = false;
@@ -75,7 +75,7 @@ std::map<metall_graph::series_name, int64_t> metall_graph::nunique_edge(
       bool global_has_false = ygm::logical_or(has_false, m_comm);
 
       if (m_comm.rank0()) {
-        int64_t sz = int64_t(global_has_true) + int64_t(global_has_false);
+        size_t sz = size_t(global_has_true) + size_t(global_has_false);
         nunique[sname] = sz;
       }
     } else if (m_pedges->is_series_type<double>(sid)) {
@@ -88,17 +88,17 @@ std::map<metall_graph::series_name, int64_t> metall_graph::nunique_edge(
       }
       size_t sz = distinct.size();
       if (m_comm.rank0()) {
-        nunique[sname] = static_cast<int64_t>(sz);
+        nunique[sname] = sz;
       }
     }
   }
   return nunique;
 }
 
-std::map<metall_graph::series_name, int64_t> metall_graph::nunique_node(
+std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
   std::unordered_set<metall_graph::series_name> series_names,
   const where_clause                           &where) {
-  std::map<metall_graph::series_name, int64_t> nunique;
+  std::map<metall_graph::series_name, size_t> nunique;
   std::map<metall_graph::series_name,
            std::set<multiseries::basic_record_store<>::series_type>>
     uniques;
@@ -119,9 +119,9 @@ std::map<metall_graph::series_name, int64_t> metall_graph::nunique_node(
         }
       }
 
-      int64_t sz = distinct.size();
+      size_t sz = distinct.size();
       if (m_comm.rank0()) {
-        nunique[sname] = static_cast<int64_t>(sz);
+        nunique[sname] = sz;
       }
     } else if (m_pnodes->is_series_type<int64_t>(sid)) {
       ygm::container::set<int64_t> distinct(m_comm);
@@ -131,9 +131,9 @@ std::map<metall_graph::series_name, int64_t> metall_graph::nunique_node(
           distinct.async_insert(val_opt.value());
         }
       }
-      int64_t sz = distinct.size();
+      size_t sz = distinct.size();
       if (m_comm.rank0()) {
-        nunique[sname] = static_cast<int64_t>(sz);
+        nunique[sname] = sz;
       }
     } else if (m_pnodes->is_series_type<bool>(sid)) {
       bool has_true = false;
@@ -158,7 +158,7 @@ std::map<metall_graph::series_name, int64_t> metall_graph::nunique_node(
       bool global_has_false = ygm::logical_or(has_false, m_comm);
 
       if (m_comm.rank0()) {
-        int64_t sz = int64_t(global_has_true) + int64_t(global_has_false);
+        size_t sz = size_t(global_has_true) + size_t(global_has_false);
         nunique[sname] = sz;
       }
     } else if (m_pnodes->is_series_type<double>(sid)) {
@@ -171,7 +171,7 @@ std::map<metall_graph::series_name, int64_t> metall_graph::nunique_node(
       }
       size_t sz = distinct.size();
       if (m_comm.rank0()) {
-        nunique[sname] = static_cast<int64_t>(sz);
+        nunique[sname] = sz;
       }
     }
   }

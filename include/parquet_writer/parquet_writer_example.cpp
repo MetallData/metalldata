@@ -8,14 +8,14 @@ int main() {
   try {
     // Create sample data - a vector of vectors representing a dataframe
     std::vector<std::vector<metall_series_type>> dataframe = {
-      {int64_t(1), int64_t(-100), 3.14, std::string_view("hello"), true},
-      {int64_t(2), int64_t(-200), 2.71, std::string_view("world"), false},
-      {int64_t(3), int64_t(-300), 1.41, std::string_view("test"), true}};
+      {uint64_t(1), int64_t(-100), 3.14, std::string_view("hello"), true},
+      {uint64_t(2), int64_t(-200), 2.71, std::string_view("world"), false},
+      {uint64_t(3), int64_t(-300), 1.41, std::string_view("test"), true}};
 
     // Define columns using field specification strings
     std::vector<std::string> field_specs = {
-      "id:i",     // int64_t
-      "count:i",  // uint64_t
+      "id:u",     // uint64_t
+      "count:i",  // int64_t
       "value:f",  // double/float
       "name:s",   // string
       "flag:b"    // bool
@@ -151,11 +151,11 @@ int main() {
 
       // Create rows with std::monostate (null) values directly
       std::vector<metall_series_type> row_with_monostate_nulls = {
-          int64_t(40),       // id: valid value
-          std::monostate{},  // count: null (monostate)
-          3.33,              // value: valid value
-          std::monostate{},  // name: null (monostate)
-          true               // flag: valid value
+        uint64_t(40),      // id: valid value
+        std::monostate{},  // count: null (monostate)
+        3.33,              // value: valid value
+        std::monostate{},  // name: null (monostate)
+        true               // flag: valid value
       };
 
       status = writer4.write_row(row_with_monostate_nulls);
@@ -203,11 +203,11 @@ int main() {
 
       // Create rows with std::monostate (null) values directly
       std::vector<metall_series_type> row1 = {
-          int64_t(40),       // id: valid value
-          std::monostate{},  // count: null (monostate)
-          3.33,              // value: valid value
-          std::monostate{},  // name: null (monostate)
-          true               // flag: valid value
+        uint64_t(40),      // id: valid value
+        std::monostate{},  // count: null (monostate)
+        3.33,              // value: valid value
+        std::monostate{},  // name: null (monostate)
+        true               // flag: valid value
       };
       std::vector<metall_series_type> row2 = {
         std::monostate{},           // id: null (monostate)

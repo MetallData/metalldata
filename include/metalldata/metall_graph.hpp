@@ -436,11 +436,11 @@ class metall_graph {
 
   size_t num_edge_series() const { return m_pedges->num_series(); };
 
-  std::map<metall_graph::series_name, int64_t> nunique_edge(
+  std::map<metall_graph::series_name, size_t> nunique_edge(
     std::unordered_set<metall_graph::series_name> series_names,
     const where_clause&                           where = where_clause{});
 
-  std::map<metall_graph::series_name, int64_t> nunique_node(
+  std::map<metall_graph::series_name, size_t> nunique_node(
     std::unordered_set<metall_graph::series_name> series_names,
     const where_clause&                           where = where_clause{});
 
@@ -499,7 +499,7 @@ class metall_graph {
   //   std::optional<std::string> v_included;
   // };
 
-  return_code nhops(const series_name& out_node_series, int64_t nhops,
+  return_code nhops(const series_name& out_node_series, size_t nhops,
                     const std::vector<std::string>& sources,
                     const where_clause&             where = where_clause());
 
