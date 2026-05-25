@@ -69,7 +69,7 @@ class metall_graph {
   // MetallFrame.
   // TODO: we need unsigned ints here anyway.
   using data_types =
-    std::variant<size_t, double, bool, std::string, std::monostate>;
+    std::variant<int64_t, double, bool, std::string, std::monostate>;
 
   /**
    * @brief Return code struct for methods

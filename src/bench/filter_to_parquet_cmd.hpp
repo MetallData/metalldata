@@ -194,7 +194,7 @@ class filter_to_parquet_cmd : public base_subcommand {
     auto series = record_store->get_series_names();
 
     auto   pwr = &pwriter.value();
-    size_t i   = 0;
+    size_t i = 0;
     // TODO: what should we do if there's an arrow error in write_row?
     apply_jl(jl_rule, *record_store,
              [pwr, &i, &comm](record_store_type::record_id_type index,

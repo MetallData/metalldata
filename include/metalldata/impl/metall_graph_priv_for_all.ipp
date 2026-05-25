@@ -84,9 +84,7 @@ void metall_graph::priv_for_all_edges_ewhere(
       std::visit(
         [&var_data](const auto& v) {
           using T = std::decay_t<decltype(v)>;
-          if constexpr (std::is_same_v<T, int64_t>) {
-            var_data.push_back(size_t(v));
-          } else if constexpr (std::is_same_v<T, std::string_view>) {
+          if constexpr (std::is_same_v<T, std::string_view>) {
             var_data.push_back(std::string(v));
           } else {
             var_data.push_back(v);
@@ -153,9 +151,7 @@ void metall_graph::priv_for_all_nodes_nwhere(
       std::visit(
         [&var_data, &missing_field](const auto& v) {
           using T = std::decay_t<decltype(v)>;
-          if constexpr (std::is_same_v<T, int64_t>) {
-            var_data.push_back(size_t(v));
-          } else if constexpr (std::is_same_v<T, std::string_view>) {
+          if constexpr (std::is_same_v<T, std::string_view>) {
             var_data.push_back(std::string(v));
           } else {
             var_data.push_back(v);

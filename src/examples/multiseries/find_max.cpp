@@ -126,9 +126,6 @@ int main(int argc, char *argv[]) {
           if constexpr (std::is_same_v<T, int64_t>) {
             max_value.i  = std::max(max_value.i, value);
             max_value.fi = true;
-          } else if constexpr (std::is_same_v<T, uint64_t>) {
-            max_value.u  = std::max(max_value.u, value);
-            max_value.fu = true;
           } else if constexpr (std::is_same_v<T, double>) {
             max_value.d  = std::max(max_value.d, value);
             max_value.fd = true;

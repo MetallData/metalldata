@@ -64,9 +64,6 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
           } else if constexpr (std::is_same_v<T, int64_t>) {
             type_char  = 'i';
             found_type = true;
-          } else if constexpr (std::is_same_v<T, uint64_t>) {
-            type_char  = 'u';
-            found_type = true;
           } else if constexpr (std::is_same_v<T, double>) {
             type_char  = 'f';
             found_type = true;
@@ -165,8 +162,6 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
             } else if constexpr (std::is_same_v<T, bool>) {
               row.emplace_back(v);
             } else if constexpr (std::is_same_v<T, int64_t>) {
-              row.emplace_back(v);
-            } else if constexpr (std::is_same_v<T, uint64_t>) {
               row.emplace_back(v);
             } else if constexpr (std::is_same_v<T, double>) {
               row.emplace_back(v);
@@ -269,9 +264,6 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
             found_type = true;
           } else if constexpr (std::is_same_v<T, int64_t>) {
             type_char  = 'i';
-            found_type = true;
-          } else if constexpr (std::is_same_v<T, uint64_t>) {
-            type_char  = 'u';
             found_type = true;
           } else if constexpr (std::is_same_v<T, double>) {
             type_char  = 'f';
@@ -387,6 +379,7 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
       std::visit(
         [&row](const auto& v) {
           using T = std::decay_t<decltype(v)>;
+          // TODO: What is this doing?
           if constexpr (std::is_same_v<T, bool>) {
             row.emplace_back(v);
           } else {
@@ -413,8 +406,6 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
             } else if constexpr (std::is_same_v<T, bool>) {
               row.emplace_back(v);
             } else if constexpr (std::is_same_v<T, int64_t>) {
-              row.emplace_back(v);
-            } else if constexpr (std::is_same_v<T, uint64_t>) {
               row.emplace_back(v);
             } else if constexpr (std::is_same_v<T, double>) {
               row.emplace_back(v);

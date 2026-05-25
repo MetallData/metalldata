@@ -86,7 +86,7 @@ metall_graph::return_code metall_graph::nhops(
     return to_return;
   }
 
-  std::map<std::string, size_t>    local_nhop_map;
+  std::map<std::string, int64_t>   local_nhop_map;
   ygm::container::set<std::string> visited(m_comm, sources), cur_level(m_comm),
     next_level(m_comm, sources);
   size_t cur_level_dist = 0;
@@ -98,7 +98,7 @@ metall_graph::return_code metall_graph::nhops(
     cur_level.swap(next_level);
     next_level.clear();
     for (const std::string& v : cur_level) {
-      local_nhop_map[v] = cur_level_dist;
+      local_nhop_map[v] = static_cast<int64_t>(cur_level_dist);
       if (adj_list.local_count(v) > 0) {
         for (const auto& neighbor : adj_list.local_at(v)) {
           visited.async_contains(neighbor,
@@ -119,6 +119,4 @@ metall_graph::return_code metall_graph::nhops(
 
   return to_return;
 }
-
-
 }

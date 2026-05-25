@@ -13,18 +13,18 @@ namespace parquet_writer {
 
 // Type mappings
 const std::unordered_map<char, Metall_Type> char_to_type = {
-    {'b', Metall_Type::Bool},
-    {'i', Metall_Type::Int64},
-    {'u', Metall_Type::UInt64},
-    {'f', Metall_Type::Double},
-    {'s', Metall_Type::String}};
+  {'b', Metall_Type::Bool},
+  {'i', Metall_Type::Int64},
+  {'u', Metall_Type::UInt64},
+  {'f', Metall_Type::Double},
+  {'s', Metall_Type::String}};
 
 const std::unordered_map<Metall_Type, std::shared_ptr<arrow::DataType>>
-    metall_to_arrow_type = {{Metall_Type::Bool, arrow::boolean()},
-                            {Metall_Type::Int64, arrow::int64()},
-                            {Metall_Type::UInt64, arrow::uint64()},
-                            {Metall_Type::Double, arrow::float64()},
-                            {Metall_Type::String, arrow::utf8()}};
+  metall_to_arrow_type = {{Metall_Type::Bool, arrow::boolean()},
+                          {Metall_Type::Int64, arrow::int64()},
+                          {Metall_Type::UInt64, arrow::uint64()},
+                          {Metall_Type::Double, arrow::float64()},
+                          {Metall_Type::String, arrow::utf8()}};
 
 // Helper to validate that variant type matches expected column type
 bool validate_variant_type(const metall_series_type& value,
@@ -187,7 +187,7 @@ ParquetWriter::ParquetWriter(const std::string&              filename,
           break;
         case Metall_Type::UInt64:
           column_builders_.emplace_back(
-              std::make_unique<arrow::UInt64Builder>());
+            std::make_unique<arrow::UInt64Builder>());
           break;
         case Metall_Type::Double:
           column_builders_.emplace_back(
