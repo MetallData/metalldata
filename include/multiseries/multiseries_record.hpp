@@ -38,7 +38,7 @@ namespace cstr = compact_string;
 /// \details
 /// This class provides a column-based record store.
 /// Each record (row) can have multiple series (columns).
-/// Each series can have different types. Supported types are int64_t, uint64_t,
+/// Each series can have different types. Supported types are int64_t, bool,
 /// double, and std::string_view.
 template <typename Alloc = std::allocator<std::byte>>
 class basic_record_store {
@@ -62,8 +62,8 @@ class basic_record_store {
   using allocator_type            = Alloc;
   using string_store_type         = cstr::string_store<allocator_type>;
   using string_store_pointer_type = other_pointer_type<string_store_type>;
-  using series_type = std::variant<std::monostate, bool, int64_t, uint64_t,
-                                   double, std::string_view>;
+  using series_type =
+    std::variant<std::monostate, bool, int64_t, double, std::string_view>;
 
  private:
   template <typename T>
@@ -93,7 +93,7 @@ class basic_record_store {
 
   using container_variant =
     std::variant<series_container_type<bool>, series_container_type<int64_t>,
-                 series_container_type<uint64_t>, series_container_type<double>,
+                 series_container_type<double>,
                  series_container_type<std::string_view>>;
 
   using string_type =
@@ -544,7 +544,6 @@ class basic_record_store {
   static constexpr void priv_series_type_check() {
     static_assert(std::is_same_v<series_type, bool> ||
                     std::is_same_v<series_type, int64_t> ||
-                    std::is_same_v<series_type, uint64_t> ||
                     std::is_same_v<series_type, double> ||
                     std::is_same_v<series_type, std::string_view>,
                   "Unsupported series type");

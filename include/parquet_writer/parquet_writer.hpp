@@ -106,6 +106,20 @@ class ParquetWriter {
 
   arrow::Status write_row(const std::vector<metall_series_type>& row);
 
+  // Overload for vectors of compatible variants (e.g. multiseries::series_type
+  // which lacks uint64_t). Each element is converted to metall_series_type.
+  template <typename... Ts>
+  std::enable_if_t<!std::is_same_v<std::variant<Ts...>, metall_series_type>,
+                   arrow::Status>
+  write_row(const std::vector<std::variant<Ts...>>& row) {
+    std::vector<metall_series_type> converted;
+    converted.reserve(row.size());
+    for (const auto& val : row) {
+      std::visit([&converted](const auto& v) { converted.emplace_back(v); }, val);
+    }
+    return write_row(converted);
+  }
+
   // Variadic template overload for write_row - disabled when first arg is a
   // vector
   template <typename T, typename... Args>

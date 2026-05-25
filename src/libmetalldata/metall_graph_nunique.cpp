@@ -52,19 +52,6 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
       if (m_comm.rank0()) {
         nunique[sname] = sz;
       }
-    } else if (m_pedges->is_series_type<uint64_t>(sid)) {
-      ygm::container::set<uint64_t> distinct(m_comm);
-      for (auto rid : rids) {
-        auto val_opt = m_pedges->get<uint64_t>(sid, rid);
-        if (val_opt.has_value()) {
-          distinct.async_insert(val_opt.value());
-        }
-      }
-
-      size_t sz = distinct.size();
-      if (m_comm.rank0()) {
-        nunique[sname] = sz;
-      }
     } else if (m_pedges->is_series_type<bool>(sid)) {
       bool has_true = false;
       bool has_false = false;
@@ -144,19 +131,6 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
           distinct.async_insert(val_opt.value());
         }
       }
-      size_t sz = distinct.size();
-      if (m_comm.rank0()) {
-        nunique[sname] = sz;
-      }
-    } else if (m_pnodes->is_series_type<uint64_t>(sid)) {
-      ygm::container::set<uint64_t> distinct(m_comm);
-      for (auto rid : rids) {
-        auto val_opt = m_pnodes->get<uint64_t>(sid, rid);
-        if (val_opt.has_value()) {
-          distinct.async_insert(val_opt.value());
-        }
-      }
-
       size_t sz = distinct.size();
       if (m_comm.rank0()) {
         nunique[sname] = sz;

@@ -72,14 +72,6 @@ inline GeneratorRegistry create_registry() {
     });
 
   registry.register_generator(
-    "uint", [](metalldata::metall_graph&                     mg,
-               const metalldata::metall_graph::series_name&  name,
-               const metalldata::metall_graph::where_clause& where) {
-      auto gen = []() { return faker::number::integer<uint64_t>(10'000'000); };
-      mg.add_faker_series<decltype(gen), uint64_t>(name, gen, where);
-    });
-
-  registry.register_generator(
     "double", [](metalldata::metall_graph&                     mg,
                  const metalldata::metall_graph::series_name&  name,
                  const metalldata::metall_graph::where_clause& where) {
@@ -99,8 +91,8 @@ inline GeneratorRegistry create_registry() {
     "int_percentage", [](metalldata::metall_graph&                     mg,
                          const metalldata::metall_graph::series_name&  name,
                          const metalldata::metall_graph::where_clause& where) {
-      auto gen = []() { return faker::number::integer<uint64_t>(100); };
-      mg.add_faker_series<decltype(gen), uint64_t>(name, gen, where);
+      auto gen = []() { return faker::number::integer<int64_t>(0, 100); };
+      mg.add_faker_series<decltype(gen), int64_t>(name, gen, where);
     });
 
   registry.register_generator(
