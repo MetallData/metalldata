@@ -127,8 +127,12 @@ bjsn::array metall_graph::select_sample_edges(
   for (const auto& rid : local_data) {
     bjsn::object row;
     for (const auto& [idx, sname] : idx_to_name) {
-      auto val = m_pedges->get_dynamic(idx, rid);
+      auto val_o = m_pedges->get_dynamic(idx, rid);
 
+      if (!val_o.has_value()) {
+        continue;
+      }
+      auto val = val_o.value();
       std::visit(
         [&](auto&& v) {
           using T = std::decay_t<decltype(v)>;
@@ -253,8 +257,12 @@ bjsn::array metall_graph::select_sample_nodes(
   for (const auto& rid : local_data) {
     bjsn::object row;
     for (const auto& [idx, sname] : idx_to_name) {
-      auto val = m_pnodes->get_dynamic(idx, rid);
+      auto val_o = m_pnodes->get_dynamic(idx, rid);
 
+      if (!val_o.has_value()) {
+        continue;
+      }
+      auto val = val_o.value();
       std::visit(
         [&](auto&& v) {
           using T = std::decay_t<decltype(v)>;

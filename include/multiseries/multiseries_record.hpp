@@ -119,9 +119,10 @@ class basic_record_store {
   /// \brief Returns the maximum record index.
   record_id_type max_index() { return m_record_status.size() - 1; }
 
-  /// \brief Add a series
+  /// \brief Add a series, or return the index of an existing one.
   /// \param series_name The name of the series
   /// \param kind The kind of the container
+  /// \return The index of the series (existing or newly created)
   template <typename series_type>
   series_index_type add_series(const std::string_view series_name,
                                container_kind kind = container_kind::dense) {
@@ -142,32 +143,33 @@ class basic_record_store {
     return m_series.size() - 1;
   }
 
-  /// \brief Returns the series data of a record
+  /// \brief Returns an optional containing the series data of a record if it
+  /// exists.
   /// \param series_index The index of the series
   /// \param record_id The record ID
   /// \return The series data
-  /// If the series data does not exist, it throws a runtime error.
+  /// If the series data does not exist, it returns std::nullopt.
   template <typename series_type>
-  const auto get(const series_index_type series_index,
-                 const record_id_type    record_id) const {
+  const std::optional<series_type> get(const series_index_type series_index,
+                                       const record_id_type record_id) const {
     priv_series_type_check<series_type>();
     if (series_index >= m_series.size()) {
-      throw std::runtime_error("Series not found");
+      return std::nullopt;
     }
     const auto &container = m_series[series_index].container;
     return priv_get_series_data<series_type>(container, record_id);
   }
 
-  /// \brief Returns the series data of a record as a variant.
+  /// \brief Returns the series data of a record as an optional variant.
   /// \param series_index The index of the series
   /// \param record_id The record ID
   /// \return The series data as a variant.
-  /// If the series name doesn't exist, throw a runtime_error.
+  /// If the series name doesn't exist, return std::nullopt.
   /// If the series data does not exist, return std::monostate.
-  series_type get_dynamic(const series_index_type series_index,
-                          const record_id_type    record_id) const {
+  std::optional<series_type> get_dynamic(const series_index_type series_index,
+                                         const record_id_type record_id) const {
     if (series_index >= m_series.size()) {
-      throw std::runtime_error("Series not found");
+      return std::nullopt;
     }
     series_type to_return = std::monostate{};  // default
     const auto &container = m_series[series_index].container;
@@ -191,12 +193,14 @@ class basic_record_store {
   /// \param ser_inc Vector of series indices to include
   /// \param record_id Record ID
   /// \return A vector of std::variant containing the selected series data
+  /// \note if a value doesn't exist, std::monostate is included.
   std::vector<series_type> get(const std::vector<series_index_type> &ser_inc,
                                const record_id_type record_id) const {
     std::vector<series_type> to_return;
 
     for (const auto &ser : ser_inc) {
-      to_return.push_back(get_dynamic(ser, record_id));
+      to_return.push_back(
+        get_dynamic(ser, record_id).value_or(std::monostate{}));
     }
     return to_return;
   }

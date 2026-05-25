@@ -19,7 +19,10 @@ metall_graph::value_counts(metall_graph::series_name sname,
         auto s_val = m_pedges->get_dynamic(sid, rid);
         // need to convert between variants. Except for string, this should be
         // zero-allocation.
-        auto val = priv_series_to_data_type(s_val);
+        if (!s_val.has_value()) {
+          return;
+        }
+        auto val = priv_series_to_data_type(s_val.value());
 
         counts.async_insert(val);
       },
@@ -32,7 +35,10 @@ metall_graph::value_counts(metall_graph::series_name sname,
         auto s_val = m_pnodes->get_dynamic(sid, rid);
         // need to convert between variants. Except for string, this should be
         // zero-allocation.
-        auto val = priv_series_to_data_type(s_val);
+        if (!s_val.has_value()) {
+          return;
+        }
+        auto val = priv_series_to_data_type(s_val.value());
 
         counts.async_insert(val);
       },

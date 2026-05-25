@@ -13,7 +13,9 @@ void metall_graph::priv_for_all_edges_nwhere(
   priv_for_all_nodes_nwhere(
     [&](record_id_type record_idx) {
       auto u = m_pnodes->get<std::string_view>(m_node_col_idx, record_idx);
-      nodeset.async_insert(std::string(u));
+      if (u.has_value()) {
+        nodeset.async_insert(std::string(u.value()));
+      }
     },
     where);
   m_comm.barrier();
@@ -22,8 +24,13 @@ void metall_graph::priv_for_all_edges_nwhere(
   m_pedges->for_all_rows([&](record_id_type record_idx) {
     auto u = m_pnodes->get<std::string_view>(m_u_col_idx, record_idx);
     auto v = m_pnodes->get<std::string_view>(m_v_col_idx, record_idx);
-    nodes_i_need.insert(std::string(v));
-    nodes_i_need.insert(std::string(u));
+    if (u.has_value()) {
+      nodes_i_need.insert(std::string(u.value()));
+    }
+
+    if (v.has_value()) {
+      nodes_i_need.insert(std::string(v.value()));
+    }
   });
 
   std::set<std::string> nodes_alive = nodeset.gather_values(nodes_i_need);
@@ -31,9 +38,11 @@ void metall_graph::priv_for_all_edges_nwhere(
   m_pedges->for_all_rows([&](record_id_type record_idx) {
     auto u = m_pnodes->get<std::string_view>(m_u_col_idx, record_idx);
     auto v = m_pnodes->get<std::string_view>(m_v_col_idx, record_idx);
-    if (nodes_alive.contains(std::string(u)) &&
-        nodes_alive.contains(std::string(v))) {
-      func(record_idx);
+    if (u.has_value() && v.has_value()) {
+      if (nodes_alive.contains(std::string(u.value())) &&
+          nodes_alive.contains(std::string(v.value()))) {
+        func(record_idx);
+      }
     }
   });
 }
@@ -66,7 +75,12 @@ void metall_graph::priv_for_all_edges_ewhere(
         missing_field = true;
         break;
       }
-      auto val = m_pedges->get_dynamic(series_idx, row_index);
+      auto val_o = m_pedges->get_dynamic(series_idx, row_index);
+      if (!val_o.has_value()) {
+        continue;
+      }
+      auto val = val_o.value();
+
       std::visit(
         [&var_data](const auto& v) {
           using T = std::decay_t<decltype(v)>;
@@ -130,7 +144,11 @@ void metall_graph::priv_for_all_nodes_nwhere(
         missing_field = true;
         break;
       }
-      auto val = m_pnodes->get_dynamic(series_idx, row_index);
+      auto val_o = m_pnodes->get_dynamic(series_idx, row_index);
+      if (!val_o.has_value()) {
+        continue;
+      }
+      auto val = val_o.value();
 
       std::visit(
         [&var_data, &missing_field](const auto& v) {
