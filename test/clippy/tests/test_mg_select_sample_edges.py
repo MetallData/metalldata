@@ -1,0 +1,51 @@
+from conftest import is_as_selected
+
+
+def test_mg_select_sample_edges(metallgraph):
+    for _ in range(20):
+        sample_data = metallgraph.select_sample_edges(
+            k=10, series_names=[metallgraph.edge.u, metallgraph.edge.v]
+        )
+        assert len(sample_data) == 10
+        is_as_selected(sample_data, {}, ["u", "v"], [])
+
+    for _ in range(5):
+        sample_data = metallgraph.select_sample_edges(
+            k=5,
+            series_names=[metallgraph.edge.u, metallgraph.edge.v, metallgraph.edge.graphnum],
+            where=metallgraph.edge.graphnum == 0,
+        )
+        assert len(sample_data) == 5
+        for el in sample_data:
+            assert el["graphnum"] == 0
+        is_as_selected(sample_data, {"graphnum": 0}, ["u", "v"], [])
+
+    for _ in range(5):
+        sample_data = metallgraph.select_sample_edges(
+            k=1000,
+            series_names=[metallgraph.edge.u, metallgraph.edge.v, metallgraph.edge.graphnum],
+            where=metallgraph.edge.graphnum == 1,
+        )
+        total_edges_g1 = len(metallgraph.select_edges(where=metallgraph.edge.graphnum == 1))
+        assert len(sample_data) <= total_edges_g1
+        is_as_selected(sample_data, {"graphnum": 1}, ["u", "v"], [])
+
+    for _ in range(5):
+        total_edges = metallgraph.describe()["ne"]
+        sample_data = metallgraph.select_sample_edges(k=total_edges + 10)
+        assert len(sample_data) <= total_edges
+
+    for seed in range(5):
+        sd1 = metallgraph.select_sample_edges(
+            10, series_names=[metallgraph.edge.u, metallgraph.edge.v, metallgraph.edge.graphnum], seed=seed
+        )
+        sd2 = metallgraph.select_sample_edges(
+            10, series_names=[metallgraph.edge.u, metallgraph.edge.v, metallgraph.edge.graphnum], seed=seed
+        )
+        sd3 = metallgraph.select_sample_edges(
+            10, [metallgraph.edge.u, metallgraph.edge.v, metallgraph.edge.graphnum], seed=seed + 1
+        )
+
+        assert len(sd1) == len(sd2) == len(sd3)
+        assert sd1 == sd2
+        assert sd2 != sd3

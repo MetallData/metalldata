@@ -1,0 +1,13 @@
+from conftest import is_as_selected
+
+
+def test_mg_sample_nodes(metallgraph):
+    metallgraph.sample_nodes(k=10, series_name="nsamp1")
+    select_data = metallgraph.select_nodes(where=metallgraph.node.nsamp1 == True)
+    is_as_selected(select_data, {"nsamp1": True}, ["id"], [])
+    assert len(select_data) == 10
+
+    metallgraph.sample_nodes(k=3, series_name="nsamp2", where=metallgraph.node.gnum == 3)
+    select_data = metallgraph.select_nodes(where=metallgraph.node.nsamp2 == True)
+    is_as_selected(select_data, {"nsamp2": True, "gnum": 3}, ["id"], [])
+    assert len(select_data) == 3
