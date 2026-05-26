@@ -46,20 +46,22 @@ TEST(MultiSeriesTest, GetValues) {
 
   // Use series indices to retrieve values
   for (size_t i = 0; i < cities.size(); ++i) {
-    EXPECT_EQ(store.get<std::string_view>(series_indices["name"], i), names[i]);
-    EXPECT_EQ(store.get<int64_t>(series_indices["age"], i), ages[i]);
-    EXPECT_EQ(store.get<std::string_view>(series_indices["city"], i),
+    EXPECT_EQ(store.get<std::string_view>(series_indices["name"], i).value(),
+              names[i]);
+    EXPECT_EQ(store.get<int64_t>(series_indices["age"], i).value(), ages[i]);
+    EXPECT_EQ(store.get<std::string_view>(series_indices["city"], i).value(),
               cities[i]);
-    EXPECT_EQ(store.get<bool>(series_indices["flag"], i), flags[i]);
+    EXPECT_EQ(store.get<bool>(series_indices["flag"], i).value(), flags[i]);
   }
 
   // Use series names to retrieve values
   for (size_t i = 0; i < cities.size(); ++i) {
-    EXPECT_EQ(store.get<std::string_view>(series_indices["name"], i), names[i]);
-    EXPECT_EQ(store.get<int64_t>(series_indices["age"], i), ages[i]);
-    EXPECT_EQ(store.get<std::string_view>(series_indices["city"], i),
+    EXPECT_EQ(store.get<std::string_view>(series_indices["name"], i).value(),
+              names[i]);
+    EXPECT_EQ(store.get<int64_t>(series_indices["age"], i).value(), ages[i]);
+    EXPECT_EQ(store.get<std::string_view>(series_indices["city"], i).value(),
               cities[i]);
-    EXPECT_EQ(store.get<bool>(series_indices["flag"], i), flags[i]);
+    EXPECT_EQ(store.get<bool>(series_indices["flag"], i).value(), flags[i]);
   }
 }
 
@@ -102,14 +104,15 @@ TEST(MultiSeriesTest, IsNone) {
   record_store                    store(&string_store);
 
   auto name_id = store.find_series("name");
-  EXPECT_TRUE(store.is_none(name_id, 0));
+  EXPECT_FALSE(name_id.has_value());
+  // EXPECT_TRUE(store.is_none(name_id, 0));
   store.add_series<std::string_view>("name");
   name_id = store.find_series("name");
-  EXPECT_TRUE(store.is_none(name_id, 0));
+  EXPECT_TRUE(store.is_none(name_id.value(), 0));
   store.add_record();
-  EXPECT_TRUE(store.is_none(name_id, 0));
-  store.set<std::string_view>(name_id, 0, "Alice");
-  EXPECT_FALSE(store.is_none(name_id, 0));
+  EXPECT_TRUE(store.is_none(name_id.value(), 0));
+  store.set<std::string_view>(name_id.value(), 0, "Alice");
+  EXPECT_FALSE(store.is_none(name_id.value(), 0));
 }
 
 // remove_data
@@ -181,9 +184,10 @@ TEST(MultiSeriesTest, ConvertAndCheck) {
   store.convert(series_indices["city"], multiseries::container_kind::sparse);
 
   for (size_t i = 0; i < cities.size(); ++i) {
-    EXPECT_EQ(store.get<std::string_view>(series_indices["name"], i), names[i]);
-    EXPECT_EQ(store.get<int64_t>(series_indices["age"], i), ages[i]);
-    EXPECT_EQ(store.get<std::string_view>(series_indices["city"], i),
+    EXPECT_EQ(store.get<std::string_view>(series_indices["name"], i).value(),
+              names[i]);
+    EXPECT_EQ(store.get<int64_t>(series_indices["age"], i).value(), ages[i]);
+    EXPECT_EQ(store.get<std::string_view>(series_indices["city"], i).value(),
               cities[i]);
   }
 
@@ -192,9 +196,10 @@ TEST(MultiSeriesTest, ConvertAndCheck) {
   store.convert(series_indices["city"], multiseries::container_kind::dense);
 
   for (size_t i = 0; i < cities.size(); ++i) {
-    EXPECT_EQ(store.get<std::string_view>(series_indices["name"], i), names[i]);
-    EXPECT_EQ(store.get<int64_t>(series_indices["age"], i), ages[i]);
-    EXPECT_EQ(store.get<std::string_view>(series_indices["city"], i),
+    EXPECT_EQ(store.get<std::string_view>(series_indices["name"], i).value(),
+              names[i]);
+    EXPECT_EQ(store.get<int64_t>(series_indices["age"], i).value(), ages[i]);
+    EXPECT_EQ(store.get<std::string_view>(series_indices["city"], i).value(),
               cities[i]);
   }
 }
