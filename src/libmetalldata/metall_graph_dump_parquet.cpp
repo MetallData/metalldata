@@ -20,7 +20,8 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
   std::vector<std::pair<size_t, series_name>> meta_series;  // index, name
 
   for (const auto& sn : meta) {
-    if (!has_series(sn)) {
+    auto idx_o = m_pnodes->find_series(sn.unqualified());
+    if (!idx_o.has_value()) {
       to_return
         .warnings[std::format("Column '{}' not found", sn.qualified())]++;
       continue;
@@ -28,7 +29,8 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
     if (RESERVED_COLUMN_NAMES.contains(sn)) {
       continue;
     }
-    auto idx = m_pnodes->find_series(sn.unqualified());
+
+    auto idx = idx_o.value();
     meta_series.emplace_back(idx, sn);
   }
 
@@ -45,7 +47,11 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
       if (type_determined[i]) continue;
 
       auto [idx, col_name] = meta_series[i];
-      auto sample_val      = m_pnodes->get_dynamic(idx, rid);
+      auto sample_val_o = m_pnodes->get_dynamic(idx, rid);
+      if (!sample_val_o.has_value()) {
+        continue;
+      }
+      auto sample_val = sample_val_o.value();
 
       char type_char  = 's';  // default to string
       bool found_type = false;
@@ -116,15 +122,24 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
     }
 
     // Prepare node ID series index
-    auto node_col_idx = m_pnodes->find_series(NODE_COL.unqualified());
-
+    auto node_col_idx_o = m_pnodes->find_series(NODE_COL.unqualified());
+    if (!node_col_idx_o.has_value()) {
+      to_return.error =
+        std::format("Series {} not found", NODE_COL.qualified());
+      return to_return;
+    }
+    auto node_col_idx = node_col_idx_o.value();
     // Write rows
     m_pnodes->for_all_rows([&](record_id_type rid) {
       std::vector<parquet_writer::metall_series_type> row;
       row.reserve(1 + meta_info.size());
 
       // Add node ID
-      auto node_val = m_pnodes->get_dynamic(node_col_idx, rid);
+      auto node_val_o = m_pnodes->get_dynamic(node_col_idx, rid);
+      if (!node_val_o.has_value()) {
+        return;
+      }
+      auto node_val = node_val_o.value();
       std::visit(
         [&row](const auto& v) {
           using T = std::decay_t<decltype(v)>;
@@ -139,7 +154,11 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
 
       // Add metadata columns
       for (const auto& [idx, type_char] : meta_info) {
-        auto val = m_pnodes->get_dynamic(idx, rid);
+        auto val_o = m_pnodes->get_dynamic(idx, rid);
+        if (!val_o.has_value()) {
+          continue;
+        }
+        auto val = val_o.value();
 
         // Convert to parquet_writer type
         std::visit(
@@ -208,7 +227,9 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
   std::vector<std::pair<size_t, series_name>> meta_series;  // index, name
 
   for (const auto& sn : meta) {
-    if (!has_series(sn)) {
+    auto idx_o = m_pedges->find_series(sn.unqualified());
+
+    if (!idx_o.has_value()) {
       to_return
         .warnings[std::format("Column '{}' not found", sn.qualified())]++;
       continue;
@@ -217,7 +238,7 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
       continue;
     }
 
-    auto idx = m_pedges->find_series(sn.unqualified());
+    auto idx = idx_o.value();
     meta_series.emplace_back(idx, sn);
   }
 
@@ -234,7 +255,11 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
       if (type_determined[i]) continue;
 
       auto [idx, col_name] = meta_series[i];
-      auto sample_val      = m_pedges->get_dynamic(idx, rid);
+      auto sample_val_o = m_pedges->get_dynamic(idx, rid);
+      if (!sample_val_o.has_value()) {
+        continue;
+      }
+      auto sample_val = sample_val_o.value();
 
       char type_char  = 's';  // default to string
       bool found_type = false;
@@ -305,9 +330,25 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
     }
 
     // Prepare edge U, V, and directed series indices
-    auto u_col_idx   = m_pedges->find_series(U_COL.unqualified());
-    auto v_col_idx   = m_pedges->find_series(V_COL.unqualified());
-    auto dir_col_idx = m_pedges->find_series(DIR_COL.unqualified());
+    auto u_col_o = m_pedges->find_series(U_COL.unqualified());
+    if (!u_col_o.has_value()) {
+      to_return.error = std::format("Series {} not found", U_COL.qualified());
+      return to_return;
+    }
+    auto v_col_o = m_pedges->find_series(V_COL.unqualified());
+    if (!v_col_o.has_value()) {
+      to_return.error = std::format("Series {} not found", V_COL.qualified());
+      return to_return;
+    }
+    auto dir_col_o = m_pedges->find_series(DIR_COL.unqualified());
+    if (!dir_col_o.has_value()) {
+      to_return.error = std::format("Series {} not found", DIR_COL.qualified());
+      return to_return;
+    }
+
+    auto u_col = u_col_o.value();
+    auto v_col = v_col_o.value();
+    auto dir_col = dir_col_o.value();
 
     // Write rows
     m_pedges->for_all_rows([&](record_id_type rid) {
@@ -315,7 +356,11 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
       row.reserve(3 + meta_info.size());
 
       // Add edge U
-      auto u_val = m_pedges->get_dynamic(u_col_idx, rid);
+      auto u_val_o = m_pedges->get_dynamic(u_col, rid);
+      if (!u_val_o.has_value()) {
+        return;
+      }
+      auto u_val = u_val_o.value();
       std::visit(
         [&row](const auto& v) {
           using T = std::decay_t<decltype(v)>;
@@ -329,7 +374,13 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
         u_val);
 
       // Add edge V
-      auto v_val = m_pedges->get_dynamic(v_col_idx, rid);
+      auto v_val_o = m_pedges->get_dynamic(v_col, rid);
+
+      if (!v_val_o.has_value()) {
+        return;
+      }
+      auto v_val = v_val_o.value();
+
       std::visit(
         [&row](const auto& v) {
           using T = std::decay_t<decltype(v)>;
@@ -343,7 +394,13 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
         v_val);
 
       // Add edge directed
-      auto dir_val = m_pedges->get_dynamic(dir_col_idx, rid);
+      auto dir_val_o = m_pedges->get_dynamic(dir_col, rid);
+
+      if (!dir_val_o.has_value()) {
+        return;
+      }
+      auto dir_val = dir_val_o.value();
+
       std::visit(
         [&row](const auto& v) {
           using T = std::decay_t<decltype(v)>;
@@ -359,8 +416,12 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
 
       // Add metadata columns
       for (const auto& [idx, type_char] : meta_info) {
-        auto val = m_pedges->get_dynamic(idx, rid);
+        auto val_o = m_pedges->get_dynamic(idx, rid);
 
+        if (!val_o.has_value()) {
+          continue;
+        }
+        auto val = val_o.value();
         // Convert to parquet_writer type
         std::visit(
           [&row](const auto& v) {

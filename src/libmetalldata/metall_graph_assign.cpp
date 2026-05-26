@@ -39,7 +39,12 @@ metall_graph::return_code metall_graph::assign(
       to_return.error = "Invalid type for value; aborting";
       return to_return;
     }
-    series_index_type name_idx = m_pedges->find_series(name.unqualified());
+    auto name_idx_o = m_pedges->find_series(name.unqualified());
+    if (!name_idx_o.has_value()) {
+      to_return.error = std::format("Series {} not found", name.qualified());
+      return to_return;
+    }
+    auto name_idx = name_idx_o.value();
     auto wrapper = [&val, pedges_, name_idx](record_id_type record_id) {
       std::visit(
         [pedges_, name_idx, record_id](const auto& v) {
@@ -80,7 +85,13 @@ metall_graph::return_code metall_graph::assign(
       to_return.error = "Invalid type for value; aborting";
       return to_return;
     }
-    series_index_type name_idx = m_pnodes->find_series(name.unqualified());
+    auto name_idx_o = m_pnodes->find_series(name.unqualified());
+    if (!name_idx_o.has_value()) {
+      to_return.error = std::format("Series {} not found", name.qualified());
+      return to_return;
+    }
+    auto name_idx = name_idx_o.value();
+
     auto wrapper = [&val, pnodes_, name_idx](record_id_type record_id) {
       std::visit(
         [pnodes_, name_idx, record_id](const auto& v) {

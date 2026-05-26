@@ -97,10 +97,19 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
 
   //
   // Find required column names
-  m_u_col_idx    = m_pedges->find_series(U_COL.unqualified());
-  m_v_col_idx    = m_pedges->find_series(V_COL.unqualified());
-  m_dir_col_idx  = m_pedges->find_series(DIR_COL.unqualified());
-  m_node_col_idx = m_pnodes->find_series(NODE_COL.unqualified());
+  auto u_col_idx_o = m_pedges->find_series(U_COL.unqualified());
+  auto v_col_idx_o = m_pedges->find_series(V_COL.unqualified());
+  auto dir_col_idx_o = m_pedges->find_series(DIR_COL.unqualified());
+  auto node_col_idx_o = m_pnodes->find_series(NODE_COL.unqualified());
+  YGM_ASSERT_RELEASE(u_col_idx_o.has_value());
+  YGM_ASSERT_RELEASE(v_col_idx_o.has_value());
+  YGM_ASSERT_RELEASE(dir_col_idx_o.has_value());
+  YGM_ASSERT_RELEASE(node_col_idx_o.has_value());
+
+  m_u_col_idx = u_col_idx_o.value();
+  m_v_col_idx = v_col_idx_o.value();
+  m_dir_col_idx = dir_col_idx_o.value();
+  m_node_col_idx = node_col_idx_o.value();
 }
 
 metall_graph::~metall_graph() {

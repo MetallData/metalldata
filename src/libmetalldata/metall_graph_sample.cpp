@@ -115,10 +115,11 @@ bjsn::array metall_graph::select_sample_edges(
 
   std::unordered_map<series_index_type, series_name> idx_to_name;
   for (const auto& sname : metadata) {
-    auto idx = m_pedges->find_series(sname.unqualified());
-    if (idx == std::numeric_limits<size_t>::max()) {
+    auto idx_o = m_pedges->find_series(sname.unqualified());
+    if (!idx_o.has_value()) {
       return {};
     }
+    auto idx = idx_o.value();
     idx_to_name[idx] = sname;
   }
 
@@ -127,8 +128,12 @@ bjsn::array metall_graph::select_sample_edges(
   for (const auto& rid : local_data) {
     bjsn::object row;
     for (const auto& [idx, sname] : idx_to_name) {
-      auto val = m_pedges->get_dynamic(idx, rid);
+      auto val_o = m_pedges->get_dynamic(idx, rid);
 
+      if (!val_o.has_value()) {
+        continue;
+      }
+      auto val = val_o.value();
       std::visit(
         [&](auto&& v) {
           using T = std::decay_t<decltype(v)>;
@@ -241,10 +246,11 @@ bjsn::array metall_graph::select_sample_nodes(
 
   std::unordered_map<series_index_type, series_name> idx_to_name;
   for (const auto& sname : metadata) {
-    auto idx = m_pnodes->find_series(sname.unqualified());
-    if (idx == std::numeric_limits<size_t>::max()) {
+    auto idx_o = m_pnodes->find_series(sname.unqualified());
+    if (!idx_o.has_value()) {
       return {};
     }
+    auto idx = idx_o.value();
     idx_to_name[idx] = sname;
   }
 
@@ -253,8 +259,12 @@ bjsn::array metall_graph::select_sample_nodes(
   for (const auto& rid : local_data) {
     bjsn::object row;
     for (const auto& [idx, sname] : idx_to_name) {
-      auto val = m_pnodes->get_dynamic(idx, rid);
+      auto val_o = m_pnodes->get_dynamic(idx, rid);
 
+      if (!val_o.has_value()) {
+        continue;
+      }
+      auto val = val_o.value();
       std::visit(
         [&](auto&& v) {
           using T = std::decay_t<decltype(v)>;

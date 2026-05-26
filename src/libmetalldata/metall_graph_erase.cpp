@@ -15,12 +15,13 @@ metall_graph::return_code metall_graph::erase_edges(
   boost::unordered_flat_set<std::string> haystack) {
   metall_graph::return_code to_return;
 
-  if (!has_edge_series(name)) {
+  auto idx_o = m_pedges->find_series(name.unqualified());
+  if (!idx_o.has_value()) {
     to_return.error = std::format("Series {} not found", name.unqualified());
     return to_return;
   }
 
-  auto idx = m_pedges->find_series(name.unqualified());
+  auto idx = idx_o.value();
 
   priv_for_all_edges([&](auto rid) {
     auto val_opt = m_pedges->get<std::string_view>(idx, rid);

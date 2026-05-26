@@ -46,9 +46,26 @@ metall_graph::return_code metall_graph::nhops(
     return to_return;
   }
 
-  auto u_col = m_pedges->find_series(U_COL.unqualified());
-  auto v_col = m_pedges->find_series(V_COL.unqualified());
-  auto is_directed_col = m_pedges->find_series(DIR_COL.unqualified());
+  auto u_col_o = m_pedges->find_series(U_COL.unqualified());
+  if (!u_col_o.has_value()) {
+    to_return.error = std::format("Series {} not found", U_COL.qualified());
+    return to_return;
+  }
+  auto v_col_o = m_pedges->find_series(V_COL.unqualified());
+  if (!v_col_o.has_value()) {
+    to_return.error = std::format("Series {} not found", V_COL.qualified());
+    return to_return;
+  }
+  auto dir_col_o = m_pedges->find_series(DIR_COL.unqualified());
+  if (!dir_col_o.has_value()) {
+    to_return.error = std::format("Series {} not found", DIR_COL.qualified());
+    return to_return;
+  }
+
+  auto u_col = u_col_o.value();
+  auto v_col = v_col_o.value();
+  auto dir_col = dir_col_o.value();
+
   // TODO: convert to (rank, node row id) tuples.
   ygm::container::map<std::string, std::vector<std::string>> adj_list(m_comm);
 
@@ -60,7 +77,7 @@ metall_graph::return_code metall_graph::nhops(
       YGM_ASSERT_RELEASE(v_opt.has_value());
       std::string u(u_opt.value());
       std::string v(v_opt.value());
-      auto        is_directed = m_pedges->get<bool>(is_directed_col, id);
+      auto        is_directed = m_pedges->get<bool>(dir_col, id);
       auto adj_inserter = [](const std::string&, std::vector<std::string>& adj,
                              const std::string& vert) { adj.push_back(vert); };
       adj_list.async_visit(u, adj_inserter, v);
