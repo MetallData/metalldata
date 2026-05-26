@@ -111,7 +111,12 @@ int main(int argc, char *argv[]) {
     using value_type = int64_t;
     std::cout << "Value type is: " << typeid(value_type).name() << std::endl;
     value_type max_value  = std::numeric_limits<value_type>::min();
-    auto       series_idx = record_store->find_series(series_name);
+    auto       series_idx_o = record_store->find_series(series_name);
+    if (!series_idx_o.has_value()) {
+      std::cerr << "Series not found: " << series_name << "\n";
+      continue;
+    }
+    auto series_idx = series_idx_o.value();
     record_store->for_all<value_type>(series_idx,
                                       [&](const auto, const auto value) {
                                         max_value = std::max(max_value, value);

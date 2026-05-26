@@ -191,8 +191,12 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
         bool is_u_or_v = (metall_ser == U_COL || metall_ser == V_COL);
         // an edge is invalid if we have a type coercion problem
         bool              invalid_edge = false;
-        series_index_type metall_ser_idx =
+        std::optional<series_index_type> metall_ser_idx_o =
           m_pedges->find_series(metall_ser.unqualified());
+        if (!metall_ser_idx_o.has_value()) {
+          continue;
+        }
+        series_index_type metall_ser_idx = metall_ser_idx_o.value();
 
         auto add_val = [&](const auto& val) {
           using T = std::decay_t<decltype(val)>;

@@ -129,7 +129,11 @@ int main(int argc, char **argv) {
         continue;  // Leave the field empty for None/NaN values
       }
 
-      auto name_idx = record_store->find_series(schema[i].name);
+      auto name_idx_o = record_store->find_series(schema[i].name);
+      if (!name_idx_o.has_value()) {
+        continue;
+      }
+      auto name_idx = name_idx_o.value();
       std::visit(
         [&record_store, &record_id, name_idx, &opt](auto &&field) {
           using T = std::decay_t<decltype(field)>;

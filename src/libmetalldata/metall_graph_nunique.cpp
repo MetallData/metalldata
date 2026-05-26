@@ -26,7 +26,11 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
   // map the series names to indices
   std::vector<series_index_type> sids;
   for (const auto &sname : series_names) {
-    auto sid = m_pedges->find_series(sname.unqualified());
+    auto sid_o = m_pedges->find_series(sname.unqualified());
+    if (!sid_o.has_value()) {
+      continue;
+    }
+    auto sid = sid_o.value();
     if (m_pedges->is_series_type<std::string_view>(sid)) {
       ygm::container::set<std::string> distinct(m_comm);
       for (auto rid : rids) {
@@ -109,7 +113,11 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
   // map the series names to indices
   std::vector<series_index_type> sids;
   for (const auto &sname : series_names) {
-    auto sid = m_pnodes->find_series(sname.unqualified());
+    auto sid_o = m_pnodes->find_series(sname.unqualified());
+    if (!sid_o.has_value()) {
+      continue;
+    }
+    auto sid = sid_o.value();
     if (m_pnodes->is_series_type<std::string_view>(sid)) {
       ygm::container::set<std::string> distinct(m_comm);
       for (auto rid : rids) {

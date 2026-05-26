@@ -13,7 +13,11 @@ metall_graph::value_counts(metall_graph::series_name sname,
                            const where_clause       &where) {
   ygm::container::counting_set<data_types> counts(m_comm);
   if (sname.is_edge_series()) {
-    auto sid = m_pedges->find_series(sname.unqualified());
+    auto sid_o = m_pedges->find_series(sname.unqualified());
+    if (!sid_o.has_value()) {
+      return counts;
+    }
+    auto sid = sid_o.value();
     priv_for_all_edges(
       [&](record_id_type rid) {
         auto s_val = m_pedges->get_dynamic(sid, rid);
@@ -29,7 +33,11 @@ metall_graph::value_counts(metall_graph::series_name sname,
       where);
 
   } else {
-    auto sid = m_pnodes->find_series(sname.unqualified());
+    auto sid_o = m_pnodes->find_series(sname.unqualified());
+    if (!sid_o.has_value()) {
+      return counts;
+    }
+    auto sid = sid_o.value();
     priv_for_all_nodes(
       [&](record_id_type rid) {
         auto s_val = m_pnodes->get_dynamic(sid, rid);

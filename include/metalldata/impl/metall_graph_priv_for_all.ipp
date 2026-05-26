@@ -172,8 +172,13 @@ template <typename Fn>
 void metall_graph::priv_for_all_nodes_ewhere(
   Fn func, const metall_graph::where_clause& where) const {
   YGM_ASSERT_RELEASE(where.is_edge_clause());
-  auto u_col_idx = m_pedges->find_series(U_COL.unqualified());
-  auto v_col_idx = m_pedges->find_series(V_COL.unqualified());
+  auto u_col_idx_o = m_pedges->find_series(U_COL.unqualified());
+  auto v_col_idx_o = m_pedges->find_series(V_COL.unqualified());
+  if (!u_col_idx_o.has_value() || !v_col_idx_o.has_value()) {
+    return;
+  }
+  auto u_col_idx = u_col_idx_o.value();
+  auto v_col_idx = v_col_idx_o.value();
 
   ygm::container::set<std::string> nodeset(m_comm);
   priv_for_all_edges_ewhere(

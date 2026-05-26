@@ -193,7 +193,8 @@ class basic_record_store {
   /// \param ser_inc Vector of series indices to include
   /// \param record_id Record ID
   /// \return A vector of std::variant containing the selected series data
-  /// \note if a value doesn't exist, std::monostate is included.
+  /// \note if a value doesn't exist for a given series, std::monostate is
+  /// included.
   std::vector<series_type> get(const std::vector<series_index_type> &ser_inc,
                                const record_id_type record_id) const {
     std::vector<series_type> to_return;
@@ -259,12 +260,12 @@ class basic_record_store {
   }
 
   // template <typename series_type>
-  // TODO: make this return an optional instead of max() if not found.
-  series_index_type find_series(const std::string_view series_name) const {
+  std::optional<series_index_type> find_series(
+    const std::string_view series_name) const {
     // priv_series_type_check<series_type>();
     auto itr = priv_find_series(series_name);
     if (itr == m_series.end()) {
-      return std::numeric_limits<size_t>::max();
+      return std::nullopt;
     }
     return std::abs(std::distance(m_series.begin(), itr));
   }
@@ -288,11 +289,11 @@ class basic_record_store {
     to_return.reserve(series_names.size());
 
     for (const auto &name : series_names) {
-      auto idx = find_series(name);
-      if (idx == std::numeric_limits<size_t>::max()) {
+      auto idx_o = find_series(name);
+      if (!idx_o.has_value()) {
         return std::nullopt;  // not found
       }
-      to_return.emplace_back(idx);
+      to_return.emplace_back(idx_o.value());
     }
 
     return to_return;

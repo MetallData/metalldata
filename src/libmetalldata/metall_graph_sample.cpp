@@ -115,10 +115,11 @@ bjsn::array metall_graph::select_sample_edges(
 
   std::unordered_map<series_index_type, series_name> idx_to_name;
   for (const auto& sname : metadata) {
-    auto idx = m_pedges->find_series(sname.unqualified());
-    if (idx == std::numeric_limits<size_t>::max()) {
+    auto idx_o = m_pedges->find_series(sname.unqualified());
+    if (!idx_o.has_value()) {
       return {};
     }
+    auto idx = idx_o.value();
     idx_to_name[idx] = sname;
   }
 
@@ -245,10 +246,11 @@ bjsn::array metall_graph::select_sample_nodes(
 
   std::unordered_map<series_index_type, series_name> idx_to_name;
   for (const auto& sname : metadata) {
-    auto idx = m_pnodes->find_series(sname.unqualified());
-    if (idx == std::numeric_limits<size_t>::max()) {
+    auto idx_o = m_pnodes->find_series(sname.unqualified());
+    if (!idx_o.has_value()) {
       return {};
     }
+    auto idx = idx_o.value();
     idx_to_name[idx] = sname;
   }
 
