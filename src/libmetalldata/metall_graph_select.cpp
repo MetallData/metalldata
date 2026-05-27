@@ -31,14 +31,8 @@ std::expected<bjsn::array, std::string> metall_graph::select_edges(
       for (const auto& series : series_set) {
         // TODO: make this better. This is potentially expensive because we
         // have to do a field lookup on every edge.
-        visit_edge_field(series, rid, [&](auto val) {
-          using T = std::decay_t<decltype(val)>;
-          if constexpr (std::is_same_v<T, std::string_view>) {
-            edge_obj[series.unqualified()] = std::string(val);
-          } else {
-            edge_obj[series.unqualified()] = val;
-          }
-        });
+        visit_edge_field(
+          series, rid, [&](auto val) { edge_obj[series.unqualified()] = val; });
       }
       select_results_arr.push_back(edge_obj);
     },
@@ -100,12 +94,7 @@ std::expected<bjsn::array, std::string> metall_graph::select_nodes(
         // TODO: make this better. This is potentially expensive because we
         // have to do a field lookup on every node.
         visit_node_field(series, rid, [&](auto val) {
-          using T = std::decay_t<decltype(val)>;
-          if constexpr (std::is_same_v<T, std::string_view>) {
-            node_obj[series.unqualified()] = std::string(val);
-          } else {
-            node_obj[series.unqualified()] = val;
-          }
+          node_obj[series.unqualified()] = val;
         });
       }
 

@@ -21,8 +21,8 @@ static auto priv_compile_jl_rule(bjsn::value jl_rule) {
 
   auto compiled =
     [jlexpr = std::move(rule)](
-      const std::vector<metalldata::metall_graph::data_types>& row) -> bool {
-    // Convert data_types to value_variant
+      const std::vector<metalldata::metall_graph::series_types>& row) -> bool {
+    // Convert series_types to value_variant
     std::vector<jsonlogic::value_variant> jl_row;
     jl_row.reserve(row.size());
 
@@ -54,7 +54,7 @@ static auto priv_compile_jl_rule(bjsn::value jl_rule) {
 }  // namespace
 namespace metalldata {
 metall_graph::where_clause::where_clause() {
-  m_predicate = [](const std::vector<data_types>&) { return true; };
+  m_predicate = [](const std::vector<series_types>&) { return true; };
 }
 
 metall_graph::where_clause::where_clause(

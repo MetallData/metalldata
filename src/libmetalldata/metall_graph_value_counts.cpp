@@ -26,7 +26,7 @@ metall_graph::value_counts(metall_graph::series_name sname,
         if (!s_val.has_value()) {
           return;
         }
-        auto val = priv_series_to_data_type(s_val.value());
+        auto val = priv_series_to_count_type(s_val.value());
         // todo:  make a helper function that converst data_type to count_type.
         auto count_val = std::visit(
           [](auto &&arg) -> count_types {
@@ -56,7 +56,7 @@ metall_graph::value_counts(metall_graph::series_name sname,
         if (!s_val.has_value()) {
           return;
         }
-        auto val = priv_series_to_data_type(s_val.value());
+        auto val = priv_series_to_count_type(s_val.value());
         // todo:  make a helper function that converst data_type to count_type.
         auto count_val = std::visit(
           [](auto &&arg) -> count_types {
