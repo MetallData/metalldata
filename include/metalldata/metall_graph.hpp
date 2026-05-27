@@ -68,10 +68,9 @@ class metall_graph {
   // TODO: Rationalize these data types to correspond better with JSONLogic and
   // MetallFrame.
   // TODO: we need unsigned ints here anyway.
-  using data_types =
-    std::variant<int64_t, double, bool, std::string_view, std::monostate>;
+  using series_types = multiseries::basic_record_store<>::series_type;
   using count_types =
-    std::variant<int64_t, double, bool, std::string, std::monostate>;
+    std::variant<std::monostate, bool, int64_t, double, std::string>;
 
   /**
    * @brief Return code struct for methods
@@ -166,13 +165,13 @@ class metall_graph {
 
   struct where_clause {
    private:
-    using pred_function = std::function<bool(const std::vector<data_types>&)>;
+    using pred_function = std::function<bool(const std::vector<series_types>&)>;
 
    public:
     where_clause();
 
-    where_clause(const std::vector<std::string>&                     s_names,
-                 std::function<bool(const std::vector<data_types>&)> pred);
+    where_clause(const std::vector<std::string>&                       s_names,
+                 std::function<bool(const std::vector<series_types>&)> pred);
 
     where_clause(const std::vector<series_name>& s_names, pred_function pred);
 
@@ -216,7 +215,7 @@ class metall_graph {
 
     const auto& predicate() const { return m_predicate; }
 
-    bool evaluate(const std::vector<data_types>& data) const {
+    bool evaluate(const std::vector<series_types>& data) const {
       if (m_series_names.empty()) {
         return true;
       }
@@ -227,7 +226,7 @@ class metall_graph {
 
    private:
     std::vector<series_name>                            m_series_names;
-    std::function<bool(const std::vector<data_types>&)> m_predicate;
+    std::function<bool(const std::vector<series_types>&)> m_predicate;
   };  // where_clause
 
   /*
@@ -295,7 +294,7 @@ class metall_graph {
                                const where_clause& where = where_clause{});
 
   template <typename Compare = std::greater<void>>
-  std::vector<std::vector<data_types>> topk(
+  std::vector<std::vector<count_types>> topk(
     size_t k, const series_name& ser_name,
     const std::vector<series_name>& ser_inc, Compare comp = Compare(),
     const where_clause& where = where_clause());
@@ -509,7 +508,7 @@ class metall_graph {
                                    const where_clause& where = where_clause());
 
   // TODO: also allow val a function
-  return_code assign(series_name series_name, const data_types& val,
+  return_code assign(series_name series_name, const series_types& val,
                      const where_clause& = where_clause());
 
   return_code sample_edges(const series_name& series_name, size_t k,
@@ -647,7 +646,7 @@ class metall_graph {
   metall_graph::return_code priv_set_column_by_idx(const series_name& col_name,
                                                    const T& collection);
 
-  static data_types priv_series_to_data_type(
+  static count_types priv_series_to_count_type(
     const record_store_type::series_type& sv);
 
 };  // class metall_graph
@@ -665,9 +664,9 @@ struct hash<metalldata::metall_graph::series_name> {
 };
 
 template <>
-struct hash<metalldata::metall_graph::data_types> {
+struct hash<metalldata::metall_graph::series_types> {
   std::size_t operator()(
-    const metalldata::metall_graph::data_types& v) const noexcept {
+    const metalldata::metall_graph::series_types& v) const noexcept {
     std::size_t type_hash = hash<std::size_t>{}(v.index());
     std::size_t val_hash = std::visit(
       [](const auto& val) -> std::size_t {

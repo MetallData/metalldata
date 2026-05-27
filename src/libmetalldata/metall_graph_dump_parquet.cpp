@@ -140,17 +140,7 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
         return;
       }
       auto node_val = node_val_o.value();
-      std::visit(
-        [&row](const auto& v) {
-          using T = std::decay_t<decltype(v)>;
-          if constexpr (std::is_same_v<T, std::string_view>) {
-            row.emplace_back(v);
-          } else {
-            // Node ID should always be a string, but handle other cases
-            row.emplace_back(v);
-          }
-        },
-        node_val);
+      std::visit([&row](const auto& v) { row.emplace_back(v); }, node_val);
 
       // Add metadata columns
       for (const auto& [idx, type_char] : meta_info) {
@@ -161,22 +151,7 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
         auto val = val_o.value();
 
         // Convert to parquet_writer type
-        std::visit(
-          [&row](const auto& v) {
-            using T = std::decay_t<decltype(v)>;
-            if constexpr (std::is_same_v<T, std::monostate>) {
-              row.emplace_back(std::monostate{});
-            } else if constexpr (std::is_same_v<T, bool>) {
-              row.emplace_back(v);
-            } else if constexpr (std::is_same_v<T, int64_t>) {
-              row.emplace_back(v);
-            } else if constexpr (std::is_same_v<T, double>) {
-              row.emplace_back(v);
-            } else if constexpr (std::is_same_v<T, std::string_view>) {
-              row.emplace_back(v);
-            }
-          },
-          val);
+        std::visit([&row](const auto& v) { row.emplace_back(v); }, val);
       }
 
       auto status = writer.write_row(row);
@@ -361,17 +336,7 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
         return;
       }
       auto u_val = u_val_o.value();
-      std::visit(
-        [&row](const auto& v) {
-          using T = std::decay_t<decltype(v)>;
-          if constexpr (std::is_same_v<T, std::string_view>) {
-            row.emplace_back(v);
-          } else {
-            // U should always be a string, but handle other cases
-            row.emplace_back(v);
-          }
-        },
-        u_val);
+      std::visit([&row](const auto& v) { row.emplace_back(v); }, u_val);
 
       // Add edge V
       auto v_val_o = m_pedges->get_dynamic(v_col, rid);
@@ -381,17 +346,7 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
       }
       auto v_val = v_val_o.value();
 
-      std::visit(
-        [&row](const auto& v) {
-          using T = std::decay_t<decltype(v)>;
-          if constexpr (std::is_same_v<T, std::string_view>) {
-            row.emplace_back(v);
-          } else {
-            // V should always be a string, but handle other cases
-            row.emplace_back(v);
-          }
-        },
-        v_val);
+      std::visit([&row](const auto& v) { row.emplace_back(v); }, v_val);
 
       // Add edge directed
       auto dir_val_o = m_pedges->get_dynamic(dir_col, rid);
@@ -423,22 +378,7 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
         }
         auto val = val_o.value();
         // Convert to parquet_writer type
-        std::visit(
-          [&row](const auto& v) {
-            using T = std::decay_t<decltype(v)>;
-            if constexpr (std::is_same_v<T, std::monostate>) {
-              row.emplace_back(std::monostate{});
-            } else if constexpr (std::is_same_v<T, bool>) {
-              row.emplace_back(v);
-            } else if constexpr (std::is_same_v<T, int64_t>) {
-              row.emplace_back(v);
-            } else if constexpr (std::is_same_v<T, double>) {
-              row.emplace_back(v);
-            } else if constexpr (std::is_same_v<T, std::string_view>) {
-              row.emplace_back(v);
-            }
-          },
-          val);
+        std::visit([&row](const auto& v) { row.emplace_back(v); }, val);
       }
 
       auto status = writer.write_row(row);

@@ -137,9 +137,7 @@ bjsn::array metall_graph::select_sample_edges(
       std::visit(
         [&](auto&& v) {
           using T = std::decay_t<decltype(v)>;
-          if constexpr (std::is_same_v<T, std::string_view>) {
-            row[sname.unqualified()] = std::string(v);
-          } else if constexpr (std::is_same_v<T, std::monostate>) {
+          if constexpr (std::is_same_v<T, std::monostate>) {
             row[sname.unqualified()] = nullptr;
           } else {
             row[sname.unqualified()] = v;
@@ -268,9 +266,7 @@ bjsn::array metall_graph::select_sample_nodes(
       std::visit(
         [&](auto&& v) {
           using T = std::decay_t<decltype(v)>;
-          if constexpr (std::is_same_v<T, std::string_view>) {
-            row[sname.unqualified()] = std::string(v);
-          } else if constexpr (std::is_same_v<T, std::monostate>) {
+          if constexpr (std::is_same_v<T, std::monostate>) {
             row[sname.unqualified()] = nullptr;
           } else {
             row[sname.unqualified()] = v;
