@@ -8,10 +8,10 @@
 #include "ygm/container/counting_set.hpp"
 
 namespace metalldata {
-ygm::container::counting_set<metall_graph::data_types>
+ygm::container::counting_set<metall_graph::count_types>
 metall_graph::value_counts(metall_graph::series_name sname,
                            const where_clause       &where) {
-  ygm::container::counting_set<data_types> counts(m_comm);
+  ygm::container::counting_set<count_types> counts(m_comm);
   if (sname.is_edge_series()) {
     auto sid_o = m_pedges->find_series(sname.unqualified());
     if (!sid_o.has_value()) {
@@ -27,8 +27,18 @@ metall_graph::value_counts(metall_graph::series_name sname,
           return;
         }
         auto val = priv_series_to_data_type(s_val.value());
-
-        counts.async_insert(val);
+        // todo:  make a helper function that converst data_type to count_type.
+        auto count_val = std::visit(
+          [](auto &&arg) -> count_types {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, std::string_view>) {
+              return std::string(arg);
+            } else {
+              return arg;
+            }
+          },
+          val);
+        counts.async_insert(count_val);
       },
       where);
 
@@ -47,8 +57,18 @@ metall_graph::value_counts(metall_graph::series_name sname,
           return;
         }
         auto val = priv_series_to_data_type(s_val.value());
-
-        counts.async_insert(val);
+        // todo:  make a helper function that converst data_type to count_type.
+        auto count_val = std::visit(
+          [](auto &&arg) -> count_types {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, std::string_view>) {
+              return std::string(arg);
+            } else {
+              return arg;
+            }
+          },
+          val);
+        counts.async_insert(count_val);
       },
       where);
   }
@@ -56,11 +76,12 @@ metall_graph::value_counts(metall_graph::series_name sname,
   return counts;
 }
 
-std::map<metall_graph::data_types, size_t> metall_graph::value_counts_topk(
+std::map<metall_graph::count_types, size_t> metall_graph::value_counts_topk(
   metall_graph::series_name sname, int k, const where_clause &where) {
   auto counts = value_counts(sname, where);
 
-  std::vector<std::pair<metalldata::metall_graph::data_types, size_t>> kresults;
+  std::vector<std::pair<metalldata::metall_graph::count_types, size_t>>
+    kresults;
   if (k < 0) {
     kresults = counts.gather_topk(
       -k, [&](auto &&i, auto &&j) { return i.second < j.second; });
@@ -69,7 +90,7 @@ std::map<metall_graph::data_types, size_t> metall_graph::value_counts_topk(
       k, [&](auto &&i, auto &&j) { return i.second > j.second; });
   }
 
-  std::map<metall_graph::data_types, size_t> topk;
+  std::map<metall_graph::count_types, size_t> topk;
   for (const auto &pair : kresults) {
     topk[pair.first] = pair.second;
   }

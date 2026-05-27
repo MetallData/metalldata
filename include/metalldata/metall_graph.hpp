@@ -69,6 +69,8 @@ class metall_graph {
   // MetallFrame.
   // TODO: we need unsigned ints here anyway.
   using data_types =
+    std::variant<int64_t, double, bool, std::string_view, std::monostate>;
+  using count_types =
     std::variant<int64_t, double, bool, std::string, std::monostate>;
 
   /**
@@ -444,10 +446,10 @@ class metall_graph {
     std::unordered_set<metall_graph::series_name> series_names,
     const where_clause&                           where = where_clause{});
 
-  ygm::container::counting_set<metall_graph::data_types> value_counts(
+  ygm::container::counting_set<metall_graph::count_types> value_counts(
     metall_graph::series_name sname, const where_clause& where);
 
-  std::map<metall_graph::data_types, size_t> value_counts_topk(
+  std::map<metall_graph::count_types, size_t> value_counts_topk(
     metall_graph::series_name sname, int k, const where_clause& where);
 
   template <typename Fn>
