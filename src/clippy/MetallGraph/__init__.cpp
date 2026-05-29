@@ -5,6 +5,7 @@
 
 #define WITH_YGM 1
 #include <clippy/clippy.hpp>
+#include <stdexcept>
 #include <ygm/comm.hpp>
 #include <metalldata/metall_graph.hpp>
 
@@ -12,7 +13,7 @@ static const std::string method_name    = "__init__";
 static const std::string state_name     = "INTERNAL";
 static const std::string sel_state_name = "selectors";
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv) try {
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{method_name, "Initializes a MetallGraph"};
@@ -32,4 +33,8 @@ int main(int argc, char **argv) {
   metalldata::metall_graph mg(comm, path, overwrite);
   clip.update_selectors(mg.get_selector_info());
   return 0;
+} catch (std::runtime_error e) {
+  std::cerr << "Error in execution: " << e.what() << "; aborting.\n";
+} catch (...) {
+  std::cerr << "Unknown error in execution; aborting.\n";
 }
