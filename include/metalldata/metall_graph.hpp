@@ -225,7 +225,7 @@ class metall_graph {
     bool empty() const { return m_series_names.empty(); }
 
    private:
-    std::vector<series_name>                            m_series_names;
+    std::vector<series_name>                              m_series_names;
     std::function<bool(const std::vector<series_types>&)> m_predicate;
   };  // where_clause
 
@@ -595,6 +595,9 @@ class metall_graph {
   template <typename Fn>
   void priv_for_all_nodes_ewhere(
     Fn func, const where_clause& where = where_clause()) const;
+
+  std::pair<std::vector<record_id_type>, std::vector<record_id_type>>
+  priv_where_subgraph(const metall_graph::where_clause& where) const;
 
   // Sets a node metadata column based on a lookup from an associative data
   // structure.
