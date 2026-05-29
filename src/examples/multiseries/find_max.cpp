@@ -130,10 +130,9 @@ int main(int argc, char *argv[]) {
             max_value.d  = std::max(max_value.d, value);
             max_value.fd = true;
           } else if constexpr (std::is_same_v<T, std::string_view>) {
-            if (max_value.s.empty() ||
-                std::lexicographical_compare(max_value.s.begin(),
-                                             max_value.s.end(), value.begin(),
-                                             value.end())) {
+            if (max_value.s.empty() || std::lexicographical_compare(
+                                         max_value.s.begin(), max_value.s.end(),
+                                         value.begin(), value.end())) {
               max_value.s = std::string(value);
             }
             max_value.fs = true;

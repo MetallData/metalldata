@@ -67,7 +67,7 @@ void metall_graph::priv_for_all_edges_ewhere(
 
   auto var_idxs = var_idxs_o.value();
   auto wrapper = [&](size_t row_index) {
-    std::vector<data_types> var_data;
+    std::vector<series_types> var_data;
     var_data.reserve(var_idxs.size());
     bool missing_field = false;
     for (auto series_idx : var_idxs) {
@@ -79,18 +79,7 @@ void metall_graph::priv_for_all_edges_ewhere(
       if (!val_o.has_value()) {
         continue;
       }
-      auto val = val_o.value();
-
-      std::visit(
-        [&var_data](const auto& v) {
-          using T = std::decay_t<decltype(v)>;
-          if constexpr (std::is_same_v<T, std::string_view>) {
-            var_data.push_back(std::string(v));
-          } else {
-            var_data.push_back(v);
-          }
-        },
-        val);
+      var_data.push_back(val_o.value());
     }
 
     if (!missing_field && where.evaluate(var_data)) {
@@ -134,7 +123,7 @@ void metall_graph::priv_for_all_nodes_nwhere(
   auto var_idxs = var_idxs_o.value();
 
   auto wrapper = [&](size_t row_index) {
-    std::vector<data_types> var_data;
+    std::vector<series_types> var_data;
     var_data.reserve(var_idxs.size());
     bool missing_field = false;
     for (auto series_idx : var_idxs) {
@@ -146,18 +135,7 @@ void metall_graph::priv_for_all_nodes_nwhere(
       if (!val_o.has_value()) {
         continue;
       }
-      auto val = val_o.value();
-
-      std::visit(
-        [&var_data, &missing_field](const auto& v) {
-          using T = std::decay_t<decltype(v)>;
-          if constexpr (std::is_same_v<T, std::string_view>) {
-            var_data.push_back(std::string(v));
-          } else {
-            var_data.push_back(v);
-          }
-        },
-        val);
+      var_data.push_back(val_o.value());
     }
 
     if (!missing_field && where.evaluate(var_data)) {

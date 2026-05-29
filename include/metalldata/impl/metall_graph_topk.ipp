@@ -8,7 +8,7 @@
 namespace metalldata {
 
 template <typename Compare>
-std::vector<std::vector<metall_graph::data_types>> metall_graph::topk(
+std::vector<std::vector<metall_graph::count_types>> metall_graph::topk(
   size_t k, const series_name& ser_name,
   const std::vector<series_name>& ser_inc, Compare comp,
   const where_clause& where) {
@@ -60,8 +60,8 @@ std::vector<std::vector<metall_graph::data_types>> metall_graph::topk(
 
   // Comparator for the priority queue (inverted for min-heap behavior)
   auto row_comp =
-    [&comp](const std::vector<data_types>& a,
-            const std::vector<data_types>& b) {
+    [&comp](const std::vector<count_types>& a,
+            const std::vector<count_types>& b) {
       return std::visit(
         [&comp](const auto& va, const auto& vb) -> bool {
           using A = std::decay_t<decltype(va)>;
@@ -75,18 +75,18 @@ std::vector<std::vector<metall_graph::data_types>> metall_graph::topk(
     };
 
   // Min-heap: keeps smallest at top, so we can pop it when size > k
-  std::priority_queue<std::vector<data_types>,
-                      std::vector<std::vector<data_types>>, decltype(row_comp)>
+  std::priority_queue<std::vector<count_types>,
+                      std::vector<std::vector<count_types>>, decltype(row_comp)>
     min_heap(row_comp);
 
   for_all_func(
     [&](auto rid) {
       auto source_row = pdata->get(ser_idxs_opt.value(), rid);
-      std::vector<data_types> row;
+      std::vector<count_types> row;
       row.reserve(source_row.size());
       for (const auto& el : source_row) {
-        data_types dt = std::visit(
-          [](const auto& val) -> data_types {
+        count_types dt = std::visit(
+          [](const auto& val) -> count_types {
             using T = std::decay_t<decltype(val)>;
             if constexpr (std::is_same_v<T, std::string_view>) {
               return std::string(val);
@@ -105,7 +105,7 @@ std::vector<std::vector<metall_graph::data_types>> metall_graph::topk(
     where);
 
   // Extract results (will be in reverse order)
-  std::vector<std::vector<data_types>> topk_rows;
+  std::vector<std::vector<count_types>> topk_rows;
   topk_rows.reserve(min_heap.size());
   while (!min_heap.empty()) {
     topk_rows.push_back(min_heap.top());
@@ -120,9 +120,9 @@ std::vector<std::vector<metall_graph::data_types>> metall_graph::topk(
 
   auto to_return = ygm::all_reduce(
     topk_rows,
-    [comp, k, row_comp](const std::vector<std::vector<data_types>>& va,
-                        const std::vector<std::vector<data_types>>& vb) {
-      std::vector<std::vector<data_types>> out(va.begin(), va.end());
+    [comp, k, row_comp](const std::vector<std::vector<count_types>>& va,
+                        const std::vector<std::vector<count_types>>& vb) {
+      std::vector<std::vector<count_types>> out(va.begin(), va.end());
       out.insert(out.end(), vb.begin(), vb.end());
 
       std::sort(out.begin(), out.end(), row_comp);

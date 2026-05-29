@@ -19,8 +19,8 @@ int main(int argc, char **argv) {
     method_name, "Creates a series and assigns a value based on where clause"};
   clip.add_required_state<std::string>("path", "Storage path for MetallGraph");
   clip.add_required<std::string>("series_name", "series name to create");
-  clip.add_required<metalldata::metall_graph::data_types>("value",
-                                                          "value to set");
+  clip.add_required<metalldata::metall_graph::series_types>("value",
+                                                            "value to set");
   clip.add_optional<boost::json::object>("where", "where clause",
                                          boost::json::object{});
 
@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
   auto path     = clip.get_state<std::string>("path");
   auto where    = clip.get<boost::json::object>("where");
   auto name_str = clip.get<std::string>("series_name");
-  auto val      = clip.get<metalldata::metall_graph::data_types>("value");
+  auto val = clip.get<metalldata::metall_graph::series_types>("value");
 
   metalldata::metall_graph::series_name name(name_str);
 

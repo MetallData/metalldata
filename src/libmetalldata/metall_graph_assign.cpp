@@ -4,7 +4,7 @@
 namespace metalldata {
 
 metall_graph::return_code metall_graph::assign(
-  series_name name, const metall_graph::data_types& val,
+  series_name name, const metall_graph::series_types& val,
   const metall_graph::where_clause& where) {
   using record_id_type = record_store_type::record_id_type;
   return_code to_return;
@@ -22,8 +22,7 @@ metall_graph::return_code metall_graph::assign(
         using T = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<T, std::monostate>) {
           // do nothing
-        } else if constexpr (std::is_same_v<T, std::string> ||
-                             std::is_same_v<T, std::string_view>) {
+        } else if constexpr (std::is_same_v<T, std::string_view>) {
           pedges_->add_series<std::string_view>(name.unqualified());
         } else if constexpr (std::is_same_v<T, int64_t>) {
           pedges_->add_series<int64_t>(name.unqualified());
@@ -68,8 +67,7 @@ metall_graph::return_code metall_graph::assign(
         using T = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<T, std::monostate>) {
           // do nothing
-        } else if constexpr (std::is_same_v<T, std::string> ||
-                             std::is_same_v<T, std::string_view>) {
+        } else if constexpr (std::is_same_v<T, std::string_view>) {
           pnodes_->add_series<std::string_view>(name.unqualified());
         } else if constexpr (std::is_same_v<T, int64_t>) {
           pnodes_->add_series<int64_t>(name.unqualified());
