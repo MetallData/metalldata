@@ -5,6 +5,7 @@
 
 #define WITH_YGM 1
 #include <clippy/clippy.hpp>
+#include <stdexcept>
 #include <ygm/comm.hpp>
 #include <metalldata/metall_graph.hpp>
 #include <faker-cxx/number.h>
@@ -154,7 +155,7 @@ inline GeneratorRegistry create_registry() {
   return registry;
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) try {
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{
@@ -205,4 +206,8 @@ int main(int argc, char** argv) {
 
   clip.update_selectors(mg.get_selector_info());
   return 0;
+} catch (std::runtime_error e) {
+  std::cerr << "Error in execution: " << e.what() << "; aborting.\n";
+} catch (...) {
+  std::cerr << "Unknown error in execution; aborting.\n";
 }
