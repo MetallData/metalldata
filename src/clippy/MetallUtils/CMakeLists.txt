@@ -23,10 +23,11 @@ function(add_mgr_executable name source)
   target_include_directories(${name} PUBLIC ${PROJECT_SOURCE_DIR}/include)
   setup_clippy_target(${name})
   setup_ygm_target(${name})
-#   setup_metall_target(${name})
-#   target_link_libraries(${name} PUBLIC Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph Boost::program_options jsonlogic parquet_writer_lib faker-cxx)
+  setup_metall_target(${name})
+  target_link_libraries(${name} PUBLIC Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph Boost::program_options jsonlogic parquet_writer_lib faker-cxx)
 endfunction()
 
 
 add_mgr_executable(remove remove.cpp)
 add_mgr_executable(welcome welcome.cpp)
+add_mgr_executable(copy copy.cpp)
