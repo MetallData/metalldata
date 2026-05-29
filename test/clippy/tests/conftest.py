@@ -2,7 +2,7 @@ from typing import Any
 import pytest
 import shutil
 import clippy
-from clippy import MetallGraph  # type: ignore
+from clippy import MetallGraph, MetallUtils  # type: ignore
 import os
 import logging
 
@@ -49,11 +49,6 @@ def is_specific(
                 )
 
 
-def copy_metallgraph(src_path: str, dst_path: str) -> MetallGraph:
-    shutil.copytree(src_path, dst_path)
-    return MetallGraph(dst_path)
-
-
 @pytest.fixture(scope="session")
 def reference_graph_path(tmp_path_factory):
     path = str(tmp_path_factory.mktemp("reference") / "metallgraph.db")
@@ -66,4 +61,6 @@ def reference_graph_path(tmp_path_factory):
 @pytest.fixture()
 def metallgraph(reference_graph_path, tmp_path):
     dst = str(tmp_path / "metallgraph.db")
-    return copy_metallgraph(reference_graph_path, dst)
+    MetallUtils().copy(reference_graph_path, dst)    
+    return MetallGraph(dst)
+
