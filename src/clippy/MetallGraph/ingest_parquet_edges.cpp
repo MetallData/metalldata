@@ -5,6 +5,7 @@
 
 #define WITH_YGM 1
 #include <clippy/clippy.hpp>
+#include <stdexcept>
 #include <ygm/comm.hpp>
 #include <metalldata/metall_graph.hpp>
 #include <format>
@@ -14,7 +15,7 @@ static const std::string method_name    = "ingest_parquet_edges";
 static const std::string state_name     = "INTERNAL";
 static const std::string log_state_name = "loglevel";
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv) try {
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{method_name, "Reads a parquet file of edge data"};
@@ -77,4 +78,8 @@ int main(int argc, char **argv) {
   // serialization if we want to return info from it.
   //   clip.to_return(rc.return_info);
   return 0;
+} catch (std::runtime_error e) {
+  std::cerr << "Error in execution: " << e.what() << "; aborting.\n";
+} catch (...) {
+  std::cerr << "Unknown error in execution; aborting.\n";
 }

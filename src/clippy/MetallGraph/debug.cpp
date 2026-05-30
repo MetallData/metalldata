@@ -6,6 +6,7 @@
 #define WITH_YGM 1
 
 #include <metalldata/metall_graph.hpp>
+#include <stdexcept>
 #include <ygm/comm.hpp>
 #include <clippy/clippy.hpp>
 #include <string>
@@ -25,7 +26,7 @@ void print_separator(ygm::comm& comm, const std::string& title = "") {
   }
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) try {
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{method_name, "Provides graph debug information"};
@@ -97,4 +98,8 @@ int main(int argc, char** argv) {
   }
   clip.to_return(0);
   return 0;
+} catch (std::runtime_error e) {
+  std::cerr << "Error in execution: " << e.what() << "; aborting.\n";
+} catch (...) {
+  std::cerr << "Unknown error in execution; aborting.\n";
 }
