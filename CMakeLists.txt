@@ -101,7 +101,7 @@ set(JSONLOGIC_ENABLE_BENCH OFF)
 set(JSONLOGIC_ENABLE_TESTS OFF)
 FetchContent_Declare(CLIPPy
         GIT_REPOSITORY ${CLIPPY_FETCH_GIT}
-        GIT_TAG v0.5.3
+        GIT_TAG v0.5.5
         SOURCE_SUBDIR cpp
         )
         FetchContent_MakeAvailable(CLIPPy)
