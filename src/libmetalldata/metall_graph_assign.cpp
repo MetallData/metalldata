@@ -15,7 +15,7 @@ metall_graph::return_code metall_graph::assign(
   }
 
   if (name.is_edge_series()) {
-    auto pedges_     = m_pedges;
+    auto pedges_ = m_pedges;
     bool assigned_ok = true;
     std::visit(
       [&assigned_ok, &name, pedges_](const auto& v) {
@@ -38,29 +38,29 @@ metall_graph::return_code metall_graph::assign(
       to_return.error = "Invalid type for value; aborting";
       return to_return;
     }
-    auto name_idx_o = m_pedges->find_series(name.unqualified());
+
+    auto name_idx_o = priv_local_find_edge_series(name.unqualified());
     if (!name_idx_o.has_value()) {
       to_return.error = std::format("Series {} not found", name.qualified());
       return to_return;
     }
     auto name_idx = name_idx_o.value();
-    auto wrapper = [&val, pedges_, name_idx](record_id_type record_id) {
+
+    auto wrapper = [&](local_edge_idx_type eid) {
       std::visit(
-        [pedges_, name_idx, record_id](const auto& v) {
+        [&](const auto& v) {
           using T = std::decay_t<decltype(v)>;
           if constexpr (std::is_same_v<T, std::monostate>) {
-            // Skip monostate
-          } else if constexpr (std::is_same_v<T, std::string>) {
-            pedges_->set(name_idx, record_id, std::string_view(v));
+            // do nothing
           } else {
-            pedges_->set(name_idx, record_id, v);
+            priv_local_set_edge_field(name_idx, eid, v);
           }
         },
         val);
     };
     priv_for_all_edges(wrapper, where);
   } else if (name.is_node_series()) {
-    auto pnodes_     = m_pnodes;
+    auto pnodes_ = m_pnodes;
     bool assigned_ok = true;
     std::visit(
       [&assigned_ok, &name, pnodes_](const auto& v) {
@@ -83,23 +83,22 @@ metall_graph::return_code metall_graph::assign(
       to_return.error = "Invalid type for value; aborting";
       return to_return;
     }
-    auto name_idx_o = m_pnodes->find_series(name.unqualified());
+    auto name_idx_o = priv_local_find_node_series(name.unqualified());
     if (!name_idx_o.has_value()) {
       to_return.error = std::format("Series {} not found", name.qualified());
       return to_return;
     }
     auto name_idx = name_idx_o.value();
 
-    auto wrapper = [&val, pnodes_, name_idx](record_id_type record_id) {
+    auto wrapper = [&](local_node_idx_type nid) {
       std::visit(
-        [pnodes_, name_idx, record_id](const auto& v) {
+        [&](const auto& v) {
           using T = std::decay_t<decltype(v)>;
           if constexpr (std::is_same_v<T, std::monostate>) {
             // Skip monostate
-          } else if constexpr (std::is_same_v<T, std::string>) {
-            pnodes_->set(name_idx, record_id, std::string_view(v));
           } else {
-            pnodes_->set(name_idx, record_id, v);
+            priv_local_set_node_field(name_idx, nid, v);
+            
           }
         },
         val);

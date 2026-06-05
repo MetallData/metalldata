@@ -32,7 +32,6 @@
 
 namespace metalldata {
 
-
 metall_graph::return_code metall_graph::out_degree(
   series_name out_name, const metall_graph::where_clause& where) {
   return priv_in_out_degree(out_name, where, true);
@@ -59,12 +58,12 @@ metall_graph::return_code metall_graph::priv_in_out_degree(
   using record_id_type = record_store_type::record_id_type;
 
   metall_graph::return_code to_return;
-  series_index_type         degcol, otherdegcol;
+  edge_series_idx_type      degcol, otherdegcol;
   if (outdeg) {
-    degcol      = m_u_col_idx;
+    degcol = m_u_col_idx;
     otherdegcol = m_v_col_idx;
   } else {
-    degcol      = m_v_col_idx;
+    degcol = m_v_col_idx;
     otherdegcol = m_u_col_idx;
   }
 
@@ -87,8 +86,8 @@ metall_graph::return_code metall_graph::priv_in_out_degree(
 
   std::vector<std::string> nodes;
   priv_for_all_nodes(
-    [&](record_id_type id) {
-      auto node_name_opt = m_pnodes->get<std::string_view>(node_col_id, id);
+    [&](local_node_idx_type nid) {
+      auto node_name_opt = priv_local_get_node_label(nid);
       YGM_ASSERT_RELEASE(node_name_opt.has_value());
       std::string_view node_name = node_name_opt.value();
 
@@ -99,19 +98,18 @@ metall_graph::return_code metall_graph::priv_in_out_degree(
   m_comm.barrier();
   // ygm::container::counting_set<std::string> found_degrees(m_comm, nodes);
   priv_for_all_edges(
-    [&](record_id_type id) {
+    [&](local_edge_idx_type eid) {
       // Note: clangd may report a false positive error on the next line
       // The code compiles and runs correctly
-      auto edge_name_opt = m_pedges->get<std::string_view>(degcol, id);
+      auto edge_name_opt = priv_local_get_edge_field<std::string_view>(degcol, eid);
       YGM_ASSERT_RELEASE(edge_name_opt.has_value());
       std::string_view edge_name = edge_name_opt.value();
       degrees.async_visit(std::string(edge_name),
                           [](const auto& key, auto& val) { val++; });
       // for undirected edges, add the reverse.
-      bool is_directed = m_pedges->get<bool>(m_dir_col_idx, id).value_or(false);
+      bool is_directed = priv_local_edge_is_directed(eid).value_or(false);
       if (!is_directed) {
-        auto reverseedge_name_opt =
-          m_pedges->get<std::string_view>(otherdegcol, id);
+        auto reverseedge_name_opt = priv_local_get_edge_field<std::string_view>(otherdegcol, eid);
         YGM_ASSERT_RELEASE(reverseedge_name_opt.has_value());
         degrees.async_visit(std::string(reverseedge_name_opt.value()),
                             [](const auto& key, auto& val) { val++; });
@@ -176,8 +174,8 @@ metall_graph::return_code metall_graph::degrees(
   auto node_col_id = node_col_id_o.value();
 
   priv_for_all_nodes(
-    [&](record_id_type id) {
-      auto node_name_opt = m_pnodes->get<std::string_view>(node_col_id, id);
+    [&](local_node_idx_type nid) {
+      auto node_name_opt = priv_local_get_node_label(nid);
       YGM_ASSERT_RELEASE(node_name_opt.has_value());
       std::string_view node_name = node_name_opt.value();
       indegrees.async_insert(std::string(node_name), 0);
@@ -187,16 +185,15 @@ metall_graph::return_code metall_graph::degrees(
 
   m_comm.barrier();
 
-  auto edges_ = m_pedges;
+  
   priv_for_all_edges(
-    [&](record_id_type id) {
+    [&](local_edge_idx_type eid) {
       // Note: clangd may report a false positive error on the next line
       // The code compiles and runs correctly
-      auto in_edge_name_opt = m_pedges->get<std::string_view>(m_v_col_idx, id);
+      auto [out_edge_name_opt, in_edge_name_opt] = priv_local_edge_uv(eid);
       YGM_ASSERT_RELEASE(in_edge_name_opt.has_value());
-      auto in_edge_name = std::string(in_edge_name_opt.value());
-      auto out_edge_name_opt = m_pedges->get<std::string_view>(m_u_col_idx, id);
       YGM_ASSERT_RELEASE(out_edge_name_opt.has_value());
+      auto in_edge_name = std::string(in_edge_name_opt.value());
       auto out_edge_name = std::string(out_edge_name_opt.value());
       indegrees.async_visit(in_edge_name,
                             [&](const auto& key, auto& val) { val++; });
@@ -204,7 +201,8 @@ metall_graph::return_code metall_graph::degrees(
       outdegrees.async_visit(out_edge_name,
                              [&](const auto& key, auto& val) { val++; });
 
-      bool is_directed = m_pedges->get<bool>(m_dir_col_idx, id).value_or(false);
+      
+      bool is_directed = priv_local_edge_is_directed(eid).value_or(false);
       if (!is_directed) {
         indegrees.async_visit(out_edge_name,
                               [&](const auto& key, auto& val) { val++; });
@@ -224,12 +222,12 @@ metall_graph::return_code metall_graph::degrees(
   // common operation. Make this a private function inside metall_graph.
 
   // create a node_local map of record id to node value.
-  std::map<std::string, record_id_type> node_to_id{};
-  m_pnodes->for_all_rows([&](record_id_type id) {
-    auto node_opt = m_pnodes->get<std::string_view>(m_node_col_idx, id);
+  std::map<std::string, local_node_idx_type> node_to_id{};
+  priv_for_all_nodes([&](local_node_idx_type nid) {
+    auto node_opt = priv_local_get_node_label(nid);
     YGM_ASSERT_RELEASE(node_opt.has_value());
     std::string_view node = node_opt.value();
-    node_to_id[std::string(node)] = id;
+    node_to_id[std::string(node)] = nid;
   });
 
   // create series and store index so we don't have to keep looking it up.
@@ -241,7 +239,7 @@ metall_graph::return_code metall_graph::degrees(
   // because it uses the same partitioning scheme as we used when we added the
   // nodes in ingest.
 
-  to_return       = set_node_column(in_name, indegrees);
+  to_return = set_node_column(in_name, indegrees);
   auto to_return2 = set_node_column(out_name, outdegrees);
   to_return.merge_warnings(to_return2);
 
@@ -303,21 +301,16 @@ metall_graph::return_code metall_graph::degrees2(
   auto dir_col = dir_col_o.value();
 
   priv_for_all_edges(
-    [&](record_id_type id) {
-      // Note: clangd may report a false positive error on the next line
-      // The code compiles and runs correctly
-      auto in_edge_name_opt = m_pedges->get<std::string_view>(v_col, id);
+    [&](local_edge_idx_type eid) {
+      auto [out_edge_name_opt, in_edge_name_opt] = priv_local_edge_uv(eid);
       YGM_ASSERT_RELEASE(in_edge_name_opt.has_value());
-      auto in_edge_name = std::string(in_edge_name_opt.value());
-
-      auto out_edge_name_opt = m_pedges->get<std::string_view>(u_col, id);
       YGM_ASSERT_RELEASE(out_edge_name_opt.has_value());
-
+      auto in_edge_name = std::string(in_edge_name_opt.value());
       auto out_edge_name = std::string(out_edge_name_opt.value());
       indegrees.async_insert(in_edge_name);
       outdegrees.async_insert(out_edge_name);
 
-      auto is_directed = m_pedges->get<bool>(dir_col, id).value_or(false);
+      auto is_directed = priv_local_edge_is_directed(eid).value_or(false);
 
       if (!is_directed) {
         indegrees.async_insert(out_edge_name);
@@ -331,11 +324,11 @@ metall_graph::return_code metall_graph::degrees2(
   // explicit here.
   m_comm.barrier();
 
-  to_return       = set_node_column(in_name, indegrees);
+  to_return = set_node_column(in_name, indegrees);
   auto to_return2 = set_node_column(out_name, outdegrees);
   to_return.merge_warnings(to_return2);
 
   return to_return;
 }
 
-}
+}  // namespace metalldata

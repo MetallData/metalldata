@@ -1,4 +1,5 @@
 #include <metalldata/metall_graph.hpp>
+#include <utility>
 #define BOOST_JSON_SRC_HPP  // This is a temp hack until YGM removes the src.hpp
                             // inclusion
 #include <ygm/utility/boost_json.hpp>
@@ -78,7 +79,7 @@ metall_graph::return_code metall_graph::sample_edges(
   }
 
   std::unordered_set<record_id_type> filtered_ids_set;
-  priv_for_all_edges([&](record_id_type rid) { filtered_ids_set.insert(rid); },
+  priv_for_all_edges([&](local_edge_idx_type rid) { filtered_ids_set.insert(std::to_underlying(rid)); },
                      where);
 
   auto local_data = priv_random_idx(filtered_ids_set, k, seed);
@@ -104,7 +105,7 @@ bjsn::array metall_graph::select_sample_edges(
   }
 
   std::unordered_set<record_id_type> filtered_ids_set;
-  priv_for_all_edges([&](record_id_type rid) { filtered_ids_set.insert(rid); },
+  priv_for_all_edges([&](local_edge_idx_type rid) { filtered_ids_set.insert(std::to_underlying(rid)); },
                      where);
   auto local_data = priv_random_idx(filtered_ids_set, k, seed);
 
@@ -206,7 +207,7 @@ metall_graph::return_code metall_graph::sample_nodes(
   }
 
   std::unordered_set<record_id_type> filtered_ids_set;
-  priv_for_all_nodes([&](record_id_type rid) { filtered_ids_set.insert(rid); },
+  priv_for_all_nodes([&](local_node_idx_type rid) { filtered_ids_set.insert(std::to_underlying(rid)); },
                      where);
 
   auto local_data = priv_random_idx(filtered_ids_set, k, seed);
@@ -232,7 +233,7 @@ bjsn::array metall_graph::select_sample_nodes(
   }
 
   std::unordered_set<record_id_type> filtered_ids_set;
-  priv_for_all_nodes([&](record_id_type rid) { filtered_ids_set.insert(rid); },
+  priv_for_all_nodes([&](local_node_idx_type rid) { filtered_ids_set.insert(std::to_underlying(rid)); },
                      where);
 
   auto local_data = priv_random_idx(filtered_ids_set, k, seed);

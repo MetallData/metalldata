@@ -8,11 +8,13 @@
 
 #include <any>
 #include <functional>
+#include <utility>
 #include <variant>
 #include <map>
 #include <string>
 #include <string_view>
 #include <vector>
+#include <utility>
 #include <metall/metall.hpp>
 #include <multiseries/multiseries_record.hpp>
 #include <ygm/comm.hpp>
@@ -225,7 +227,7 @@ class metall_graph {
     bool empty() const { return m_series_names.empty(); }
 
    private:
-    std::vector<series_name>                            m_series_names;
+    std::vector<series_name>                              m_series_names;
     std::function<bool(const std::vector<series_types>&)> m_predicate;
   };  // where_clause
 
@@ -451,12 +453,15 @@ class metall_graph {
   std::map<metall_graph::count_types, size_t> value_counts_topk(
     metall_graph::series_name sname, int k, const where_clause& where);
 
+
+  //TODO:  Remove this, used by select...
   template <typename Fn>
   void visit_node_field(series_name name, size_t record_id, Fn func) const {
     assert(name.is_node_series());
     m_pnodes->visit_field(name.unqualified(), record_id, func);
   }
 
+  //TODO:  Remove this, used by select...
   template <typename Fn>
   void visit_edge_field(series_name name, size_t record_id, Fn func) const {
     assert(name.is_edge_series());
@@ -561,10 +566,125 @@ class metall_graph {
   /// String store
   string_store_type* m_pstring_store = nullptr;
 
-  series_index_type m_u_col_idx;
-  series_index_type m_v_col_idx;
-  series_index_type m_dir_col_idx;
-  series_index_type m_node_col_idx;
+  enum class local_node_idx_type : std::size_t;
+  enum class local_edge_idx_type : std::size_t;
+  enum class node_series_idx_type : std::size_t;
+  enum class edge_series_idx_type : std::size_t;
+
+  edge_series_idx_type m_u_col_idx;
+  edge_series_idx_type m_v_col_idx;
+  edge_series_idx_type m_dir_col_idx;
+  node_series_idx_type m_node_col_idx;
+
+  std::pair<std::optional<std::string_view>, std::optional<std::string_view>>
+  priv_local_edge_uv(local_edge_idx_type eid) const {
+    auto u = priv_local_get_edge_field<std::string_view>(m_u_col_idx, eid);
+    auto v = priv_local_get_edge_field<std::string_view>(m_v_col_idx, eid);
+    return {u, v};
+  }
+
+  std::optional<bool> priv_local_edge_is_directed(local_edge_idx_type eid) const {
+    return priv_local_get_edge_field<bool>(m_dir_col_idx, eid);
+  }
+
+
+  std::optional<std::string_view> priv_local_get_node_label(
+    local_node_idx_type nid) const {
+    auto l = priv_local_get_node_field(m_node_col_idx, nid);
+    if (l) {
+      if (std::holds_alternative<std::string_view>(l.value())) {
+        return std::get<std::string_view>(l.value());
+      }
+    }
+    return {};
+  }
+
+  std::optional<series_types> priv_local_get_node_field(
+    node_series_idx_type sid, local_node_idx_type nid) const {
+    return m_pnodes->get_dynamic(std::to_underlying(sid),
+                                 std::to_underlying(nid));
+  }
+
+  template <typename T>
+  std::optional<T> priv_local_get_node_field(node_series_idx_type sid,
+                                             local_node_idx_type  nid) const {
+    auto f = priv_local_get_node_field(sid, nid);
+    if (f) {
+      if (std::holds_alternative<T>(f.value())) {
+        return std::get<T>(f.value());
+      }
+    }
+    return {};
+  }
+
+  std::optional<series_types> priv_local_get_edge_field(
+    edge_series_idx_type sid, local_edge_idx_type eid) const {
+    return m_pedges->get_dynamic(std::to_underlying(sid),
+                                 std::to_underlying(eid));
+  }
+  template <typename T>
+  std::optional<T> priv_local_get_edge_field(edge_series_idx_type sid,
+                                             local_edge_idx_type  eid) const {
+    auto f = priv_local_get_edge_field(sid, eid);
+    if (f) {
+      if (std::holds_alternative<T>(f.value())) {
+        return std::get<T>(f.value());
+      }
+    }
+    return {};
+  }
+
+  template <typename T>
+  void priv_local_set_node_field(node_series_idx_type sid,
+                                 local_node_idx_type nid, const T& val) {
+    m_pnodes->set(std::to_underlying(sid), std::to_underlying(nid), val);
+  }
+
+  template <typename T>
+  void priv_local_set_edge_field(edge_series_idx_type sid,
+                                 local_edge_idx_type eid, const T& val) {
+    m_pedges->set(std::to_underlying(sid), std::to_underlying(eid), val);
+  }
+
+  std::optional<node_series_idx_type> priv_local_find_node_series(
+    std::string_view name) const {
+    auto ret = m_pnodes->find_series(name);
+    if (ret) {
+      return node_series_idx_type{
+        static_cast<node_series_idx_type>(ret.value())};
+    }
+    return {};
+  }
+
+  std::optional<edge_series_idx_type> priv_local_find_edge_series(
+    std::string_view name) const {
+    auto ret = m_pedges->find_series(name);
+    if (ret) {
+      return edge_series_idx_type{
+        static_cast<edge_series_idx_type>(ret.value())};
+    }
+    return {};
+  }
+
+  template <typename T>
+  node_series_idx_type priv_local_add_node_series(std::string_view name) {
+    return node_series_idx_type{m_pnodes->add_series<T>(name)};
+  }
+
+  template <typename T>
+  edge_series_idx_type priv_local_add_edge_series(std::string_view name) {
+    return edge_series_idx_type{m_pedges->add_series<T>(name)};
+  }
+
+  template <typename T>
+  bool priv_local_is_node_series_type(node_series_idx_type ns) {
+    return m_pnodes->is_series_type<T>(std::to_underlying(ns));
+  }
+
+  template <typename T>
+  bool priv_local_is_edge_series_type(edge_series_idx_type es) {
+    return m_pedges->is_series_type<T>(std::to_underlying(es));
+  }
 
   size_t priv_local_num_nodes() const { return m_pnodes->num_records(); };
   size_t priv_local_num_edges() const { return m_pedges->num_records(); };
@@ -611,16 +731,20 @@ class metall_graph {
   return_code set_node_column(const series_name& nodecol_name,
                               const T&           collection);
 
-  record_id_type priv_local_node_find_or_insert(std::string_view id) {
-    YGM_ASSERT_RELEASE(m_partitioner.owner(id) == m_comm.rank());
-    auto v_in_ss = compact_string::add_string(id, *m_pstring_store);
+  local_node_idx_type priv_local_node_find_or_insert(std::string_view label) {
+    YGM_ASSERT_RELEASE(m_partitioner.owner(label) == m_comm.rank());
+    auto v_in_ss = compact_string::add_string(label, *m_pstring_store);
     if (!m_pnode_to_idx->contains(v_in_ss)) {
-      auto ridx = m_pnodes->add_record();
-      m_pnodes->set(m_node_col_idx, ridx, id);
-      m_pnode_to_idx->insert_or_assign(v_in_ss, ridx);
-      return ridx;
+      auto nidx = local_node_idx_type{m_pnodes->add_record()};
+      // m_pnodes->set(m_node_col_idx, ridx, id);
+      // todo remove static_cast
+      priv_local_set_node_field(
+        node_series_idx_type{static_cast<uint32_t>(m_node_col_idx)}, nidx,
+        label);
+      m_pnode_to_idx->insert_or_assign(v_in_ss, std::to_underlying(nidx));
+      return nidx;
     }
-    return m_pnode_to_idx->at(v_in_ss);
+    return local_node_idx_type{m_pnode_to_idx->at(v_in_ss)};
   }
 
   std::optional<record_id_type> priv_local_node_find(

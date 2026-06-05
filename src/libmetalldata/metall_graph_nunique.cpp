@@ -20,21 +20,22 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
            std::set<multiseries::basic_record_store<>::series_type>>
     uniques;
   // get the rids that pass the where clause.
-  std::vector<record_id_type> rids;
-  priv_for_all_edges([&](record_id_type id) { rids.push_back(id); }, where);
+  std::vector<local_edge_idx_type> rids;
+  priv_for_all_edges([&](local_edge_idx_type id) { rids.push_back(id); },
+                     where);
 
   // map the series names to indices
-  std::vector<series_index_type> sids;
+  std::vector<edge_series_idx_type> sids;
   for (const auto &sname : series_names) {
-    auto sid_o = m_pedges->find_series(sname.unqualified());
+    auto sid_o = priv_local_find_edge_series(sname.unqualified());
     if (!sid_o.has_value()) {
       continue;
     }
     auto sid = sid_o.value();
-    if (m_pedges->is_series_type<std::string_view>(sid)) {
+    if (priv_local_is_edge_series_type<std::string_view>(sid)) {
       ygm::container::set<std::string> distinct(m_comm);
       for (auto rid : rids) {
-        auto val_opt = m_pedges->get<std::string_view>(sid, rid);
+        auto val_opt = priv_local_get_edge_field<std::string_view>(sid, rid);
         if (val_opt.has_value()) {
           distinct.async_insert(std::string(val_opt.value()));
         }
@@ -44,10 +45,10 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
       if (m_comm.rank0()) {
         nunique[sname] = sz;
       }
-    } else if (m_pedges->is_series_type<int64_t>(sid)) {
+    } else if (priv_local_is_edge_series_type<int64_t>(sid)) {
       ygm::container::set<int64_t> distinct(m_comm);
       for (auto rid : rids) {
-        auto val_opt = m_pedges->get<int64_t>(sid, rid);
+        auto val_opt = priv_local_get_edge_field<int64_t>(sid, rid);
         if (val_opt.has_value()) {
           distinct.async_insert(val_opt.value());
         }
@@ -56,14 +57,14 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
       if (m_comm.rank0()) {
         nunique[sname] = sz;
       }
-    } else if (m_pedges->is_series_type<bool>(sid)) {
+    } else if (priv_local_is_edge_series_type<bool>(sid)) {
       bool has_true = false;
       bool has_false = false;
       // How can we share a value across ranks? A set of bool makes no sense
       // here.
       ygm::container::set<bool> distinct(m_comm);
       for (auto rid : rids) {
-        auto val_opt = m_pedges->get<bool>(sid, rid);
+        auto val_opt = priv_local_get_edge_field<bool>(sid, rid);
         if (val_opt.has_value()) {
           if (val_opt.value()) {
             has_true = true;
@@ -82,10 +83,10 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
         size_t sz = size_t(global_has_true) + size_t(global_has_false);
         nunique[sname] = sz;
       }
-    } else if (m_pedges->is_series_type<double>(sid)) {
+    } else if (priv_local_is_edge_series_type<double>(sid)) {
       ygm::container::set<double> distinct(m_comm);
       for (auto rid : rids) {
-        auto val_opt = m_pedges->get<double>(sid, rid);
+        auto val_opt = priv_local_get_edge_field<double>(sid, rid);
         if (val_opt.has_value()) {
           distinct.async_insert(val_opt.value());
         }
@@ -107,21 +108,21 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
            std::set<multiseries::basic_record_store<>::series_type>>
     uniques;
   // get the rids that pass the where clause.
-  std::vector<record_id_type> rids;
-  priv_for_all_nodes([&](record_id_type id) { rids.push_back(id); }, where);
+  std::vector<local_node_idx_type> rids;
+  priv_for_all_nodes([&](local_node_idx_type id) { rids.push_back(id); }, where);
 
   // map the series names to indices
   std::vector<series_index_type> sids;
   for (const auto &sname : series_names) {
-    auto sid_o = m_pnodes->find_series(sname.unqualified());
+    auto sid_o = priv_local_find_node_series(sname.unqualified());
     if (!sid_o.has_value()) {
       continue;
     }
     auto sid = sid_o.value();
-    if (m_pnodes->is_series_type<std::string_view>(sid)) {
+    if (priv_local_is_node_series_type<std::string_view>(sid)) {
       ygm::container::set<std::string> distinct(m_comm);
       for (auto rid : rids) {
-        auto val_opt = m_pnodes->get<std::string_view>(sid, rid);
+        auto val_opt = priv_local_get_node_field<std::string_view>(sid, rid);
         if (val_opt.has_value()) {
           distinct.async_insert(std::string(val_opt.value()));
         }
@@ -131,10 +132,10 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
       if (m_comm.rank0()) {
         nunique[sname] = sz;
       }
-    } else if (m_pnodes->is_series_type<int64_t>(sid)) {
+    } else if (priv_local_is_node_series_type<int64_t>(sid)) {
       ygm::container::set<int64_t> distinct(m_comm);
       for (auto rid : rids) {
-        auto val_opt = m_pnodes->get<int64_t>(sid, rid);
+        auto val_opt = priv_local_get_node_field<int64_t>(sid, rid);
         if (val_opt.has_value()) {
           distinct.async_insert(val_opt.value());
         }
@@ -143,14 +144,14 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
       if (m_comm.rank0()) {
         nunique[sname] = sz;
       }
-    } else if (m_pnodes->is_series_type<bool>(sid)) {
+    } else if (priv_local_is_node_series_type<bool>(sid)) {
       bool has_true = false;
       bool has_false = false;
       // How can we share a value across ranks? A set of bool makes no sense
       // here.
       ygm::container::set<bool> distinct(m_comm);
       for (auto rid : rids) {
-        auto val_opt = m_pnodes->get<bool>(sid, rid);
+        auto val_opt = priv_local_get_node_field<bool>(sid, rid);
         if (val_opt.has_value()) {
           if (val_opt.value()) {
             has_true = true;
@@ -169,10 +170,10 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
         size_t sz = size_t(global_has_true) + size_t(global_has_false);
         nunique[sname] = sz;
       }
-    } else if (m_pnodes->is_series_type<double>(sid)) {
+    } else if (priv_local_is_node_series_type<double>(sid)) {
       ygm::container::set<double> distinct(m_comm);
       for (auto rid : rids) {
-        auto val_opt = m_pnodes->get<double>(sid, rid);
+        auto val_opt = priv_local_get_node_field<double>(sid, rid);
         if (val_opt.has_value()) {
           distinct.async_insert(val_opt.value());
         }

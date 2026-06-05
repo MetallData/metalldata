@@ -106,10 +106,10 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
   YGM_ASSERT_RELEASE(dir_col_idx_o.has_value());
   YGM_ASSERT_RELEASE(node_col_idx_o.has_value());
 
-  m_u_col_idx = u_col_idx_o.value();
-  m_v_col_idx = v_col_idx_o.value();
-  m_dir_col_idx = dir_col_idx_o.value();
-  m_node_col_idx = node_col_idx_o.value();
+  m_u_col_idx = edge_series_idx_type{u_col_idx_o.value()};
+  m_v_col_idx = edge_series_idx_type{v_col_idx_o.value()};
+  m_dir_col_idx = edge_series_idx_type{dir_col_idx_o.value()};
+  m_node_col_idx = node_series_idx_type{node_col_idx_o.value()};
 }
 
 metall_graph::~metall_graph() {

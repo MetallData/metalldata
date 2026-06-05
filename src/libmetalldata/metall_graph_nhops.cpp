@@ -70,18 +70,19 @@ metall_graph::return_code metall_graph::nhops(
   ygm::container::map<std::string, std::vector<std::string>> adj_list(m_comm);
 
   priv_for_all_edges(
-    [&](record_id_type id) {
-      auto u_opt = m_pedges->get<std::string_view>(u_col, id);
-      auto v_opt = m_pedges->get<std::string_view>(v_col, id);
+    [&](local_edge_idx_type eid) {
+      auto [u_opt, v_opt] = priv_local_edge_uv(eid);
       YGM_ASSERT_RELEASE(u_opt.has_value());
       YGM_ASSERT_RELEASE(v_opt.has_value());
       std::string u(u_opt.value());
       std::string v(v_opt.value());
-      auto        is_directed = m_pedges->get<bool>(dir_col, id);
+
+      
+      auto is_directed = priv_local_edge_is_directed(eid);
       auto adj_inserter = [](const std::string&, std::vector<std::string>& adj,
                              const std::string& vert) { adj.push_back(vert); };
       adj_list.async_visit(u, adj_inserter, v);
-      if (!is_directed) {
+      if (is_directed.has_value() && !is_directed.value()) {
         adj_list.async_visit(v, adj_inserter, u);
       }
     },

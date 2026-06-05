@@ -174,7 +174,7 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
       auto rec = m_pedges->add_record();
       // first, set the directedness.
-      m_pedges->set(m_dir_col_idx, rec, directed);
+      priv_local_set_edge_field(m_dir_col_idx, local_edge_idx_type{rec}, directed);
       for (size_t i = 0; i < parquet_cols.size(); ++i) {
         auto parquet_ser = parquet_cols[i];
 

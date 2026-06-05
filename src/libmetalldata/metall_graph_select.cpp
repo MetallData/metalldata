@@ -5,6 +5,7 @@
 
 #include <metalldata/metall_graph.hpp>
 #include <expected>
+#include <utility>
 #define BOOST_JSON_SRC_HPP  // This is a temp hack until YGM removes the src.hpp
                             // inclusion
 #include <ygm/utility/boost_json.hpp>
@@ -32,7 +33,7 @@ std::expected<bjsn::array, std::string> metall_graph::select_edges(
         // TODO: make this better. This is potentially expensive because we
         // have to do a field lookup on every edge.
         visit_edge_field(
-          series, rid, [&](auto val) { edge_obj[series.unqualified()] = val; });
+          series, std::to_underlying(rid), [&](auto val) { edge_obj[series.unqualified()] = val; });
       }
       select_results_arr.push_back(edge_obj);
     },
@@ -93,7 +94,7 @@ std::expected<bjsn::array, std::string> metall_graph::select_nodes(
       for (const auto& series : series_set) {
         // TODO: make this better. This is potentially expensive because we
         // have to do a field lookup on every node.
-        visit_node_field(series, rid, [&](auto val) {
+        visit_node_field(series, std::to_underlying(rid), [&](auto val) {
           node_obj[series.unqualified()] = val;
         });
       }
