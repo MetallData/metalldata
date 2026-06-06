@@ -40,7 +40,7 @@ metall_graph::topk(size_t k, const series_name& ser_name,
   for (const auto& ser : ser_inc) {
     if ((is_edge && !ser.is_edge_series()) ||
         (!is_edge && !ser.is_node_series())) {
-      ret.add_warning("invalid series %s ignored", ser.qualified());
+      ret.add_warning("invalid series {} ignored", ser.qualified());
       continue;
     } else {
       ser_inc_unq.emplace_back(ser);

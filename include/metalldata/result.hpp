@@ -8,17 +8,33 @@ namespace metalldata {
 /// Return type for metalldata operations.
 ///
 /// Pairs a std::expected<T, std::string> outcome with a non-fatal warning log.
-/// Use fail() to set an error, or assign to outcome directly for success.
-/// Check outcome for success/failure and retrieve the value or error through
-/// it. Warnings are keyed by message and counted so repeated warnings
-/// accumulate; use merge_warnings() to combine results across calls.
+/// Warnings are keyed by message and counted so repeated warnings accumulate.
 ///
-/// Example:
+/// Callers check outcome for success/failure and retrieve the value or error:
 /// @code
+///   result<size_t> r = some_operation();
+///   if (!r.outcome) {
+///     std::cerr << r.outcome.error() << "\n";
+///   } else {
+///     use(r.outcome.value());
+///   }
+///   for (auto& [msg, n] : r.warnings) {
+///     std::cerr << msg << " (" << n << " times)\n";
+///   }
+/// @endcode
+///
+/// Implementors set outcome and warnings via the provided methods:
+/// @code
+///   // error path:
 ///   result<size_t> r;
-///   r.outcome = compute_value();  // or: r.set_error("reason");
-///   if (!r.outcome) { handle_error(r.outcome.error()); }
-///   for (auto& [msg, n] : r.warnings) { log_warning(msg, n); }
+///   r.set_error("series {} not found", name);
+///   return r;
+///
+///   // success path (with optional warnings):
+///   result<size_t> r;
+///   r.add_warning("series {} ignored", name);
+///   r.outcome = computed_value;
+///   return r;
 /// @endcode
 template <typename T>
 struct result {
