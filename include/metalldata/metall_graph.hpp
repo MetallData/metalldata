@@ -626,6 +626,16 @@ class metall_graph {
   std::optional<T> priv_local_get_node_field(node_series_idx_type sid,
                                              local_node_idx_type  nid) const;
 
+  std::vector<std::optional<series_types>> priv_local_get_node_fields(
+    std::vector<node_series_idx_type> sids, local_node_idx_type eid) const {
+    std::vector<std::optional<series_types>> fields;
+    fields.reserve(sids.size());
+    for (const auto& s : sids) {
+      fields.emplace_back(priv_local_get_node_field(s, eid));
+    }
+    return fields;
+  }
+
   std::optional<series_types> priv_local_get_edge_field(
     edge_series_idx_type sid, local_edge_idx_type eid) const {
     return m_pedges->get_dynamic(std::to_underlying(sid),
@@ -641,6 +651,16 @@ class metall_graph {
       }
     }
     return {};
+  }
+
+  std::vector<std::optional<series_types>> priv_local_get_edge_fields(
+    std::vector<edge_series_idx_type> sids, local_edge_idx_type eid) const {
+    std::vector<std::optional<series_types>> fields;
+    fields.reserve(sids.size());
+    for (const auto& s : sids) {
+      fields.emplace_back(priv_local_get_edge_field(s, eid));
+    }
+    return fields;
   }
 
   template <typename T>
@@ -665,6 +685,18 @@ class metall_graph {
     return std::nullopt;
   }
 
+  std::vector<std::optional<node_series_idx_type>> priv_local_find_node_series(
+    std::vector<series_name> names) const {
+    std::vector<std::optional<node_series_idx_type>> ret;
+    ret.reserve(names.size());
+
+    for (const auto& n : names) {
+      ret.emplace_back(priv_local_find_node_series(n.unqualified()));
+    }
+    return ret;
+  }
+
+  // TODO: this should probably take a series_name as an argument.
   std::optional<edge_series_idx_type> priv_local_find_edge_series(
     std::string_view name) const {
     auto ret = m_pedges->find_series(name);
@@ -673,6 +705,18 @@ class metall_graph {
         static_cast<edge_series_idx_type>(ret.value())};
     }
     return std::nullopt;
+  }
+
+  std::vector<std::optional<edge_series_idx_type>> priv_local_find_edge_series(
+    std::vector<series_name> names) const {
+    std::vector<std::optional<edge_series_idx_type>> ret;
+    ret.reserve(names.size());
+
+    for (const auto& n : names) {
+      ret.emplace_back(priv_local_find_edge_series(n.unqualified()));
+    }
+
+    return ret;
   }
 
   template <typename T>

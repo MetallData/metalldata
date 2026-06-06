@@ -26,11 +26,11 @@ std::vector<std::vector<metall_graph::count_types>> metall_graph::topk(
     return {};
   }
 
-  pdata = is_edge ? m_pedges : m_pnodes;
+  // pdata = is_edge ? m_pedges : m_pnodes;
 
   // we make sure that the compared column is element 0. This
   // also guarantees that the vector is not empty.
-  std::vector<std::string> ser_inc_unq{std::string(ser_name.unqualified())};
+  std::vector<series_name> ser_inc_unq{ser_name};
 
   for (const auto& ser : ser_inc) {
     if ((is_edge && !ser.is_edge_series()) ||
@@ -38,19 +38,29 @@ std::vector<std::vector<metall_graph::count_types>> metall_graph::topk(
       m_comm.cerr0() << "Warning: invalid series " << ser << " ignored.";
       continue;
     } else {
-      ser_inc_unq.emplace_back(ser.unqualified());
+      ser_inc_unq.emplace_back(ser);
     }
   }
 
-  auto ser_idxs_opt = pdata->find_series(ser_inc_unq);
-  YGM_ASSERT_RELEASE(ser_idxs_opt.has_value());
-  auto series_idxs = ser_idxs_opt.value();
-  YGM_ASSERT_RELEASE(!series_idxs.empty());
+  std::vector<std::optional<node_series_idx_type>> node_o_idxs{};
+  std::vector<std::optional<edge_series_idx_type>> edge_o_idxs{};
+
+  if (is_edge) {
+    edge_o_idxs = priv_local_find_edge_series(ser_inc_unq);
+  } else {
+    node_o_idxs = priv_local_find_node_series(ser_inc_unq);
+  }
+
+  // auto ser_idxs_opt = pdata->find_series(ser_inc_unq);
+  // YGM_ASSERT_RELEASE(ser_idxs_opt.has_value());
+  // auto series_idxs = ser_idxs_opt.value();
+  // YGM_ASSERT_RELEASE(!series_idxs.empty());
 
   // Comparator for the priority queue (inverted for min-heap behavior)
   auto row_comp =
     [&comp](const std::vector<count_types>& a,
             const std::vector<count_types>& b) {
+      YGM_ASSERT_RELEASE(!a.empty() && !b.empty());
       return std::visit(
         [&comp](const auto& va, const auto& vb) -> bool {
           using A = std::decay_t<decltype(va)>;
@@ -68,9 +78,47 @@ std::vector<std::vector<metall_graph::count_types>> metall_graph::topk(
                       std::vector<std::vector<count_types>>, decltype(row_comp)>
     min_heap(row_comp);
 
-  auto process_row = [&](auto rid_) {
-    auto                     rid = static_cast<record_id_type>(rid_);
-    auto                     source_row = pdata->get(ser_idxs_opt.value(), rid);
+  auto process_row = [&](auto rid) {
+    // auto                     rid = static_cast<record_id_type>(rid_);
+    std::vector<series_types> source_row{};
+    using R = std::decay_t<decltype(rid)>;
+    if constexpr (std::is_same_v<R, edge_series_idx_type>) {
+      bool issued_inv_series_warning = false;
+
+      m_comm.cerr0() << "edge_o_idxs.size() = " << edge_o_idxs.size() << "\n";
+      for (const auto& el : edge_o_idxs) {
+        if (el.has_value()) {
+          source_row.emplace_back(priv_local_get_edge_field(el.value(), rid));
+        } else {
+          if (!issued_inv_series_warning) {
+            m_comm.cerr0()
+              << "Warning: invalid series; treating data as missing";
+            issued_inv_series_warning = true;
+          }
+          source_row.emplace_back(std::monostate{});
+        }
+      }
+    } else if constexpr (std::is_same_v<R, node_series_idx_type>) {
+      bool issued_inv_series_warning = false;
+
+      for (const auto& el : node_o_idxs) {
+        if (el.has_value()) {
+          source_row.emplace_back(priv_local_get_node_field(el.value(), rid));
+        } else {
+          if (!issued_inv_series_warning) {
+            m_comm.cerr0()
+              << "Warning: invalid series; treating data as missing";
+            issued_inv_series_warning = true;
+          }
+          source_row.emplace_back(std::monostate{});
+        }
+      }
+    } else {
+      m_comm.cerr0() << "UNKNOWN IDX TYPE\n";
+      static_assert(std::is_same_v<R, void>, "show type");
+    }
+
+    // m_comm.cerr0() << "source row size = " << source_row.size();
     std::vector<count_types> row;
     row.reserve(source_row.size());
     for (const auto& el : source_row) {
