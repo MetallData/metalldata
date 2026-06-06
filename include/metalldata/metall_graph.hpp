@@ -766,6 +766,9 @@ class metall_graph {
   void priv_for_all_nodes_ewhere(
     Fn func, const where_clause& where = where_clause()) const;
 
+  std::pair<std::vector<record_id_type>, std::vector<record_id_type>>
+  priv_where_subgraph(const metall_graph::where_clause& where) const;
+
   // Sets a node metadata column based on a lookup from an associative data
   // structure.
   // Node names are extracted from the key.
