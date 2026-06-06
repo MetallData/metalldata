@@ -67,6 +67,11 @@ class metall_graph {
     metall::manager::allocator_type<
       std::pair<const compact_string::string_accessor, record_id_type>>>;
 
+  enum class local_node_idx_type : std::size_t;
+  enum class local_edge_idx_type : std::size_t;
+  enum class node_series_idx_type : std::size_t;
+  enum class edge_series_idx_type : std::size_t;
+
  public:
   // TODO: Rationalize these data types to correspond better with JSONLogic and
   // MetallFrame.
@@ -566,60 +571,60 @@ class metall_graph {
   /// String store
   string_store_type* m_pstring_store = nullptr;
 
-  enum class local_node_idx_type : std::size_t;
-  enum class local_edge_idx_type : std::size_t;
-  enum class node_series_idx_type : std::size_t;
-  enum class edge_series_idx_type : std::size_t;
-
   edge_series_idx_type m_u_col_idx;
   edge_series_idx_type m_v_col_idx;
   edge_series_idx_type m_dir_col_idx;
   node_series_idx_type m_node_col_idx;
 
+  /**
+   * @brief Returns an edge's endpoints (u,v) as string_views
+   *
+   * @param eid Edge ID
+   * @return std::optional<std::pair<std::string_view, std::string_view>>
+   */
   std::optional<std::pair<std::string_view, std::string_view>>
-  priv_local_edge_uv(local_edge_idx_type eid) const {
-    auto u = priv_local_get_edge_field<std::string_view>(m_u_col_idx, eid);
-    auto v = priv_local_get_edge_field<std::string_view>(m_v_col_idx, eid);
-    if (u.has_value() && v.has_value()) {
-      return std::make_pair(u.value(), v.value());
-    } else {
-      return std::nullopt;
-    }
-  }
+  priv_local_edge_uv(local_edge_idx_type eid) const;
 
+  /**
+   * @brief Returns an edge's directed field
+   *
+   * @param eid Edge Id
+   * @return std::optional<bool>
+   */
   std::optional<bool> priv_local_edge_is_directed(
-    local_edge_idx_type eid) const {
-    return priv_local_get_edge_field<bool>(m_dir_col_idx, eid);
-  }
+    local_edge_idx_type eid) const;
 
+  /**
+   * @brief Retuns a node's string label
+   * 
+   * @param nid Node id
+   * @return std::optional<std::string_view> 
+   */
   std::optional<std::string_view> priv_local_get_node_label(
-    local_node_idx_type nid) const {
-    auto l = priv_local_get_node_field(m_node_col_idx, nid);
-    if (l.has_value()) {
-      if (std::holds_alternative<std::string_view>(l.value())) {
-        return std::get<std::string_view>(l.value());
-      }
-    }
-    return std::nullopt;
-  }
+    local_node_idx_type nid) const;
 
+  /**
+   * @brief Returns an individual node field as a series_type variant
+   * 
+   * @param sid Node series id
+   * @param nid Node id
+   * @return std::optional<series_types> 
+   */
   std::optional<series_types> priv_local_get_node_field(
-    node_series_idx_type sid, local_node_idx_type nid) const {
-    return m_pnodes->get_dynamic(std::to_underlying(sid),
-                                 std::to_underlying(nid));
-  }
+    node_series_idx_type sid, local_node_idx_type nid) const;
 
+  
+  /**
+   * @brief Returns an individual node field as a concrete type
+   * 
+   * @tparam T 
+   * @param sid Node series id
+   * @param nid Node id
+   * @return std::optional<T> 
+   */
   template <typename T>
   std::optional<T> priv_local_get_node_field(node_series_idx_type sid,
-                                             local_node_idx_type  nid) const {
-    auto f = priv_local_get_node_field(sid, nid);
-    if (f.has_value()) {
-      if (std::holds_alternative<T>(f.value())) {
-        return std::get<T>(f.value());
-      }
-    }
-    return std::nullopt;
-  }
+                                             local_node_idx_type  nid) const;
 
   std::vector<std::optional<series_types>> priv_local_get_node_fields(
     std::vector<node_series_idx_type> sids, local_node_idx_type eid) const {
@@ -854,3 +859,4 @@ struct hash<metalldata::metall_graph::series_types> {
 #include <metalldata/impl/metall_graph_priv_for_all.ipp>
 #include <metalldata/impl/metall_graph_set_column.ipp>
 #include <metalldata/impl/metall_graph_topk.ipp>
+#include <metalldata/impl/metall_graph_series.ipp>
