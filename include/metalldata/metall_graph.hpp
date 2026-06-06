@@ -29,6 +29,7 @@
 #include <optional>
 #include <ygm/utility/assert.hpp>
 #include "ygm/container/counting_set.hpp"
+#include <metalldata/result.hpp>
 
 namespace bjsn = boost::json;
 
@@ -302,7 +303,7 @@ class metall_graph {
                                const where_clause& where = where_clause{});
 
   template <typename Compare = std::greater<void>>
-  std::vector<std::vector<count_types>> topk(
+  metalldata::result<std::vector<std::vector<count_types>>> topk(
     size_t k, const series_name& ser_name,
     const std::vector<series_name>& ser_inc, Compare comp = Compare(),
     const where_clause& where = where_clause());
@@ -473,10 +474,12 @@ class metall_graph {
     m_pedges->visit_field(name.unqualified(), record_id, func);
   }
 
+  // TODO: change unexpected to return_code (see utils.cpp / obj2sn)
   std::expected<boost::json::array, std::string> select_edges(
     const std::unordered_set<metall_graph::series_name>& series_set,
     const metall_graph::where_clause& where, size_t limit);
 
+  // TODO: change unexpected to return_code (see utils.cpp / obj2sn)
   std::expected<boost::json::array, std::string> select_nodes(
     const std::unordered_set<metall_graph::series_name>& series_set,
     const metall_graph::where_clause& where, size_t limit);

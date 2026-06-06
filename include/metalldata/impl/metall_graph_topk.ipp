@@ -1,4 +1,6 @@
 #pragma once
+#include <expected>
+#include <format>
 #include <metalldata/metall_graph.hpp>
 #include <functional>
 #include <queue>
@@ -8,22 +10,25 @@
 namespace metalldata {
 
 template <typename Compare>
-std::vector<std::vector<metall_graph::count_types>> metall_graph::topk(
-  size_t k, const series_name& ser_name,
-  const std::vector<series_name>& ser_inc, Compare comp,
-  const where_clause& where) {
+
+metalldata::result<std::vector<std::vector<metall_graph::count_types>>>
+metall_graph::topk(size_t k, const series_name& ser_name,
+                   const std::vector<series_name>& ser_inc, Compare comp,
+                   const where_clause& where) {
   record_store_type* pdata;
 
+  result<std::vector<std::vector<metall_graph::count_types>>> ret{};
+
   if (!has_series(ser_name)) {
-    m_comm.cerr0() << "Warning: series " << ser_name << " does not exist.";
-    return {};
+    ret.set_error("Series {} does not exist", ser_name.qualified());
+    return ret;
   }
   bool is_edge = ser_name.is_edge_series();
   bool is_node = ser_name.is_node_series();
 
   if (!(is_edge ^ is_node)) {
-    m_comm.cerr0() << "Warning: series type is unknown.";
-    return {};
+    ret.set_error("Series type is unknown.");
+    return ret;
   }
 
   // pdata = is_edge ? m_pedges : m_pnodes;
@@ -35,20 +40,32 @@ std::vector<std::vector<metall_graph::count_types>> metall_graph::topk(
   for (const auto& ser : ser_inc) {
     if ((is_edge && !ser.is_edge_series()) ||
         (!is_edge && !ser.is_node_series())) {
-      m_comm.cerr0() << "Warning: invalid series " << ser << " ignored.";
+      ret.add_warning("invalid series %s ignored", ser.qualified());
       continue;
     } else {
       ser_inc_unq.emplace_back(ser);
     }
   }
 
-  std::vector<std::optional<node_series_idx_type>> node_o_idxs{};
-  std::vector<std::optional<edge_series_idx_type>> edge_o_idxs{};
+  std::vector<node_series_idx_type> node_idxs{};
+  std::vector<edge_series_idx_type> edge_idxs{};
 
   if (is_edge) {
-    edge_o_idxs = priv_local_find_edge_series(ser_inc_unq);
+    for (const auto& idx : priv_local_find_edge_series(ser_inc_unq)) {
+      if (!idx.has_value()) {
+        ret.add_warning("found invalid edge series index; skipping");
+      } else {
+        edge_idxs.emplace_back(idx.value());
+      }
+    }
   } else {
-    node_o_idxs = priv_local_find_node_series(ser_inc_unq);
+    for (const auto& idx : priv_local_find_node_series(ser_inc_unq)) {
+      if (!idx.has_value()) {
+        ret.add_warning("found invalid node series index; skipping");
+      } else {
+        node_idxs.emplace_back(idx.value());
+      }
+    }
   }
 
   // auto ser_idxs_opt = pdata->find_series(ser_inc_unq);
@@ -57,21 +74,20 @@ std::vector<std::vector<metall_graph::count_types>> metall_graph::topk(
   // YGM_ASSERT_RELEASE(!series_idxs.empty());
 
   // Comparator for the priority queue (inverted for min-heap behavior)
-  auto row_comp =
-    [&comp](const std::vector<count_types>& a,
-            const std::vector<count_types>& b) {
-      YGM_ASSERT_RELEASE(!a.empty() && !b.empty());
-      return std::visit(
-        [&comp](const auto& va, const auto& vb) -> bool {
-          using A = std::decay_t<decltype(va)>;
-          using B = std::decay_t<decltype(vb)>;
-          if constexpr (std::is_same_v<A, B>) {
-            return comp(va, vb);
-          }
-          return false;
-        },
-        a.front(), b.front());
-    };
+  auto row_comp = [&comp](const std::vector<count_types>& a,
+                          const std::vector<count_types>& b) {
+    YGM_ASSERT_RELEASE(!a.empty() && !b.empty());
+    return std::visit(
+      [&comp](const auto& va, const auto& vb) -> bool {
+        using A = std::decay_t<decltype(va)>;
+        using B = std::decay_t<decltype(vb)>;
+        if constexpr (std::is_same_v<A, B>) {
+          return comp(va, vb);
+        }
+        return false;
+      },
+      a.front(), b.front());
+  };
 
   // Min-heap: keeps smallest at top, so we can pop it when size > k
   std::priority_queue<std::vector<count_types>,
@@ -83,37 +99,14 @@ std::vector<std::vector<metall_graph::count_types>> metall_graph::topk(
     std::vector<series_types> source_row{};
     using R = std::decay_t<decltype(rid)>;
     if constexpr (std::is_same_v<R, local_edge_idx_type>) {
-      bool issued_inv_series_warning = false;
-
-      m_comm.cerr0() << "edge_o_idxs.size() = " << edge_o_idxs.size() << "\n";
-      for (const auto& el : edge_o_idxs) {
-        if (el.has_value()) {
-          source_row.emplace_back(priv_local_get_edge_field(el.value(), rid)
-                                    .value_or(std::monostate{}));
-        } else {
-          if (!issued_inv_series_warning) {
-            m_comm.cerr0()
-              << "Warning: invalid series; treating data as missing";
-            issued_inv_series_warning = true;
-          }
-          source_row.emplace_back(std::monostate{});
-        }
+      for (const auto& el : edge_idxs) {
+        source_row.emplace_back(
+          priv_local_get_edge_field(el, rid).value_or(std::monostate{}));
       }
     } else if constexpr (std::is_same_v<R, local_node_idx_type>) {
-      bool issued_inv_series_warning = false;
-
-      for (const auto& el : node_o_idxs) {
-        if (el.has_value()) {
-          source_row.emplace_back(priv_local_get_node_field(el.value(), rid)
-                                    .value_or(std::monostate()));
-        } else {
-          if (!issued_inv_series_warning) {
-            m_comm.cerr0()
-              << "Warning: invalid series; treating data as missing";
-            issued_inv_series_warning = true;
-          }
-          source_row.emplace_back(std::monostate{});
-        }
+      for (const auto& el : node_idxs) {
+        source_row.emplace_back(
+          priv_local_get_node_field(el, rid).value_or(std::monostate()));
       }
     } else {
       static_assert(std::is_same_v<R, void>, "Fatal: unknown row index type");
@@ -161,7 +154,7 @@ std::vector<std::vector<metall_graph::count_types>> metall_graph::topk(
   // topk_rows is now sorted and max length k.
   // now we need to allgather.
 
-  auto to_return = ygm::all_reduce(
+  auto topk_outcome = ygm::all_reduce(
     topk_rows,
     [comp, k, row_comp](const std::vector<std::vector<count_types>>& va,
                         const std::vector<std::vector<count_types>>& vb) {
@@ -176,7 +169,8 @@ std::vector<std::vector<metall_graph::count_types>> metall_graph::topk(
       return out;
     },
     m_comm);
-  return to_return;
+  ret.outcome = topk_outcome;
+  return ret;
 }
 
 }  // namespace metalldata

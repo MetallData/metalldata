@@ -83,7 +83,14 @@ int main(int argc, char **argv) try {
 
   boost::json::array json_rows;
 
-  for (const auto& row : topk) {
+  if (!topk.outcome) {
+    comm.cerr0("topk error: ", topk.outcome.error());
+    return -1;
+  }
+
+  // TODO: figure out what we want to do with warnings.
+
+  for (const auto& row : topk.outcome.value()) {
     boost::json::array json_row;
     for (const auto& var_el : row) {
       std::visit(
