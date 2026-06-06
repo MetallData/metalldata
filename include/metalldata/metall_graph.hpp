@@ -74,9 +74,6 @@ class metall_graph {
   enum class edge_series_idx_type : std::size_t;
 
  public:
-  // TODO: Rationalize these data types to correspond better with JSONLogic and
-  // MetallFrame.
-  // TODO: we need unsigned ints here anyway.
   using series_types = multiseries::basic_record_store<>::series_type;
   using count_types =
     std::variant<std::monostate, bool, int64_t, double, std::string>;
@@ -771,6 +768,9 @@ class metall_graph {
   template <typename Fn>
   void priv_for_all_nodes_ewhere(
     Fn func, const where_clause& where = where_clause()) const;
+
+  std::pair<std::vector<local_node_idx_type>, std::vector<local_edge_idx_type>>
+  priv_where_subgraph(const where_clause& where = where_clause()) const;
 
   // Sets a node metadata column based on a lookup from an associative data
   // structure.
