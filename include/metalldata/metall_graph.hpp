@@ -73,9 +73,6 @@ class metall_graph {
   enum class edge_series_idx_type : std::size_t;
 
  public:
-  // TODO: Rationalize these data types to correspond better with JSONLogic and
-  // MetallFrame.
-  // TODO: we need unsigned ints here anyway.
   using series_types = multiseries::basic_record_store<>::series_type;
   using count_types =
     std::variant<std::monostate, bool, int64_t, double, std::string>;
