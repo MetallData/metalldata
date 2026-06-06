@@ -82,13 +82,14 @@ std::vector<std::vector<metall_graph::count_types>> metall_graph::topk(
     // auto                     rid = static_cast<record_id_type>(rid_);
     std::vector<series_types> source_row{};
     using R = std::decay_t<decltype(rid)>;
-    if constexpr (std::is_same_v<R, edge_series_idx_type>) {
+    if constexpr (std::is_same_v<R, local_edge_idx_type>) {
       bool issued_inv_series_warning = false;
 
       m_comm.cerr0() << "edge_o_idxs.size() = " << edge_o_idxs.size() << "\n";
       for (const auto& el : edge_o_idxs) {
         if (el.has_value()) {
-          source_row.emplace_back(priv_local_get_edge_field(el.value(), rid));
+          source_row.emplace_back(priv_local_get_edge_field(el.value(), rid)
+                                    .value_or(std::monostate{}));
         } else {
           if (!issued_inv_series_warning) {
             m_comm.cerr0()
@@ -98,12 +99,13 @@ std::vector<std::vector<metall_graph::count_types>> metall_graph::topk(
           source_row.emplace_back(std::monostate{});
         }
       }
-    } else if constexpr (std::is_same_v<R, node_series_idx_type>) {
+    } else if constexpr (std::is_same_v<R, local_node_idx_type>) {
       bool issued_inv_series_warning = false;
 
       for (const auto& el : node_o_idxs) {
         if (el.has_value()) {
-          source_row.emplace_back(priv_local_get_node_field(el.value(), rid));
+          source_row.emplace_back(priv_local_get_node_field(el.value(), rid)
+                                    .value_or(std::monostate()));
         } else {
           if (!issued_inv_series_warning) {
             m_comm.cerr0()
@@ -114,8 +116,7 @@ std::vector<std::vector<metall_graph::count_types>> metall_graph::topk(
         }
       }
     } else {
-      m_comm.cerr0() << "UNKNOWN IDX TYPE\n";
-      static_assert(std::is_same_v<R, void>, "show type");
+      static_assert(std::is_same_v<R, void>, "Fatal: unknown row index type");
     }
 
     // m_comm.cerr0() << "source row size = " << source_row.size();
