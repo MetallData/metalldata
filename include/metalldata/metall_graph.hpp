@@ -676,22 +676,22 @@ class metall_graph {
   }
 
   template <typename T>
-  node_series_idx_type priv_local_add_node_series(std::string_view name) {
+  node_series_idx_type priv_add_node_series(std::string_view name) {
     return node_series_idx_type{m_pnodes->add_series<T>(name)};
   }
 
   template <typename T>
-  edge_series_idx_type priv_local_add_edge_series(std::string_view name) {
+  edge_series_idx_type priv_add_edge_series(std::string_view name) {
     return edge_series_idx_type{m_pedges->add_series<T>(name)};
   }
 
   template <typename T>
-  bool priv_local_is_node_series_type(node_series_idx_type ns) {
+  bool priv_is_node_series_type(node_series_idx_type ns) {
     return m_pnodes->is_series_type<T>(std::to_underlying(ns));
   }
 
   template <typename T>
-  bool priv_local_is_edge_series_type(edge_series_idx_type es) {
+  bool priv_is_edge_series_type(edge_series_idx_type es) {
     return m_pedges->is_series_type<T>(std::to_underlying(es));
   }
 

@@ -22,7 +22,7 @@ metall_graph::return_code metall_graph::add_faker_series(
         std::format("Edge series {} already exists", name.qualified());
       return to_return;
     }
-    auto ser_ind = priv_local_add_edge_series<T>(name.unqualified());
+    auto ser_ind = priv_add_edge_series<T>(name.unqualified());
     auto rec_p   = m_pedges;
     priv_for_all_edges(
       [&](local_edge_idx_type eid) {
@@ -36,7 +36,7 @@ metall_graph::return_code metall_graph::add_faker_series(
         std::format("Node series {} already exists", name.qualified());
       return to_return;
     }
-    auto ser_ind = priv_local_add_node_series<T>(name.unqualified());
+    auto ser_ind = priv_add_node_series<T>(name.unqualified());
     auto rec_p   = m_pnodes;
     priv_for_all_nodes(
       [&](local_node_idx_type nid) {
