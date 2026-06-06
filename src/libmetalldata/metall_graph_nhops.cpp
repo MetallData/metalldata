@@ -71,11 +71,10 @@ metall_graph::return_code metall_graph::nhops(
 
   priv_for_all_edges(
     [&](local_edge_idx_type eid) {
-      auto [u_opt, v_opt] = priv_local_edge_uv(eid);
-      YGM_ASSERT_RELEASE(u_opt.has_value());
-      YGM_ASSERT_RELEASE(v_opt.has_value());
-      std::string u(u_opt.value());
-      std::string v(v_opt.value());
+      auto ouv= priv_local_edge_uv(eid);
+      YGM_ASSERT_RELEASE(ouv.has_value());
+      std::string u(ouv.value().first);
+      std::string v(ouv.value().second);
 
       
       auto is_directed = priv_local_edge_is_directed(eid);

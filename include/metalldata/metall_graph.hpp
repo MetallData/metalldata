@@ -7,6 +7,7 @@
 #pragma once
 
 #include <any>
+#include <cstddef>
 #include <functional>
 #include <utility>
 #include <variant>
@@ -453,15 +454,14 @@ class metall_graph {
   std::map<metall_graph::count_types, size_t> value_counts_topk(
     metall_graph::series_name sname, int k, const where_clause& where);
 
-
-  //TODO:  Remove this, used by select...
+  // TODO:  Remove this, used by select...
   template <typename Fn>
   void visit_node_field(series_name name, size_t record_id, Fn func) const {
     assert(name.is_node_series());
     m_pnodes->visit_field(name.unqualified(), record_id, func);
   }
 
-  //TODO:  Remove this, used by select...
+  // TODO:  Remove this, used by select...
   template <typename Fn>
   void visit_edge_field(series_name name, size_t record_id, Fn func) const {
     assert(name.is_edge_series());
@@ -576,27 +576,31 @@ class metall_graph {
   edge_series_idx_type m_dir_col_idx;
   node_series_idx_type m_node_col_idx;
 
-  std::pair<std::optional<std::string_view>, std::optional<std::string_view>>
+  std::optional<std::pair<std::string_view, std::string_view>>
   priv_local_edge_uv(local_edge_idx_type eid) const {
     auto u = priv_local_get_edge_field<std::string_view>(m_u_col_idx, eid);
     auto v = priv_local_get_edge_field<std::string_view>(m_v_col_idx, eid);
-    return {u, v};
+    if (u.has_value() && v.has_value()) {
+      return std::make_pair(u.value(), v.value());
+    } else {
+      return std::nullopt;
+    }
   }
 
-  std::optional<bool> priv_local_edge_is_directed(local_edge_idx_type eid) const {
+  std::optional<bool> priv_local_edge_is_directed(
+    local_edge_idx_type eid) const {
     return priv_local_get_edge_field<bool>(m_dir_col_idx, eid);
   }
-
 
   std::optional<std::string_view> priv_local_get_node_label(
     local_node_idx_type nid) const {
     auto l = priv_local_get_node_field(m_node_col_idx, nid);
-    if (l) {
+    if (l.has_value()) {
       if (std::holds_alternative<std::string_view>(l.value())) {
         return std::get<std::string_view>(l.value());
       }
     }
-    return {};
+    return std::nullopt;
   }
 
   std::optional<series_types> priv_local_get_node_field(
@@ -609,12 +613,12 @@ class metall_graph {
   std::optional<T> priv_local_get_node_field(node_series_idx_type sid,
                                              local_node_idx_type  nid) const {
     auto f = priv_local_get_node_field(sid, nid);
-    if (f) {
+    if (f.has_value()) {
       if (std::holds_alternative<T>(f.value())) {
         return std::get<T>(f.value());
       }
     }
-    return {};
+    return std::nullopt;
   }
 
   std::optional<series_types> priv_local_get_edge_field(
@@ -626,7 +630,7 @@ class metall_graph {
   std::optional<T> priv_local_get_edge_field(edge_series_idx_type sid,
                                              local_edge_idx_type  eid) const {
     auto f = priv_local_get_edge_field(sid, eid);
-    if (f) {
+    if (f.has_value()) {
       if (std::holds_alternative<T>(f.value())) {
         return std::get<T>(f.value());
       }
@@ -649,21 +653,21 @@ class metall_graph {
   std::optional<node_series_idx_type> priv_local_find_node_series(
     std::string_view name) const {
     auto ret = m_pnodes->find_series(name);
-    if (ret) {
+    if (ret.has_value()) {
       return node_series_idx_type{
         static_cast<node_series_idx_type>(ret.value())};
     }
-    return {};
+    return std::nullopt;
   }
 
   std::optional<edge_series_idx_type> priv_local_find_edge_series(
     std::string_view name) const {
     auto ret = m_pedges->find_series(name);
-    if (ret) {
+    if (ret.has_value()) {
       return edge_series_idx_type{
         static_cast<edge_series_idx_type>(ret.value())};
     }
-    return {};
+    return std::nullopt;
   }
 
   template <typename T>

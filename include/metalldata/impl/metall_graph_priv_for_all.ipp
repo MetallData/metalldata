@@ -22,24 +22,22 @@ void metall_graph::priv_for_all_edges_nwhere(
 
   std::set<std::string> nodes_i_need;
   m_pedges->for_all_rows([&](record_id_type record_idx) {
-    auto [u,v] = priv_local_edge_uv(local_edge_idx_type{record_idx});
-
-    if (u.has_value()) {
-      nodes_i_need.insert(std::string(u.value()));
-    }
-
-    if (v.has_value()) {
-      nodes_i_need.insert(std::string(v.value()));
+    auto ouv = priv_local_edge_uv(local_edge_idx_type{record_idx});
+    if(ouv.has_value()) {
+      auto [u,v] = ouv.value();
+      nodes_i_need.insert(std::string(u));
+      nodes_i_need.insert(std::string(v));
     }
   });
 
   std::set<std::string> nodes_alive = nodeset.gather_values(nodes_i_need);
 
   m_pedges->for_all_rows([&](record_id_type record_idx) {
-    auto [u,v] = priv_local_edge_uv(local_edge_idx_type{record_idx});
-    if (u.has_value() && v.has_value()) {
-      if (nodes_alive.contains(std::string(u.value())) &&
-          nodes_alive.contains(std::string(v.value()))) {
+    auto ouv = priv_local_edge_uv(local_edge_idx_type{record_idx});
+    if (ouv.has_value()) {
+      auto [u,v] = ouv.value();
+      if (nodes_alive.contains(std::string(u)) &&
+          nodes_alive.contains(std::string(v))) {
         func(local_edge_idx_type{record_idx});
       }
     }
@@ -160,11 +158,11 @@ void metall_graph::priv_for_all_nodes_ewhere(
   ygm::container::set<std::string> nodeset(m_comm);
   priv_for_all_edges_ewhere(
     [&](local_edge_idx_type eid) {
-      auto [u, v] = priv_local_edge_uv(eid);
-      YGM_ASSERT_RELEASE(u.has_value());
-      YGM_ASSERT_RELEASE(v.has_value());
-      nodeset.async_insert(std::string(u.value()));
-      nodeset.async_insert(std::string(v.value()));
+      auto ouv = priv_local_edge_uv(eid);
+      YGM_ASSERT_RELEASE(ouv.has_value());
+      auto [u,v] = ouv.value();
+      nodeset.async_insert(std::string(u));
+      nodeset.async_insert(std::string(v));
     },
     where);
 

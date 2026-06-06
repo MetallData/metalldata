@@ -54,12 +54,11 @@ metall_graph::return_code metall_graph::connected_components(
 
   priv_for_all_edges(
     [&](local_edge_idx_type eid) {
-      auto [u_opt, v_opt] = priv_local_edge_uv(local_edge_idx_type{eid});
-      YGM_ASSERT_RELEASE(u_opt.has_value());
-      YGM_ASSERT_RELEASE(v_opt.has_value());
-      std::string u(u_opt.value());
-      std::string v(v_opt.value());
-      auto is_directed = priv_local_get_edge_field<bool>(m_dir_col_idx, local_edge_idx_type{eid});
+      auto ouv = priv_local_edge_uv(eid);
+      YGM_ASSERT_RELEASE(ouv.has_value());
+      std::string u(ouv.value().first);
+      std::string v(ouv.value().second);
+      auto is_directed = priv_local_get_edge_field<bool>(m_dir_col_idx, eid);
       auto        adj_inserter =
         [](const std::string&                                ccid,
            std::pair<std::string, std::vector<std::string>>& adj,
