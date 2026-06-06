@@ -18,26 +18,15 @@ std::vector<std::vector<metall_graph::count_types>> metall_graph::topk(
     m_comm.cerr0() << "Warning: series " << ser_name << " does not exist.";
     return {};
   }
-  bool is_edge = false;
+  bool is_edge = ser_name.is_edge_series();
+  bool is_node = ser_name.is_node_series();
 
-  std::function<void(std::function<void(size_t)>, const where_clause&)>
-    for_all_func;
-  if (ser_name.is_edge_series()) {
-    pdata        = m_pedges;
-    is_edge      = true;
-    for_all_func = [this](std::function<void(size_t)> func,
-                          const where_clause&         where) {
-      priv_for_all_edges(func, where);
-    };
-  } else if (ser_name.is_node_series()) {
-    pdata        = m_pnodes;
-    for_all_func = [this](std::function<void(size_t)> func,
-                          const where_clause&         where) {
-      priv_for_all_nodes(func, where);
-    };
-  } else {
+  if (!(is_edge ^ is_node)) {
+    m_comm.cerr0() << "Warning: series type is unknown.";
     return {};
   }
+
+  pdata = is_edge ? m_pedges : m_pnodes;
 
   // we make sure that the compared column is element 0. This
   // also guarantees that the vector is not empty.
@@ -79,30 +68,35 @@ std::vector<std::vector<metall_graph::count_types>> metall_graph::topk(
                       std::vector<std::vector<count_types>>, decltype(row_comp)>
     min_heap(row_comp);
 
-  for_all_func(
-    [&](auto rid) {
-      auto source_row = pdata->get(ser_idxs_opt.value(), rid);
-      std::vector<count_types> row;
-      row.reserve(source_row.size());
-      for (const auto& el : source_row) {
-        count_types dt = std::visit(
-          [](const auto& val) -> count_types {
-            using T = std::decay_t<decltype(val)>;
-            if constexpr (std::is_same_v<T, std::string_view>) {
-              return std::string(val);
-            } else {
-              return val;
-            }
-          },
-          el);
-        row.push_back(dt);
-      }
-      min_heap.push(std::move(row));
-      if (min_heap.size() > k) {
-        min_heap.pop();  // Remove the smallest
-      }
-    },
-    where);
+  auto process_row = [&](auto rid_) {
+    auto                     rid = static_cast<record_id_type>(rid_);
+    auto                     source_row = pdata->get(ser_idxs_opt.value(), rid);
+    std::vector<count_types> row;
+    row.reserve(source_row.size());
+    for (const auto& el : source_row) {
+      count_types dt = std::visit(
+        [](const auto& val) -> count_types {
+          using T = std::decay_t<decltype(val)>;
+          if constexpr (std::is_same_v<T, std::string_view>) {
+            return std::string(val);
+          } else {
+            return val;
+          }
+        },
+        el);
+      row.push_back(dt);
+    }
+    min_heap.push(std::move(row));
+    if (min_heap.size() > k) {
+      min_heap.pop();
+    }
+  };
+
+  if (is_edge) {
+    priv_for_all_edges(process_row, where);
+  } else {
+    priv_for_all_nodes(process_row, where);
+  }
 
   // Extract results (will be in reverse order)
   std::vector<std::vector<count_types>> topk_rows;
