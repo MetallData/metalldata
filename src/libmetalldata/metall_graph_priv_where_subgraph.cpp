@@ -37,7 +37,7 @@ metall_graph::priv_where_subgraph(
     // 2. Gather list of nodes needed by rank local edges
     std::set<std::string> nodes_i_need;
     priv_for_all_edges([&](local_edge_idx_type eid) {
-      auto uv_o = priv_local_edge_uv(eid);
+      auto uv_o = priv_local_get_edge_uv_labels(eid);
       if (uv_o.has_value()) {
         auto [u, v] = uv_o.value();
         nodes_i_need.insert(std::string(u));
