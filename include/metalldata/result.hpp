@@ -54,27 +54,12 @@ namespace metalldata {
 /// @endcode
 template <typename T>
 struct result : std::expected<T, std::string> {
-  using std::expected<T, std::string>::expected;
+  using Base = std::expected<T, std::string>;
+  using Base::expected;
 
-  result& operator=(const T& value) {
-    std::expected<T, std::string>::operator=(value);
-    return *this;
-  }
-
-  result& operator=(T&& value) {
-    std::expected<T, std::string>::operator=(std::move(value));
-    return *this;
-  }
-
-  template <typename G>
-  result& operator=(const std::unexpected<G>& e) {
-    std::expected<T, std::string>::operator=(e);
-    return *this;
-  }
-
-  template <typename G>
-  result& operator=(std::unexpected<G>&& e) {
-    std::expected<T, std::string>::operator=(std::move(e));
+  template <typename TT>
+  result& operator=(TT&& value) {
+    static_cast<Base&>(*this) = std::forward<TT>(value);
     return *this;
   }
 
