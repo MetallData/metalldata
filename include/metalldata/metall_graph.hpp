@@ -761,6 +761,12 @@ class metall_graph {
   return_code set_node_column(const series_name& nodecol_name,
                               const T&           collection);
 
+  /**
+   * @brief Retrives or inserts node string label into reverse lookup.   Returns local_node_idx
+   * 
+   * @param label String node label
+   * @return local_node_idx_type 
+   */
   local_node_idx_type priv_local_node_find_or_insert(std::string_view label) {
     YGM_ASSERT_RELEASE(m_partitioner.owner(label) == m_comm.rank());
     auto v_in_ss = compact_string::add_string(label, *m_pstring_store);
@@ -777,6 +783,12 @@ class metall_graph {
     return local_node_idx_type{m_pnode_to_idx->at(v_in_ss)};
   }
 
+  /**
+   * @brief Retrives without inserting node string label into reverse lookup.   Returns local_node_idx
+   * 
+   * @param label String node label
+   * @return local_node_idx_type 
+   */
   std::optional<local_node_idx_type> priv_local_node_find(
     std::string_view id) const {
     YGM_ASSERT_RELEASE(m_partitioner.owner(id) == m_comm.rank());
