@@ -58,7 +58,7 @@ metall_graph::return_code metall_graph::connected_components(
       YGM_ASSERT_RELEASE(uv_o.has_value());
       std::string u(uv_o.value().first);
       std::string v(uv_o.value().second);
-      auto is_directed = priv_local_get_edge_field<bool>(m_dir_col_idx, eid);
+      bool is_directed = priv_local_edge_is_directed(eid).value_or(false);
       auto        adj_inserter =
         [](const std::string&                                ccid,
            std::pair<std::string, std::vector<std::string>>& adj,
@@ -67,7 +67,7 @@ metall_graph::return_code metall_graph::connected_components(
           adj.first = ccid;
         };
       adj_list.async_visit(u, adj_inserter, v);
-      if (is_directed.has_value() && !is_directed.value()) {
+      if (!is_directed) {
         adj_list.async_visit(v, adj_inserter, u);
       }
     },
