@@ -101,12 +101,12 @@ void metall_graph::priv_for_all_edges(Fn func) const {
 template <typename Fn>
 void metall_graph::priv_for_all_edges(
   Fn func, const metall_graph::where_clause& where) const {
-  if (where.empty()) {
-    priv_for_all_edges(func, where);
-  } else if (where.is_node_clause()) {
+  if (where.is_node_clause()) {
     priv_for_all_edges_nwhere(func, where);
   } else if (where.is_edge_clause()) {
     priv_for_all_edges_ewhere(func, where);
+  } else { //defaults to empty
+    priv_for_all_edges(func);
   }
 };
 
@@ -185,12 +185,12 @@ void metall_graph::priv_for_all_nodes(Fn func) const {
 template <typename Fn>
 void metall_graph::priv_for_all_nodes(
   Fn func, const metall_graph::where_clause& where) const {
-  if (where.empty()) {
-    priv_for_all_nodes(func, where);
-  } else if (where.is_node_clause()) {
+  if (where.is_node_clause()) {
     priv_for_all_nodes_nwhere(func, where);
   } else if (where.is_edge_clause()) {
     priv_for_all_nodes_ewhere(func, where);
+  } else { // defaults to empty
+    priv_for_all_nodes(func);
   }
 }
 }  // namespace metalldata
