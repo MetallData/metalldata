@@ -19,9 +19,9 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
   std::map<metall_graph::series_name,
            std::set<multiseries::basic_record_store<>::series_type>>
     uniques;
-  // get the rids that pass the where clause.
-  std::vector<local_edge_idx_type> rids;
-  priv_for_all_edges([&](local_edge_idx_type id) { rids.push_back(id); },
+  // get the eids that pass the where clause.
+  std::vector<local_edge_idx_type> eids;
+  priv_for_all_edges([&](local_edge_idx_type id) { eids.push_back(id); },
                      where);
 
   // map the series names to indices
@@ -34,8 +34,8 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
     auto sid = sid_o.value();
     if (priv_is_edge_series_type<std::string_view>(sid)) {
       ygm::container::set<std::string> distinct(m_comm);
-      for (auto rid : rids) {
-        auto val_o = priv_local_get_edge_field<std::string_view>(sid, rid);
+      for (auto eid : eids) {
+        auto val_o = priv_local_get_edge_field<std::string_view>(sid, eid);
         if (val_o.has_value()) {
           distinct.async_insert(std::string(val_o.value()));
         }
@@ -47,8 +47,8 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
       }
     } else if (priv_is_edge_series_type<int64_t>(sid)) {
       ygm::container::set<int64_t> distinct(m_comm);
-      for (auto rid : rids) {
-        auto val_o = priv_local_get_edge_field<int64_t>(sid, rid);
+      for (auto eid : eids) {
+        auto val_o = priv_local_get_edge_field<int64_t>(sid, eid);
         if (val_o.has_value()) {
           distinct.async_insert(val_o.value());
         }
@@ -63,8 +63,8 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
       // How can we share a value across ranks? A set of bool makes no sense
       // here.
       ygm::container::set<bool> distinct(m_comm);
-      for (auto rid : rids) {
-        auto val_o = priv_local_get_edge_field<bool>(sid, rid);
+      for (auto eid : eids) {
+        auto val_o = priv_local_get_edge_field<bool>(sid, eid);
         if (val_o.has_value()) {
           if (val_o.value()) {
             has_true = true;
@@ -85,8 +85,8 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
       }
     } else if (priv_is_edge_series_type<double>(sid)) {
       ygm::container::set<double> distinct(m_comm);
-      for (auto rid : rids) {
-        auto val_o = priv_local_get_edge_field<double>(sid, rid);
+      for (auto eid : eids) {
+        auto val_o = priv_local_get_edge_field<double>(sid, eid);
         if (val_o.has_value()) {
           distinct.async_insert(val_o.value());
         }
@@ -107,9 +107,9 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
   std::map<metall_graph::series_name,
            std::set<multiseries::basic_record_store<>::series_type>>
     uniques;
-  // get the rids that pass the where clause.
-  std::vector<local_node_idx_type> rids;
-  priv_for_all_nodes([&](local_node_idx_type id) { rids.push_back(id); }, where);
+  // get the nids that pass the where clause.
+  std::vector<local_node_idx_type> nids;
+  priv_for_all_nodes([&](local_node_idx_type id) { nids.push_back(id); }, where);
 
   // map the series names to indices
   std::vector<series_index_type> sids;
@@ -121,8 +121,8 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
     auto sid = sid_o.value();
     if (priv_is_node_series_type<std::string_view>(sid)) {
       ygm::container::set<std::string> distinct(m_comm);
-      for (auto rid : rids) {
-        auto val_o = priv_local_get_node_field<std::string_view>(sid, rid);
+      for (auto nid : nids) {
+        auto val_o = priv_local_get_node_field<std::string_view>(sid, nid);
         if (val_o.has_value()) {
           distinct.async_insert(std::string(val_o.value()));
         }
@@ -134,8 +134,8 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
       }
     } else if (priv_is_node_series_type<int64_t>(sid)) {
       ygm::container::set<int64_t> distinct(m_comm);
-      for (auto rid : rids) {
-        auto val_o = priv_local_get_node_field<int64_t>(sid, rid);
+      for (auto nid : nids) {
+        auto val_o = priv_local_get_node_field<int64_t>(sid, nid);
         if (val_o.has_value()) {
           distinct.async_insert(val_o.value());
         }
@@ -150,8 +150,8 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
       // How can we share a value across ranks? A set of bool makes no sense
       // here.
       ygm::container::set<bool> distinct(m_comm);
-      for (auto rid : rids) {
-        auto val_o = priv_local_get_node_field<bool>(sid, rid);
+      for (auto nid : nids) {
+        auto val_o = priv_local_get_node_field<bool>(sid, nid);
         if (val_o.has_value()) {
           if (val_o.value()) {
             has_true = true;
@@ -172,8 +172,8 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
       }
     } else if (priv_is_node_series_type<double>(sid)) {
       ygm::container::set<double> distinct(m_comm);
-      for (auto rid : rids) {
-        auto val_o = priv_local_get_node_field<double>(sid, rid);
+      for (auto nid : nids) {
+        auto val_o = priv_local_get_node_field<double>(sid, nid);
         if (val_o.has_value()) {
           distinct.async_insert(val_o.value());
         }

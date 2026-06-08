@@ -26,14 +26,14 @@ std::expected<bjsn::array, std::string> metall_graph::select_edges(
 
   bjsn::array select_results_arr;
   priv_for_all_edges(
-    [&](auto rid) {
+    [&](local_edge_idx_type eid) {
       bjsn::object edge_obj;
 
       for (const auto& series : series_set) {
         // TODO: make this better. This is potentially expensive because we
         // have to do a field lookup on every edge.
         visit_edge_field(
-          series, std::to_underlying(rid), [&](auto val) { edge_obj[series.unqualified()] = val; });
+          series, std::to_underlying(eid), [&](auto val) { edge_obj[series.unqualified()] = val; });
       }
       select_results_arr.push_back(edge_obj);
     },

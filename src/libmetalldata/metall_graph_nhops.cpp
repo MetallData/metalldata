@@ -77,11 +77,11 @@ metall_graph::return_code metall_graph::nhops(
       std::string v(uv_o.value().second);
 
       
-      auto is_directed = priv_local_edge_is_directed(eid);
+      bool is_directed = priv_local_edge_is_directed(eid).value_or(false);
       auto adj_inserter = [](const std::string&, std::vector<std::string>& adj,
                              const std::string& vert) { adj.push_back(vert); };
       adj_list.async_visit(u, adj_inserter, v);
-      if (is_directed.has_value() && !is_directed.value()) {
+      if (!is_directed) {
         adj_list.async_visit(v, adj_inserter, u);
       }
     },
