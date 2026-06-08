@@ -572,31 +572,30 @@ class metall_graph {
 
   /**
    * @brief Retuns a node's string label
-   * 
+   *
    * @param nid Node id
-   * @return std::optional<std::string_view> 
+   * @return std::optional<std::string_view>
    */
   std::optional<std::string_view> priv_local_get_node_label(
     local_node_idx_type nid) const;
 
   /**
    * @brief Returns an individual node field as a series_type variant
-   * 
+   *
    * @param sid Node series id
    * @param nid Node id
-   * @return std::optional<series_types> 
+   * @return std::optional<series_types>
    */
   std::optional<series_types> priv_local_get_node_field(
     node_series_idx_type sid, local_node_idx_type nid) const;
 
-  
   /**
    * @brief Returns an individual node field as a concrete type
-   * 
-   * @tparam T 
+   *
+   * @tparam T
    * @param sid Node series id
    * @param nid Node id
-   * @return std::optional<T> 
+   * @return std::optional<T>
    */
   template <typename T>
   std::optional<T> priv_local_get_node_field(node_series_idx_type sid,
@@ -722,36 +721,28 @@ class metall_graph {
                                  bool        outdeg);
 
   template <typename Fn>
-  void priv_for_all_edges(Fn                  func,
-                          const where_clause& where = where_clause()) const;
+  void priv_for_all_edges(Fn func) const;
 
   template <typename Fn>
-  void priv_for_all_edges_nwhere(
-    Fn func, const where_clause& where = where_clause()) const;
+  void priv_for_all_edges(Fn func, const where_clause& where) const;
 
   template <typename Fn>
-  void priv_for_all_edges_ewhere(
-    Fn func, const where_clause& where = where_clause()) const;
-  
-  template <typename Fn>
-  void priv_for_all_edges_empty(
-    Fn func, const where_clause& where = where_clause()) const;
+  void priv_for_all_edges_nwhere(Fn func, const where_clause& where) const;
 
   template <typename Fn>
-  void priv_for_all_nodes(Fn                  func,
-                          const where_clause& where = where_clause()) const;
+  void priv_for_all_edges_ewhere(Fn func, const where_clause& where) const;
 
   template <typename Fn>
-  void priv_for_all_nodes_nwhere(
-    Fn func, const where_clause& where = where_clause()) const;
+  void priv_for_all_nodes(Fn func) const;
 
   template <typename Fn>
-  void priv_for_all_nodes_ewhere(
-    Fn func, const where_clause& where = where_clause()) const;
+  void priv_for_all_nodes(Fn func, const where_clause& where) const;
 
-    template <typename Fn>
-  void priv_for_all_nodes_empty(
-    Fn func, const where_clause& where = where_clause()) const;
+  template <typename Fn>
+  void priv_for_all_nodes_nwhere(Fn func, const where_clause& where) const;
+
+  template <typename Fn>
+  void priv_for_all_nodes_ewhere(Fn func, const where_clause& where) const;
 
   std::pair<std::vector<local_node_idx_type>, std::vector<local_edge_idx_type>>
   priv_where_subgraph(const where_clause& where = where_clause()) const;
