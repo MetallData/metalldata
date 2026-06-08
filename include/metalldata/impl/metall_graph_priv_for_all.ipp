@@ -23,8 +23,8 @@ void metall_graph::priv_for_all_edges_nwhere(
   std::set<std::string> nodes_i_need;
   m_pedges->for_all_rows([&](record_id_type record_idx) {
     auto ouv = priv_local_edge_uv(local_edge_idx_type{record_idx});
-    if(ouv.has_value()) {
-      auto [u,v] = ouv.value();
+    if (ouv.has_value()) {
+      auto [u, v] = ouv.value();
       nodes_i_need.insert(std::string(u));
       nodes_i_need.insert(std::string(v));
     }
@@ -35,7 +35,7 @@ void metall_graph::priv_for_all_edges_nwhere(
   m_pedges->for_all_rows([&](record_id_type record_idx) {
     auto ouv = priv_local_edge_uv(local_edge_idx_type{record_idx});
     if (ouv.has_value()) {
-      auto [u,v] = ouv.value();
+      auto [u, v] = ouv.value();
       if (nodes_alive.contains(std::string(u)) &&
           nodes_alive.contains(std::string(v))) {
         func(local_edge_idx_type{record_idx});
@@ -88,6 +88,14 @@ void metall_graph::priv_for_all_edges_ewhere(
   }
 }
 
+template <typename Fn>
+void metall_graph::priv_for_all_edges_empty(
+  Fn func, const metall_graph::where_clause& where) const {
+  YGM_ASSERT_RELEASE(where.empty());
+  m_pedges->for_all_rows(
+    [&](record_id_type rid) { func(local_edge_idx_type{rid}); });
+}
+
 // The following for_all functions take a function that
 // is passed the index as a parameter:
 // Fn: [](record_id_type record_id) {}
@@ -95,8 +103,7 @@ template <typename Fn>
 void metall_graph::priv_for_all_edges(
   Fn func, const metall_graph::where_clause& where) const {
   if (where.empty()) {
-    m_pedges->for_all_rows(
-      [&](record_id_type rid) { func(local_edge_idx_type{rid}); });
+    priv_for_all_edges_empty(func, where);
   } else if (where.is_node_clause()) {
     priv_for_all_edges_nwhere(func, where);
   } else if (where.is_edge_clause()) {
@@ -160,7 +167,7 @@ void metall_graph::priv_for_all_nodes_ewhere(
     [&](local_edge_idx_type eid) {
       auto ouv = priv_local_edge_uv(eid);
       YGM_ASSERT_RELEASE(ouv.has_value());
-      auto [u,v] = ouv.value();
+      auto [u, v] = ouv.value();
       nodeset.async_insert(std::string(u));
       nodeset.async_insert(std::string(v));
     },
@@ -173,13 +180,20 @@ void metall_graph::priv_for_all_nodes_ewhere(
   }
 }
 
+template <typename Fn>
+void metall_graph::priv_for_all_nodes_empty(
+  Fn func, const metall_graph::where_clause& where) const {
+  YGM_ASSERT_RELEASE(where.empty());
+  m_pnodes->for_all_rows(
+    [&](record_id_type rid) { func(local_node_idx_type{rid}); });
+}
+
 // for_all_nodes lambda takes a row index.
 template <typename Fn>
 void metall_graph::priv_for_all_nodes(
   Fn func, const metall_graph::where_clause& where) const {
   if (where.empty()) {
-    m_pnodes->for_all_rows(
-      [&](record_id_type rid) { func(local_node_idx_type{rid}); });
+    priv_for_all_nodes_empty(func, where);
   } else if (where.is_node_clause()) {
     priv_for_all_nodes_nwhere(func, where);
   } else if (where.is_edge_clause()) {

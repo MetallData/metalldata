@@ -503,13 +503,6 @@ class metall_graph {
   return_code degrees2(series_name in_name, series_name out_name,
                        const where_clause& = where_clause());
 
-  // struct ego_net_options {
-  //   std::optional<std::string> v_dist_closest;
-  //   std::optional<std::string> v_closest_source;
-  //   std::optional<std::string> e_included;
-  //   std::optional<std::string> v_included;
-  // };
-
   return_code nhops(const series_name& out_node_series, size_t nhops,
                     const std::vector<std::string>& sources,
                     const where_clause&             where = where_clause());
@@ -538,23 +531,6 @@ class metall_graph {
     size_t k, const std::vector<metall_graph::series_name>& metadata,
     std::optional<uint64_t>           optseed,
     const metall_graph::where_clause& where = where_clause{});
-
-  // struct shortest_path_options {
-  //   std::optional<std::string> dist_series;
-  //   std::optional<std::string> parent_series;
-  //   std::optional<std::string> parent_count_series;
-  // };
-  // shortest_path_options opts;
-
-  // return_code shortest_path(std::string source, shortest_path_options
-  // opts,
-  //                           const where_clause& = where_clause());
-  // return_code shortest_path(std::vector<std::string> sources,
-  //                           shortest_path_options    opts,
-  //                           const where_clause& = where_clause());
-  // return_code shortest_path(std::string source, std::string weights,
-  //                           shortest_path_options ops,
-  //                           const where_clause& = where_clause());
 
  private:
   std::string m_metall_path;  ///< Path to underlying metall storage
@@ -756,6 +732,10 @@ class metall_graph {
   template <typename Fn>
   void priv_for_all_edges_ewhere(
     Fn func, const where_clause& where = where_clause()) const;
+  
+  template <typename Fn>
+  void priv_for_all_edges_empty(
+    Fn func, const where_clause& where = where_clause()) const;
 
   template <typename Fn>
   void priv_for_all_nodes(Fn                  func,
@@ -767,6 +747,10 @@ class metall_graph {
 
   template <typename Fn>
   void priv_for_all_nodes_ewhere(
+    Fn func, const where_clause& where = where_clause()) const;
+
+    template <typename Fn>
+  void priv_for_all_nodes_empty(
     Fn func, const where_clause& where = where_clause()) const;
 
   std::pair<std::vector<local_node_idx_type>, std::vector<local_edge_idx_type>>
