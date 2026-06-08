@@ -17,20 +17,18 @@ metall_graph::topk(size_t k, const series_name& ser_name,
                    const where_clause& where) {
   record_store_type* pdata;
 
-  result<std::vector<std::vector<metall_graph::count_types>>> ret{};
-
   if (!has_series(ser_name)) {
-    ret.set_error("Series {} does not exist", ser_name.qualified());
-    return ret;
+    return std::unexpected(
+      std::format("Series {} does not exist", ser_name.qualified()));
   }
   bool is_edge = ser_name.is_edge_series();
   bool is_node = ser_name.is_node_series();
 
   if (!(is_edge ^ is_node)) {
-    ret.set_error("Series type is unknown.");
-    return ret;
+    return std::unexpected("Series type is unknown.");
   }
 
+  result<std::vector<std::vector<metall_graph::count_types>>> ret{};
   // we make sure that the compared column is element 0. This
   // also guarantees that the vector is not empty.
   std::vector<series_name> ser_inc_unq{ser_name};
@@ -161,7 +159,7 @@ metall_graph::topk(size_t k, const series_name& ser_name,
       return out;
     },
     m_comm);
-  ret.outcome = topk_outcome;
+  ret = topk_outcome;
   return ret;
 }
 
