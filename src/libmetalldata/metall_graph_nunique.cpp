@@ -36,8 +36,8 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
       ygm::container::set<std::string> distinct(m_comm);
       for (auto rid : rids) {
         auto val_o = priv_local_get_edge_field<std::string_view>(sid, rid);
-        if (val_opt.has_value()) {
-          distinct.async_insert(std::string(val_opt.value()));
+        if (val_o.has_value()) {
+          distinct.async_insert(std::string(val_o.value()));
         }
       }
 
@@ -49,8 +49,8 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
       ygm::container::set<int64_t> distinct(m_comm);
       for (auto rid : rids) {
         auto val_o = priv_local_get_edge_field<int64_t>(sid, rid);
-        if (val_opt.has_value()) {
-          distinct.async_insert(val_opt.value());
+        if (val_o.has_value()) {
+          distinct.async_insert(val_o.value());
         }
       }
       size_t sz = distinct.size();
@@ -65,8 +65,8 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
       ygm::container::set<bool> distinct(m_comm);
       for (auto rid : rids) {
         auto val_o = priv_local_get_edge_field<bool>(sid, rid);
-        if (val_opt.has_value()) {
-          if (val_opt.value()) {
+        if (val_o.has_value()) {
+          if (val_o.value()) {
             has_true = true;
           } else {
             has_false = true;
@@ -87,8 +87,8 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
       ygm::container::set<double> distinct(m_comm);
       for (auto rid : rids) {
         auto val_o = priv_local_get_edge_field<double>(sid, rid);
-        if (val_opt.has_value()) {
-          distinct.async_insert(val_opt.value());
+        if (val_o.has_value()) {
+          distinct.async_insert(val_o.value());
         }
       }
       size_t sz = distinct.size();
@@ -123,8 +123,8 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
       ygm::container::set<std::string> distinct(m_comm);
       for (auto rid : rids) {
         auto val_o = priv_local_get_node_field<std::string_view>(sid, rid);
-        if (val_opt.has_value()) {
-          distinct.async_insert(std::string(val_opt.value()));
+        if (val_o.has_value()) {
+          distinct.async_insert(std::string(val_o.value()));
         }
       }
 
@@ -136,8 +136,8 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
       ygm::container::set<int64_t> distinct(m_comm);
       for (auto rid : rids) {
         auto val_o = priv_local_get_node_field<int64_t>(sid, rid);
-        if (val_opt.has_value()) {
-          distinct.async_insert(val_opt.value());
+        if (val_o.has_value()) {
+          distinct.async_insert(val_o.value());
         }
       }
       size_t sz = distinct.size();
@@ -152,8 +152,8 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
       ygm::container::set<bool> distinct(m_comm);
       for (auto rid : rids) {
         auto val_o = priv_local_get_node_field<bool>(sid, rid);
-        if (val_opt.has_value()) {
-          if (val_opt.value()) {
+        if (val_o.has_value()) {
+          if (val_o.value()) {
             has_true = true;
           } else {
             has_false = true;
@@ -174,8 +174,8 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
       ygm::container::set<double> distinct(m_comm);
       for (auto rid : rids) {
         auto val_o = priv_local_get_node_field<double>(sid, rid);
-        if (val_opt.has_value()) {
-          distinct.async_insert(val_opt.value());
+        if (val_o.has_value()) {
+          distinct.async_insert(val_o.value());
         }
       }
       size_t sz = distinct.size();

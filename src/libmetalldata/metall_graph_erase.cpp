@@ -26,8 +26,8 @@ metall_graph::return_code metall_graph::erase_edges(
 
   priv_for_all_edges([&](auto rid) {
     auto val_o = priv_local_get_edge_field<std::string_view>(idx, rid);
-    YGM_ASSERT_RELEASE(val_opt.has_value());
-    if (haystack.contains(std::string(val_opt.value()))) {
+    YGM_ASSERT_RELEASE(val_o.has_value());
+    if (haystack.contains(std::string(val_o.value()))) {
       m_pedges->remove_record(std::to_underlying(rid));
     }
   });

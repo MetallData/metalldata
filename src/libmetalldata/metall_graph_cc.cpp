@@ -78,8 +78,8 @@ metall_graph::return_code metall_graph::connected_components(
       [&](local_node_idx_type nid) {
         // Do something with each node
         auto v_o = priv_local_get_node_label(nid);
-        YGM_ASSERT_RELEASE(v_opt.has_value());
-        std::string v(v_opt.value());
+        YGM_ASSERT_RELEASE(v_o.has_value());
+        std::string v(v_o.value());
         adj_list.async_visit(
           v, [](const std::string&                                ccid,
                 std::pair<std::string, std::vector<std::string>>& adj) {
