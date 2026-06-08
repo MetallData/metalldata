@@ -48,7 +48,7 @@ metall_graph::priv_where_subgraph(
 
     // 3. Compute the set of edges that are incident on those nodes.
     priv_for_all_edges([&](local_edge_idx_type eid) {
-      auto uv_o = priv_local_edge_uv(eid);
+      auto uv_o = priv_local_get_edge_uv_labels(eid);
       if (uv_o.has_value()) {
         auto [u, v] = uv_o.value();
         if (nodes_alive.contains(std::string(u)) &&
@@ -63,7 +63,7 @@ metall_graph::priv_where_subgraph(
     ygm::container::set<std::string> nodeset(m_comm);
     priv_for_all_edges_ewhere(
       [&](local_edge_idx_type eid) {
-        auto uv_o = priv_local_edge_uv(eid);
+        auto uv_o = priv_local_get_edge_uv_labels(eid);
         YGM_ASSERT_RELEASE(uv_o.has_value());
         auto [u, v] = uv_o.value();
         nodeset.async_insert(std::string(u));
