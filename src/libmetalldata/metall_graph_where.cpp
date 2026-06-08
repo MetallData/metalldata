@@ -30,16 +30,11 @@ static auto priv_compile_jl_rule(bjsn::value jl_rule) {
       std::visit(
         [&jl_row](auto&& arg) {
           using T = std::decay_t<decltype(arg)>;
-          if constexpr (std::is_same_v<T, std::monostate>) {
-            jl_row.push_back(std::monostate{});
-          } else if constexpr (std::is_same_v<T, bool>) {
+          if constexpr (std::is_same_v<T, std::string_view>) {
+            jl_row.push_back(jsonlogic::managed_string_view(
+              arg, jsonlogic::managed_string_view::no_lifetime_management{}));
+          } else {
             jl_row.push_back(arg);
-          } else if constexpr (std::is_same_v<T, int64_t>) {
-            jl_row.push_back(arg);
-          } else if constexpr (std::is_same_v<T, double>) {
-            jl_row.push_back(arg);
-          } else if constexpr (std::is_same_v<T, std::string>) {
-            jl_row.push_back(jsonlogic::managed_string_view{arg});
           }
         },
         val);
