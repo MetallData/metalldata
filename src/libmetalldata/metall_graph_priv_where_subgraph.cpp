@@ -37,9 +37,9 @@ metall_graph::priv_where_subgraph(
     // 2. Gather list of nodes needed by rank local edges
     std::set<std::string> nodes_i_need;
     priv_for_all_edges([&](local_edge_idx_type eid) {
-      auto ouv = priv_local_edge_uv(eid);
-      if (ouv.has_value()) {
-        auto [u, v] = ouv.value();
+      auto uv_o = priv_local_edge_uv(eid);
+      if (uv_o.has_value()) {
+        auto [u, v] = uv_o.value();
         nodes_i_need.insert(std::string(u));
         nodes_i_need.insert(std::string(v));
       }
@@ -48,9 +48,9 @@ metall_graph::priv_where_subgraph(
 
     // 3. Compute the set of edges that are incident on those nodes.
     priv_for_all_edges([&](local_edge_idx_type eid) {
-      auto ouv = priv_local_edge_uv(eid);
-      if (ouv.has_value()) {
-        auto [u, v] = ouv.value();
+      auto uv_o = priv_local_edge_uv(eid);
+      if (uv_o.has_value()) {
+        auto [u, v] = uv_o.value();
         if (nodes_alive.contains(std::string(u)) &&
             nodes_alive.contains(std::string(v))) {
           to_return.second.push_back(eid);
@@ -63,9 +63,9 @@ metall_graph::priv_where_subgraph(
     ygm::container::set<std::string> nodeset(m_comm);
     priv_for_all_edges_ewhere(
       [&](local_edge_idx_type eid) {
-        auto ouv = priv_local_edge_uv(eid);
-        YGM_ASSERT_RELEASE(ouv.has_value());
-        auto [u, v] = ouv.value();
+        auto uv_o = priv_local_edge_uv(eid);
+        YGM_ASSERT_RELEASE(uv_o.has_value());
+        auto [u, v] = uv_o.value();
         nodeset.async_insert(std::string(u));
         nodeset.async_insert(std::string(v));
         to_return.second.push_back(eid);

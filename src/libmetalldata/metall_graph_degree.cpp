@@ -190,10 +190,10 @@ metall_graph::return_code metall_graph::degrees(
     [&](local_edge_idx_type eid) {
       // Note: clangd may report a false positive error on the next line
       // The code compiles and runs correctly
-      auto ouv = priv_local_get_edge_uv_labels(eid);
-      YGM_ASSERT_RELEASE(ouv.has_value());
-      std::string in_edge_name(ouv.value().first);
-      std::string out_edge_name(ouv.value().first);
+      auto uv_o = priv_local_get_edge_uv_labels(eid);
+      YGM_ASSERT_RELEASE(uv_o.has_value());
+      std::string in_edge_name(uv_o.value().first);
+      std::string out_edge_name(uv_o.value().first);
       indegrees.async_visit(in_edge_name,
                             [&](const auto& key, auto& val) { val++; });
 
@@ -301,10 +301,10 @@ metall_graph::return_code metall_graph::degrees2(
 
   priv_for_all_edges(
     [&](local_edge_idx_type eid) {
-      auto ouv = priv_local_get_edge_uv_labels(eid);
-      YGM_ASSERT_RELEASE(ouv.has_value());
-      std::string in_edge_name(ouv.value().first);
-      std::string out_edge_name(ouv.value().second);
+      auto uv_o = priv_local_get_edge_uv_labels(eid);
+      YGM_ASSERT_RELEASE(uv_o.has_value());
+      std::string in_edge_name(uv_o.value().first);
+      std::string out_edge_name(uv_o.value().second);
       indegrees.async_insert(in_edge_name);
       outdegrees.async_insert(out_edge_name);
 
