@@ -1,6 +1,7 @@
 #pragma once
 #include <metalldata/metall_graph.hpp>
 #include <type_traits>
+#include <utility>
 
 namespace metalldata {
 template <typename T>
@@ -53,8 +54,8 @@ metall_graph::return_code metall_graph::set_node_column(
     nodecol_idx = m_pnodes->add_series<int64_t>(nodecol_name.unqualified());
 
     for (const auto& [node_name, value] : collection) {
-      auto opsv = priv_local_node_find(node_name);
-      if (!opsv.has_value()) {
+      auto nid_o = priv_local_node_find(node_name);
+      if (!nid_o.has_value()) {
         ++invalid_nodes;
         continue;
       }
@@ -62,18 +63,18 @@ metall_graph::return_code metall_graph::set_node_column(
         throw std::runtime_error(
           "Cannot process unsigned integer value > 2**63; aborting");
       }
-      m_pnodes->set(nodecol_idx, opsv.value(), static_cast<int64_t>(value));
+      m_pnodes->set(nodecol_idx, std::to_underlying(nid_o.value()), static_cast<int64_t>(value));
     }
 
   } else {
     nodecol_idx = m_pnodes->add_series<val_type>(nodecol_name.unqualified());
     for (const auto& [node_name, value] : collection) {
-      auto opsv = priv_local_node_find(node_name);
-      if (!opsv.has_value()) {
+      auto nid_o = priv_local_node_find(node_name);
+      if (!nid_o.has_value()) {
         ++invalid_nodes;
         continue;
       }
-      m_pnodes->set(nodecol_idx, opsv.value(), value);
+      m_pnodes->set(nodecol_idx, std::to_underlying(nid_o.value()), value);
     }
   }
   if (invalid_nodes > 0) {

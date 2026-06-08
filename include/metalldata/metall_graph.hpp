@@ -7,7 +7,9 @@
 #pragma once
 
 #include <any>
+#include <cstddef>
 #include <functional>
+#include <utility>
 #include <variant>
 #include <map>
 #include <string>
@@ -25,7 +27,8 @@
 #include <expected>
 #include <optional>
 #include <ygm/utility/assert.hpp>
-#include "ygm/container/counting_set.hpp"
+#include <ygm/container/counting_set.hpp>
+#include <metalldata/result.hpp>
 
 namespace bjsn = boost::json;
 
@@ -64,10 +67,12 @@ class metall_graph {
     metall::manager::allocator_type<
       std::pair<const compact_string::string_accessor, record_id_type>>>;
 
+  enum class local_node_idx_type : std::size_t;
+  enum class local_edge_idx_type : std::size_t;
+  enum class node_series_idx_type : std::size_t;
+  enum class edge_series_idx_type : std::size_t;
+
  public:
-  // TODO: Rationalize these data types to correspond better with JSONLogic and
-  // MetallFrame.
-  // TODO: we need unsigned ints here anyway.
   using series_types = multiseries::basic_record_store<>::series_type;
   using count_types =
     std::variant<std::monostate, bool, int64_t, double, std::string>;
@@ -225,7 +230,7 @@ class metall_graph {
     bool empty() const { return m_series_names.empty(); }
 
    private:
-    std::vector<series_name>                            m_series_names;
+    std::vector<series_name>                              m_series_names;
     std::function<bool(const std::vector<series_types>&)> m_predicate;
   };  // where_clause
 
@@ -294,7 +299,7 @@ class metall_graph {
                                const where_clause& where = where_clause{});
 
   template <typename Compare = std::greater<void>>
-  std::vector<std::vector<count_types>> topk(
+  metalldata::result<std::vector<std::vector<count_types>>> topk(
     size_t k, const series_name& ser_name,
     const std::vector<series_name>& ser_inc, Compare comp = Compare(),
     const where_clause& where = where_clause());
@@ -451,22 +456,26 @@ class metall_graph {
   std::map<metall_graph::count_types, size_t> value_counts_topk(
     metall_graph::series_name sname, int k, const where_clause& where);
 
+  // TODO:  Remove this, used by select...
   template <typename Fn>
   void visit_node_field(series_name name, size_t record_id, Fn func) const {
     assert(name.is_node_series());
     m_pnodes->visit_field(name.unqualified(), record_id, func);
   }
 
+  // TODO:  Remove this, used by select...
   template <typename Fn>
   void visit_edge_field(series_name name, size_t record_id, Fn func) const {
     assert(name.is_edge_series());
     m_pedges->visit_field(name.unqualified(), record_id, func);
   }
 
+  // TODO: change unexpected to return_code (see utils.cpp / obj2sn)
   std::expected<boost::json::array, std::string> select_edges(
     const std::unordered_set<metall_graph::series_name>& series_set,
     const metall_graph::where_clause& where, size_t limit);
 
+  // TODO: change unexpected to return_code (see utils.cpp / obj2sn)
   std::expected<boost::json::array, std::string> select_nodes(
     const std::unordered_set<metall_graph::series_name>& series_set,
     const metall_graph::where_clause& where, size_t limit);
@@ -492,13 +501,6 @@ class metall_graph {
 
   return_code degrees2(series_name in_name, series_name out_name,
                        const where_clause& = where_clause());
-
-  // struct ego_net_options {
-  //   std::optional<std::string> v_dist_closest;
-  //   std::optional<std::string> v_closest_source;
-  //   std::optional<std::string> e_included;
-  //   std::optional<std::string> v_included;
-  // };
 
   return_code nhops(const series_name& out_node_series, size_t nhops,
                     const std::vector<std::string>& sources,
@@ -529,23 +531,6 @@ class metall_graph {
     std::optional<uint64_t>           optseed,
     const metall_graph::where_clause& where = where_clause{});
 
-  // struct shortest_path_options {
-  //   std::optional<std::string> dist_series;
-  //   std::optional<std::string> parent_series;
-  //   std::optional<std::string> parent_count_series;
-  // };
-  // shortest_path_options opts;
-
-  // return_code shortest_path(std::string source, shortest_path_options
-  // opts,
-  //                           const where_clause& = where_clause());
-  // return_code shortest_path(std::vector<std::string> sources,
-  //                           shortest_path_options    opts,
-  //                           const where_clause& = where_clause());
-  // return_code shortest_path(std::string source, std::string weights,
-  //                           shortest_path_options ops,
-  //                           const where_clause& = where_clause());
-
  private:
   std::string m_metall_path;  ///< Path to underlying metall storage
   ygm::comm&  m_comm;         ///< YGM Comm
@@ -561,10 +546,172 @@ class metall_graph {
   /// String store
   string_store_type* m_pstring_store = nullptr;
 
-  series_index_type m_u_col_idx;
-  series_index_type m_v_col_idx;
-  series_index_type m_dir_col_idx;
-  series_index_type m_node_col_idx;
+  edge_series_idx_type m_u_col_idx;
+  edge_series_idx_type m_v_col_idx;
+  edge_series_idx_type m_dir_col_idx;
+  node_series_idx_type m_node_col_idx;
+
+  /**
+   * @brief Returns an edge's endpoints (u,v) as string_views
+   *
+   * @param eid Edge ID
+   * @return std::optional<std::pair<std::string_view, std::string_view>>
+   */
+  std::optional<std::pair<std::string_view, std::string_view>>
+  priv_local_get_edge_uv_labels(local_edge_idx_type eid) const;
+
+  /**
+   * @brief Returns an edge's directed field
+   *
+   * @param eid Edge Id
+   * @return std::optional<bool>
+   */
+  std::optional<bool> priv_local_edge_is_directed(
+    local_edge_idx_type eid) const;
+
+  /**
+   * @brief Retuns a node's string label
+   *
+   * @param nid Node id
+   * @return std::optional<std::string_view>
+   */
+  std::optional<std::string_view> priv_local_get_node_label(
+    local_node_idx_type nid) const;
+
+  /**
+   * @brief Returns an individual node field as a series_type variant
+   *
+   * @param sid Node series id
+   * @param nid Node id
+   * @return std::optional<series_types>
+   */
+  std::optional<series_types> priv_local_get_node_field(
+    node_series_idx_type sid, local_node_idx_type nid) const;
+
+  /**
+   * @brief Returns an individual node field as a concrete type
+   *
+   * @tparam T
+   * @param sid Node series id
+   * @param nid Node id
+   * @return std::optional<T>
+   */
+  template <typename T>
+  std::optional<T> priv_local_get_node_field(node_series_idx_type sid,
+                                             local_node_idx_type  nid) const;
+
+  std::vector<std::optional<series_types>> priv_local_get_node_fields(
+    std::vector<node_series_idx_type> sids, local_node_idx_type eid) const {
+    std::vector<std::optional<series_types>> fields;
+    fields.reserve(sids.size());
+    for (const auto& s : sids) {
+      fields.emplace_back(priv_local_get_node_field(s, eid));
+    }
+    return fields;
+  }
+
+  std::optional<series_types> priv_local_get_edge_field(
+    edge_series_idx_type sid, local_edge_idx_type eid) const {
+    return m_pedges->get_dynamic(std::to_underlying(sid),
+                                 std::to_underlying(eid));
+  }
+  template <typename T>
+  std::optional<T> priv_local_get_edge_field(edge_series_idx_type sid,
+                                             local_edge_idx_type  eid) const {
+    auto f = priv_local_get_edge_field(sid, eid);
+    if (f.has_value()) {
+      if (std::holds_alternative<T>(f.value())) {
+        return std::get<T>(f.value());
+      }
+    }
+    return {};
+  }
+
+  std::vector<std::optional<series_types>> priv_local_get_edge_fields(
+    std::vector<edge_series_idx_type> sids, local_edge_idx_type eid) const {
+    std::vector<std::optional<series_types>> fields;
+    fields.reserve(sids.size());
+    for (const auto& s : sids) {
+      fields.emplace_back(priv_local_get_edge_field(s, eid));
+    }
+    return fields;
+  }
+
+  template <typename T>
+  void priv_local_set_node_field(node_series_idx_type sid,
+                                 local_node_idx_type nid, const T& val) {
+    m_pnodes->set(std::to_underlying(sid), std::to_underlying(nid), val);
+  }
+
+  template <typename T>
+  void priv_local_set_edge_field(edge_series_idx_type sid,
+                                 local_edge_idx_type eid, const T& val) {
+    m_pedges->set(std::to_underlying(sid), std::to_underlying(eid), val);
+  }
+
+  std::optional<node_series_idx_type> priv_local_find_node_series(
+    std::string_view name) const {
+    auto ret = m_pnodes->find_series(name);
+    if (ret.has_value()) {
+      return node_series_idx_type{
+        static_cast<node_series_idx_type>(ret.value())};
+    }
+    return std::nullopt;
+  }
+
+  std::vector<std::optional<node_series_idx_type>> priv_local_find_node_series(
+    std::vector<series_name> names) const {
+    std::vector<std::optional<node_series_idx_type>> ret;
+    ret.reserve(names.size());
+
+    for (const auto& n : names) {
+      ret.emplace_back(priv_local_find_node_series(n.unqualified()));
+    }
+    return ret;
+  }
+
+  // TODO: this should probably take a series_name as an argument.
+  std::optional<edge_series_idx_type> priv_local_find_edge_series(
+    std::string_view name) const {
+    auto ret = m_pedges->find_series(name);
+    if (ret.has_value()) {
+      return edge_series_idx_type{
+        static_cast<edge_series_idx_type>(ret.value())};
+    }
+    return std::nullopt;
+  }
+
+  std::vector<std::optional<edge_series_idx_type>> priv_local_find_edge_series(
+    std::vector<series_name> names) const {
+    std::vector<std::optional<edge_series_idx_type>> ret;
+    ret.reserve(names.size());
+
+    for (const auto& n : names) {
+      ret.emplace_back(priv_local_find_edge_series(n.unqualified()));
+    }
+
+    return ret;
+  }
+
+  template <typename T>
+  node_series_idx_type priv_add_node_series(std::string_view name) {
+    return node_series_idx_type{m_pnodes->add_series<T>(name)};
+  }
+
+  template <typename T>
+  edge_series_idx_type priv_add_edge_series(std::string_view name) {
+    return edge_series_idx_type{m_pedges->add_series<T>(name)};
+  }
+
+  template <typename T>
+  bool priv_is_node_series_type(node_series_idx_type ns) {
+    return m_pnodes->is_series_type<T>(std::to_underlying(ns));
+  }
+
+  template <typename T>
+  bool priv_is_edge_series_type(edge_series_idx_type es) {
+    return m_pedges->is_series_type<T>(std::to_underlying(es));
+  }
 
   size_t priv_local_num_nodes() const { return m_pnodes->num_records(); };
   size_t priv_local_num_edges() const { return m_pedges->num_records(); };
@@ -573,28 +720,31 @@ class metall_graph {
                                  bool        outdeg);
 
   template <typename Fn>
-  void priv_for_all_edges(Fn                  func,
-                          const where_clause& where = where_clause()) const;
+  void priv_for_all_edges(Fn func) const;
 
   template <typename Fn>
-  void priv_for_all_edges_nwhere(
-    Fn func, const where_clause& where = where_clause()) const;
+  void priv_for_all_edges(Fn func, const where_clause& where) const;
 
   template <typename Fn>
-  void priv_for_all_edges_ewhere(
-    Fn func, const where_clause& where = where_clause()) const;
+  void priv_for_all_edges_nwhere(Fn func, const where_clause& where) const;
 
   template <typename Fn>
-  void priv_for_all_nodes(Fn                  func,
-                          const where_clause& where = where_clause()) const;
+  void priv_for_all_edges_ewhere(Fn func, const where_clause& where) const;
 
   template <typename Fn>
-  void priv_for_all_nodes_nwhere(
-    Fn func, const where_clause& where = where_clause()) const;
+  void priv_for_all_nodes(Fn func) const;
 
   template <typename Fn>
-  void priv_for_all_nodes_ewhere(
-    Fn func, const where_clause& where = where_clause()) const;
+  void priv_for_all_nodes(Fn func, const where_clause& where) const;
+
+  template <typename Fn>
+  void priv_for_all_nodes_nwhere(Fn func, const where_clause& where) const;
+
+  template <typename Fn>
+  void priv_for_all_nodes_ewhere(Fn func, const where_clause& where) const;
+
+  std::pair<std::vector<local_node_idx_type>, std::vector<local_edge_idx_type>>
+  priv_where_subgraph(const where_clause& where = where_clause()) const;
 
   // Sets a node metadata column based on a lookup from an associative data
   // structure.
@@ -611,24 +761,40 @@ class metall_graph {
   return_code set_node_column(const series_name& nodecol_name,
                               const T&           collection);
 
-  record_id_type priv_local_node_find_or_insert(std::string_view id) {
-    YGM_ASSERT_RELEASE(m_partitioner.owner(id) == m_comm.rank());
-    auto v_in_ss = compact_string::add_string(id, *m_pstring_store);
+  /**
+   * @brief Retrives or inserts node string label into reverse lookup.   Returns local_node_idx
+   * 
+   * @param label String node label
+   * @return local_node_idx_type 
+   */
+  local_node_idx_type priv_local_node_find_or_insert(std::string_view label) {
+    YGM_ASSERT_RELEASE(m_partitioner.owner(label) == m_comm.rank());
+    auto v_in_ss = compact_string::add_string(label, *m_pstring_store);
     if (!m_pnode_to_idx->contains(v_in_ss)) {
-      auto ridx = m_pnodes->add_record();
-      m_pnodes->set(m_node_col_idx, ridx, id);
-      m_pnode_to_idx->insert_or_assign(v_in_ss, ridx);
-      return ridx;
+      auto nid = local_node_idx_type{m_pnodes->add_record()};
+      // m_pnodes->set(m_node_col_idx, ridx, id);
+      // todo remove static_cast
+      priv_local_set_node_field(
+        node_series_idx_type{static_cast<uint32_t>(m_node_col_idx)}, nid,
+        label);
+      m_pnode_to_idx->insert_or_assign(v_in_ss, std::to_underlying(nid));
+      return nid;
     }
-    return m_pnode_to_idx->at(v_in_ss);
+    return local_node_idx_type{m_pnode_to_idx->at(v_in_ss)};
   }
 
-  std::optional<record_id_type> priv_local_node_find(
+  /**
+   * @brief Retrives without inserting node string label into reverse lookup.   Returns local_node_idx
+   * 
+   * @param label String node label
+   * @return local_node_idx_type 
+   */
+  std::optional<local_node_idx_type> priv_local_node_find(
     std::string_view id) const {
     YGM_ASSERT_RELEASE(m_partitioner.owner(id) == m_comm.rank());
     auto ret = compact_string::find_string(id, *m_pstring_store);
     if (ret) {
-      return m_pnode_to_idx->at(ret.value());
+      return local_node_idx_type{m_pnode_to_idx->at(ret.value())};
     }
     return {};
   }
@@ -682,3 +848,4 @@ struct hash<metalldata::metall_graph::series_types> {
 #include <metalldata/impl/metall_graph_priv_for_all.ipp>
 #include <metalldata/impl/metall_graph_set_column.ipp>
 #include <metalldata/impl/metall_graph_topk.ipp>
+#include <metalldata/impl/metall_graph_series.ipp>
