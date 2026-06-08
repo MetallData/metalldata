@@ -71,7 +71,7 @@ metall_graph::return_code metall_graph::nhops(
 
   priv_for_all_edges(
     [&](local_edge_idx_type eid) {
-      auto ouv= priv_local_edge_uv(eid);
+      auto ouv= priv_local_get_edge_uv_labels(eid);
       YGM_ASSERT_RELEASE(ouv.has_value());
       std::string u(ouv.value().first);
       std::string v(ouv.value().second);

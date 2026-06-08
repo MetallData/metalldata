@@ -558,7 +558,7 @@ class metall_graph {
    * @return std::optional<std::pair<std::string_view, std::string_view>>
    */
   std::optional<std::pair<std::string_view, std::string_view>>
-  priv_local_edge_uv(local_edge_idx_type eid) const;
+  priv_local_get_edge_uv_labels(local_edge_idx_type eid) const;
 
   /**
    * @brief Returns an edge's directed field

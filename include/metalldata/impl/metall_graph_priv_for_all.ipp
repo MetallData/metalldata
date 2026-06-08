@@ -23,7 +23,7 @@ void metall_graph::priv_for_all_edges_nwhere(
   // 2. Gather list of nodes needed by rank local edges
   std::set<std::string> nodes_i_need;
   priv_for_all_edges([&](local_edge_idx_type eidx) {
-    auto ouv = priv_local_edge_uv(eidx);
+    auto ouv = priv_local_get_edge_uv_labels(eidx);
     if (ouv.has_value()) {
       auto [u, v] = ouv.value();
       nodes_i_need.insert(std::string(u));
@@ -34,7 +34,7 @@ void metall_graph::priv_for_all_edges_nwhere(
 
   // 3. Compute the set of edges that are incident on those nodes.
   priv_for_all_edges([&](local_edge_idx_type eidx) {
-    auto ouv = priv_local_edge_uv(eidx);
+    auto ouv = priv_local_get_edge_uv_labels(eidx);
     if (ouv.has_value()) {
       auto [u, v] = ouv.value();
       if (nodes_alive.contains(std::string(u)) &&
@@ -159,7 +159,7 @@ void metall_graph::priv_for_all_nodes_ewhere(
   ygm::container::set<std::string> nodeset(m_comm);
   priv_for_all_edges_ewhere(
     [&](local_edge_idx_type eid) {
-      auto ouv = priv_local_edge_uv(eid);
+      auto ouv = priv_local_get_edge_uv_labels(eid);
       YGM_ASSERT_RELEASE(ouv.has_value());
       auto [u, v] = ouv.value();
       nodeset.async_insert(std::string(u));

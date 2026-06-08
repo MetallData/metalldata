@@ -4,7 +4,7 @@
 namespace metalldata {
 
 inline std::optional<std::pair<std::string_view, std::string_view>>
-metall_graph::priv_local_edge_uv(metall_graph::local_edge_idx_type eid) const {
+metall_graph::priv_local_get_edge_uv_labels(metall_graph::local_edge_idx_type eid) const {
   auto u = priv_local_get_edge_field<std::string_view>(m_u_col_idx, eid);
   auto v = priv_local_get_edge_field<std::string_view>(m_v_col_idx, eid);
   if (u.has_value() && v.has_value()) {
