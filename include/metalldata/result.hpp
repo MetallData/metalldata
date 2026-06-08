@@ -7,56 +7,94 @@ namespace metalldata {
 
 /// Return type for metalldata operations.
 ///
-/// Pairs a std::expected<T, std::string> outcome with a non-fatal warning log.
+/// Extends std::expected<T, std::string> with a non-fatal warning log.
 /// Warnings are keyed by message and counted so repeated warnings accumulate.
+/// The result itself IS the expected value — use it directly as std::expected.
 ///
-/// Callers check outcome for success/failure and retrieve the value or error:
+/// Callers check success/failure and iterate warnings:
 /// @code
 ///   result<size_t> r = some_operation();
-///   if (!r.outcome) {
-///     std::cerr << r.outcome.error() << "\n";
+///   if (!r) {
+///     std::cerr << r.error() << "\n";
 ///   } else {
-///     use(r.outcome.value());
+///     use(r.value());
 ///   }
-///   for (auto& [msg, n] : r.warnings) {
+///   for (auto& [msg, n] : r.warnings()) {
 ///     std::cerr << msg << " (" << n << " times)\n";
 ///   }
 /// @endcode
 ///
-/// Implementors set outcome and warnings via the provided methods:
+/// Implementors construct from std::unexpected for errors, or assign the value
+/// for success, and use add_warning() for non-fatal diagnostics:
 /// @code
 ///   // error path:
-///   result<size_t> r;
-///   r.set_error("series {} not found", name);
-///   return r;
+///   return std::unexpected(std::format("series {} not found", name));
 ///
 ///   // success path (with optional warnings):
 ///   result<size_t> r;
 ///   r.add_warning("series {} ignored", name);
-///   r.outcome = computed_value;
+///   r = computed_value;
+///   return r;
+/// @endcode
+///
+/// When warnings must be accumulated before the value is known, assign the
+/// value separately — operator=(T&&) updates only the expected state and
+/// preserves any warnings already added:
+/// @code
+///   result<size_t> r;
+///   for (auto& item : items) {
+///     if (item.invalid()) {
+///       r.add_warning("invalid item {} ignored", item.name());
+///       continue;
+///     }
+///     process(item);
+///   }
+///   r = compute_result(items);  // warnings intact
 ///   return r;
 /// @endcode
 template <typename T>
-struct result {
-  std::map<std::string, size_t> warnings;
-  std::expected<T, std::string> outcome;
+struct result : std::expected<T, std::string> {
+  using std::expected<T, std::string>::expected;
 
-  template <typename... Args>
-  void set_error(std::format_string<Args...> fmt, Args&&... args) {
-    outcome = std::unexpected(std::format(fmt, std::forward<Args>(args)...));
+  result& operator=(const T& value) {
+    std::expected<T, std::string>::operator=(value);
+    return *this;
+  }
+
+  result& operator=(T&& value) {
+    std::expected<T, std::string>::operator=(std::move(value));
+    return *this;
+  }
+
+  template <typename G>
+  result& operator=(const std::unexpected<G>& e) {
+    std::expected<T, std::string>::operator=(e);
+    return *this;
+  }
+
+  template <typename G>
+  result& operator=(std::unexpected<G>&& e) {
+    std::expected<T, std::string>::operator=(std::move(e));
+    return *this;
   }
 
   template <typename... Args>
   void add_warning(std::format_string<Args...> fmt, Args&&... args) {
-    warnings[std::format(fmt, std::forward<Args>(args)...)]++;
+    m_warnings[std::format(fmt, std::forward<Args>(args)...)]++;
   }
+
+  const std::map<std::string, size_t>& warnings() const { return m_warnings; }
+
   // merges warnings from another return code. If the keys match, the
   // numbers are incremented.
   void merge_warnings(const result& other) {
-    for (const auto& [msg, count] : other.warnings) {
-      warnings[msg] += count;
+    for (const auto& [msg, count] : other.m_warnings) {
+      m_warnings[msg] += count;
     }
   }
+
+ private:
+  std::map<std::string, size_t> m_warnings;
 };
 
 }  // namespace metalldata
