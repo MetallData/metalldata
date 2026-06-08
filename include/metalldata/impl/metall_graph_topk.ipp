@@ -31,8 +31,6 @@ metall_graph::topk(size_t k, const series_name& ser_name,
     return ret;
   }
 
-  // pdata = is_edge ? m_pedges : m_pnodes;
-
   // we make sure that the compared column is element 0. This
   // also guarantees that the vector is not empty.
   std::vector<series_name> ser_inc_unq{ser_name};
@@ -67,11 +65,6 @@ metall_graph::topk(size_t k, const series_name& ser_name,
       }
     }
   }
-
-  // auto ser_idxs_opt = pdata->find_series(ser_inc_unq);
-  // YGM_ASSERT_RELEASE(ser_idxs_opt.has_value());
-  // auto series_idxs = ser_idxs_opt.value();
-  // YGM_ASSERT_RELEASE(!series_idxs.empty());
 
   // Comparator for the priority queue (inverted for min-heap behavior)
   auto row_comp = [&comp](const std::vector<count_types>& a,
@@ -112,7 +105,6 @@ metall_graph::topk(size_t k, const series_name& ser_name,
       static_assert(std::is_same_v<R, void>, "Fatal: unknown row index type");
     }
 
-    // m_comm.cerr0() << "source row size = " << source_row.size();
     std::vector<count_types> row;
     row.reserve(source_row.size());
     for (const auto& el : source_row) {
