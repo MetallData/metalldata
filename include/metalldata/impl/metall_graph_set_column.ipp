@@ -1,6 +1,7 @@
 #pragma once
 #include <metalldata/metall_graph.hpp>
 #include <type_traits>
+#include <utility>
 
 namespace metalldata {
 template <typename T>
@@ -62,7 +63,7 @@ metall_graph::return_code metall_graph::set_node_column(
         throw std::runtime_error(
           "Cannot process unsigned integer value > 2**63; aborting");
       }
-      m_pnodes->set(nodecol_idx, opsv.value(), static_cast<int64_t>(value));
+      m_pnodes->set(nodecol_idx, std::to_underlying(opsv.value()), static_cast<int64_t>(value));
     }
 
   } else {
@@ -73,7 +74,7 @@ metall_graph::return_code metall_graph::set_node_column(
         ++invalid_nodes;
         continue;
       }
-      m_pnodes->set(nodecol_idx, opsv.value(), value);
+      m_pnodes->set(nodecol_idx, std::to_underlying(opsv.value()), value);
     }
   }
   if (invalid_nodes > 0) {

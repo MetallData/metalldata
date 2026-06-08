@@ -8,11 +8,11 @@ template <typename Fn>
 void metall_graph::priv_for_all_edges_nwhere(
   Fn func, const metall_graph::where_clause& where) const {
   YGM_ASSERT_RELEASE(where.is_node_clause());
-  // TODO: need to accept node where clauses. This is tricky. Leave for Roger.
+  // 1. Compute the set of nodes that satisfy the node where clause.
   ygm::container::set<std::string> nodeset(m_comm);
   priv_for_all_nodes_nwhere(
-    [&](local_node_idx_type record_idx) {
-      auto u = priv_local_get_node_label(record_idx);
+    [&](local_node_idx_type nidx) {
+      auto u = priv_local_get_node_label(nidx);
       if (u.has_value()) {
         nodeset.async_insert(std::string(u.value()));
       }
@@ -20,25 +20,26 @@ void metall_graph::priv_for_all_edges_nwhere(
     where);
   m_comm.barrier();
 
+  // 2. Gather list of nodes needed by rank local edges
   std::set<std::string> nodes_i_need;
-  m_pedges->for_all_rows([&](record_id_type record_idx) {
-    auto ouv = priv_local_edge_uv(local_edge_idx_type{record_idx});
+  priv_for_all_edges_empty([&](local_edge_idx_type eidx) {
+    auto ouv = priv_local_edge_uv(eidx);
     if (ouv.has_value()) {
       auto [u, v] = ouv.value();
       nodes_i_need.insert(std::string(u));
       nodes_i_need.insert(std::string(v));
     }
   });
-
   std::set<std::string> nodes_alive = nodeset.gather_values(nodes_i_need);
 
-  m_pedges->for_all_rows([&](record_id_type record_idx) {
-    auto ouv = priv_local_edge_uv(local_edge_idx_type{record_idx});
+  // 3. Compute the set of edges that are incident on those nodes.
+  priv_for_all_edges_empty([&](local_edge_idx_type eidx) {
+    auto ouv = priv_local_edge_uv(eidx);
     if (ouv.has_value()) {
       auto [u, v] = ouv.value();
       if (nodes_alive.contains(std::string(u)) &&
           nodes_alive.contains(std::string(v))) {
-        func(local_edge_idx_type{record_idx});
+        func(eidx);
       }
     }
   });
@@ -154,14 +155,8 @@ template <typename Fn>
 void metall_graph::priv_for_all_nodes_ewhere(
   Fn func, const metall_graph::where_clause& where) const {
   YGM_ASSERT_RELEASE(where.is_edge_clause());
-  auto u_col_idx_o = m_pedges->find_series(U_COL.unqualified());
-  auto v_col_idx_o = m_pedges->find_series(V_COL.unqualified());
-  if (!u_col_idx_o.has_value() || !v_col_idx_o.has_value()) {
-    return;
-  }
-  auto u_col_idx = u_col_idx_o.value();
-  auto v_col_idx = v_col_idx_o.value();
-
+  
+  // 1. compute the set of edges that satisfy the edge where clause & save vertex labels
   ygm::container::set<std::string> nodeset(m_comm);
   priv_for_all_edges_ewhere(
     [&](local_edge_idx_type eid) {
@@ -173,6 +168,7 @@ void metall_graph::priv_for_all_nodes_ewhere(
     },
     where);
 
+  // 2. Compute node ids from vertex labels
   for (const auto& node : nodeset) {
     auto opsa = priv_local_node_find(node);
     YGM_ASSERT_RELEASE(opsa.has_value());

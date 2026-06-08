@@ -787,12 +787,12 @@ class metall_graph {
     return local_node_idx_type{m_pnode_to_idx->at(v_in_ss)};
   }
 
-  std::optional<record_id_type> priv_local_node_find(
+  std::optional<local_node_idx_type> priv_local_node_find(
     std::string_view id) const {
     YGM_ASSERT_RELEASE(m_partitioner.owner(id) == m_comm.rank());
     auto ret = compact_string::find_string(id, *m_pstring_store);
     if (ret) {
-      return m_pnode_to_idx->at(ret.value());
+      return local_node_idx_type{m_pnode_to_idx->at(ret.value())};
     }
     return {};
   }
