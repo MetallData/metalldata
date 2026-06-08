@@ -15,16 +15,12 @@ metall_graph::priv_where_subgraph(
 
   if (where.empty()) {
     // if the where clause is empty, then we just return all nodes and edges.
-    priv_for_all_nodes_empty(
-      [&to_return](local_node_idx_type nidx) {
-        to_return.first.push_back(nidx);
-      },
-      where);
-    priv_for_all_edges_empty(
-      [&to_return](local_edge_idx_type eidx) {
-        to_return.second.push_back(eidx);
-      },
-      where);
+    priv_for_all_nodes([&to_return](local_node_idx_type nidx) {
+      to_return.first.push_back(nidx);
+    });
+    priv_for_all_edges([&to_return](local_edge_idx_type eidx) {
+      to_return.second.push_back(eidx);
+    });
   } else if (where.is_node_clause()) {
     // 1. Compute the set of nodes that satisfy the node where clause.
     ygm::container::set<std::string> nodeset(m_comm);
@@ -40,7 +36,7 @@ metall_graph::priv_where_subgraph(
 
     // 2. Gather list of nodes needed by rank local edges
     std::set<std::string> nodes_i_need;
-    priv_for_all_edges_empty([&](local_edge_idx_type eidx) {
+    priv_for_all_edges([&](local_edge_idx_type eidx) {
       auto ouv = priv_local_edge_uv(eidx);
       if (ouv.has_value()) {
         auto [u, v] = ouv.value();
@@ -51,7 +47,7 @@ metall_graph::priv_where_subgraph(
     std::set<std::string> nodes_alive = nodeset.gather_values(nodes_i_need);
 
     // 3. Compute the set of edges that are incident on those nodes.
-    priv_for_all_edges_empty([&](local_edge_idx_type eidx) {
+    priv_for_all_edges([&](local_edge_idx_type eidx) {
       auto ouv = priv_local_edge_uv(eidx);
       if (ouv.has_value()) {
         auto [u, v] = ouv.value();
