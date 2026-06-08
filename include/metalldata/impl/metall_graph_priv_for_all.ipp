@@ -11,8 +11,8 @@ void metall_graph::priv_for_all_edges_nwhere(
   // 1. Compute the set of nodes that satisfy the node where clause.
   ygm::container::set<std::string> nodeset(m_comm);
   priv_for_all_nodes_nwhere(
-    [&](local_node_idx_type nidx) {
-      auto u = priv_local_get_node_label(nidx);
+    [&](local_node_idx_type nid) {
+      auto u = priv_local_get_node_label(nid);
       if (u.has_value()) {
         nodeset.async_insert(std::string(u.value()));
       }
@@ -22,8 +22,8 @@ void metall_graph::priv_for_all_edges_nwhere(
 
   // 2. Gather list of nodes needed by rank local edges
   std::set<std::string> nodes_i_need;
-  priv_for_all_edges([&](local_edge_idx_type eidx) {
-    auto ouv = priv_local_get_edge_uv_labels(eidx);
+  priv_for_all_edges([&](local_edge_idx_type eid) {
+    auto ouv = priv_local_get_edge_uv_labels(eid);
     if (ouv.has_value()) {
       auto [u, v] = ouv.value();
       nodes_i_need.insert(std::string(u));
@@ -33,13 +33,13 @@ void metall_graph::priv_for_all_edges_nwhere(
   std::set<std::string> nodes_alive = nodeset.gather_values(nodes_i_need);
 
   // 3. Compute the set of edges that are incident on those nodes.
-  priv_for_all_edges([&](local_edge_idx_type eidx) {
-    auto ouv = priv_local_get_edge_uv_labels(eidx);
+  priv_for_all_edges([&](local_edge_idx_type eid) {
+    auto ouv = priv_local_get_edge_uv_labels(eid);
     if (ouv.has_value()) {
       auto [u, v] = ouv.value();
       if (nodes_alive.contains(std::string(u)) &&
           nodes_alive.contains(std::string(v))) {
-        func(eidx);
+        func(eid);
       }
     }
   });

@@ -765,14 +765,14 @@ class metall_graph {
     YGM_ASSERT_RELEASE(m_partitioner.owner(label) == m_comm.rank());
     auto v_in_ss = compact_string::add_string(label, *m_pstring_store);
     if (!m_pnode_to_idx->contains(v_in_ss)) {
-      auto nidx = local_node_idx_type{m_pnodes->add_record()};
+      auto nid = local_node_idx_type{m_pnodes->add_record()};
       // m_pnodes->set(m_node_col_idx, ridx, id);
       // todo remove static_cast
       priv_local_set_node_field(
-        node_series_idx_type{static_cast<uint32_t>(m_node_col_idx)}, nidx,
+        node_series_idx_type{static_cast<uint32_t>(m_node_col_idx)}, nid,
         label);
-      m_pnode_to_idx->insert_or_assign(v_in_ss, std::to_underlying(nidx));
-      return nidx;
+      m_pnode_to_idx->insert_or_assign(v_in_ss, std::to_underlying(nid));
+      return nid;
     }
     return local_node_idx_type{m_pnode_to_idx->at(v_in_ss)};
   }
