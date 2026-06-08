@@ -60,7 +60,7 @@ void run_bench(const std::filesystem::path &metall_path,
   record_store->add_series<data_type>("data", kind);
   for (int64_t i = 0; i < num_records; ++i) {
     const auto record_id = record_store->add_record();
-    const auto demo_id_opt = record_store->find_series("data");
+    const auto demo_id_o = record_store->find_series("data");
     if (!demo_id_opt.has_value()) {
       continue;
     }

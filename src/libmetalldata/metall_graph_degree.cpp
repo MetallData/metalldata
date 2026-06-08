@@ -87,7 +87,7 @@ metall_graph::return_code metall_graph::priv_in_out_degree(
   std::vector<std::string> nodes;
   priv_for_all_nodes(
     [&](local_node_idx_type nid) {
-      auto node_name_opt = priv_local_get_node_label(nid);
+      auto node_name_o = priv_local_get_node_label(nid);
       YGM_ASSERT_RELEASE(node_name_opt.has_value());
       std::string_view node_name = node_name_opt.value();
 
@@ -101,7 +101,8 @@ metall_graph::return_code metall_graph::priv_in_out_degree(
     [&](local_edge_idx_type eid) {
       // Note: clangd may report a false positive error on the next line
       // The code compiles and runs correctly
-      auto edge_name_opt = priv_local_get_edge_field<std::string_view>(degcol, eid);
+      auto edge_name_o =
+        priv_local_get_edge_field<std::string_view>(degcol, eid);
       YGM_ASSERT_RELEASE(edge_name_opt.has_value());
       std::string_view edge_name = edge_name_opt.value();
       degrees.async_visit(std::string(edge_name),
@@ -109,7 +110,8 @@ metall_graph::return_code metall_graph::priv_in_out_degree(
       // for undirected edges, add the reverse.
       bool is_directed = priv_local_edge_is_directed(eid).value_or(false);
       if (!is_directed) {
-        auto reverseedge_name_opt = priv_local_get_edge_field<std::string_view>(otherdegcol, eid);
+        auto reverseedge_name_o =
+          priv_local_get_edge_field<std::string_view>(otherdegcol, eid);
         YGM_ASSERT_RELEASE(reverseedge_name_opt.has_value());
         degrees.async_visit(std::string(reverseedge_name_opt.value()),
                             [](const auto& key, auto& val) { val++; });
@@ -175,7 +177,7 @@ metall_graph::return_code metall_graph::degrees(
 
   priv_for_all_nodes(
     [&](local_node_idx_type nid) {
-      auto node_name_opt = priv_local_get_node_label(nid);
+      auto node_name_o = priv_local_get_node_label(nid);
       YGM_ASSERT_RELEASE(node_name_opt.has_value());
       std::string_view node_name = node_name_opt.value();
       indegrees.async_insert(std::string(node_name), 0);
@@ -223,7 +225,7 @@ metall_graph::return_code metall_graph::degrees(
   // create a node_local map of record id to node value.
   std::map<std::string, local_node_idx_type> node_to_id{};
   priv_for_all_nodes([&](local_node_idx_type nid) {
-    auto node_opt = priv_local_get_node_label(nid);
+    auto node_o = priv_local_get_node_label(nid);
     YGM_ASSERT_RELEASE(node_opt.has_value());
     std::string_view node = node_opt.value();
     node_to_id[std::string(node)] = nid;
