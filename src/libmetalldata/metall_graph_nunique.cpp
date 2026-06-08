@@ -35,7 +35,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
     if (priv_is_edge_series_type<std::string_view>(sid)) {
       ygm::container::set<std::string> distinct(m_comm);
       for (auto rid : rids) {
-        auto val_opt = priv_local_get_edge_field<std::string_view>(sid, rid);
+        auto val_o = priv_local_get_edge_field<std::string_view>(sid, rid);
         if (val_opt.has_value()) {
           distinct.async_insert(std::string(val_opt.value()));
         }
@@ -48,7 +48,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
     } else if (priv_is_edge_series_type<int64_t>(sid)) {
       ygm::container::set<int64_t> distinct(m_comm);
       for (auto rid : rids) {
-        auto val_opt = priv_local_get_edge_field<int64_t>(sid, rid);
+        auto val_o = priv_local_get_edge_field<int64_t>(sid, rid);
         if (val_opt.has_value()) {
           distinct.async_insert(val_opt.value());
         }
@@ -64,7 +64,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
       // here.
       ygm::container::set<bool> distinct(m_comm);
       for (auto rid : rids) {
-        auto val_opt = priv_local_get_edge_field<bool>(sid, rid);
+        auto val_o = priv_local_get_edge_field<bool>(sid, rid);
         if (val_opt.has_value()) {
           if (val_opt.value()) {
             has_true = true;
@@ -86,7 +86,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
     } else if (priv_is_edge_series_type<double>(sid)) {
       ygm::container::set<double> distinct(m_comm);
       for (auto rid : rids) {
-        auto val_opt = priv_local_get_edge_field<double>(sid, rid);
+        auto val_o = priv_local_get_edge_field<double>(sid, rid);
         if (val_opt.has_value()) {
           distinct.async_insert(val_opt.value());
         }
@@ -122,7 +122,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
     if (priv_is_node_series_type<std::string_view>(sid)) {
       ygm::container::set<std::string> distinct(m_comm);
       for (auto rid : rids) {
-        auto val_opt = priv_local_get_node_field<std::string_view>(sid, rid);
+        auto val_o = priv_local_get_node_field<std::string_view>(sid, rid);
         if (val_opt.has_value()) {
           distinct.async_insert(std::string(val_opt.value()));
         }
@@ -135,7 +135,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
     } else if (priv_is_node_series_type<int64_t>(sid)) {
       ygm::container::set<int64_t> distinct(m_comm);
       for (auto rid : rids) {
-        auto val_opt = priv_local_get_node_field<int64_t>(sid, rid);
+        auto val_o = priv_local_get_node_field<int64_t>(sid, rid);
         if (val_opt.has_value()) {
           distinct.async_insert(val_opt.value());
         }
@@ -151,7 +151,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
       // here.
       ygm::container::set<bool> distinct(m_comm);
       for (auto rid : rids) {
-        auto val_opt = priv_local_get_node_field<bool>(sid, rid);
+        auto val_o = priv_local_get_node_field<bool>(sid, rid);
         if (val_opt.has_value()) {
           if (val_opt.value()) {
             has_true = true;
@@ -173,7 +173,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
     } else if (priv_is_node_series_type<double>(sid)) {
       ygm::container::set<double> distinct(m_comm);
       for (auto rid : rids) {
-        auto val_opt = priv_local_get_node_field<double>(sid, rid);
+        auto val_o = priv_local_get_node_field<double>(sid, rid);
         if (val_opt.has_value()) {
           distinct.async_insert(val_opt.value());
         }
