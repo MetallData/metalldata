@@ -73,19 +73,19 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
 
     m_pstring_store =
       manager.find<string_store_type>(metall::unique_instance).first;
-    m_pnodes       = manager.find<record_store_type>("nodes").first;
-    m_pedges       = manager.find<record_store_type>("edges").first;
+    m_pnodes = manager.find<record_store_type>("nodes").first;
+    m_pedges = manager.find<record_store_type>("edges").first;
     m_pnode_to_idx = manager.find<local_vertex_map_type>("nodeindex").first;
 
     if (!m_pnodes || !m_pedges) {
       m_comm.cerr0(
         "Error: Failed to find required data structures in metall store");
       delete m_pmetall_mpi;
-      m_pmetall_mpi   = nullptr;
+      m_pmetall_mpi = nullptr;
       m_pstring_store = nullptr;
-      m_pnodes        = nullptr;
-      m_pedges        = nullptr;
-      m_pnode_to_idx  = nullptr;
+      m_pnodes = nullptr;
+      m_pedges = nullptr;
+      m_pnode_to_idx = nullptr;
     }
   }
 
@@ -118,9 +118,9 @@ metall_graph::~metall_graph() {
 
   // We don't free these because they are persistent in the metall store
   m_pstring_store = nullptr;
-  m_pnodes        = nullptr;
-  m_pedges        = nullptr;
-  m_pnode_to_idx  = nullptr;
+  m_pnodes = nullptr;
+  m_pedges = nullptr;
+  m_pnode_to_idx = nullptr;
 
   // Destroy the metall manager
   delete m_pmetall_mpi;
@@ -194,6 +194,24 @@ metall_graph::count_types metall_graph::priv_series_to_count_type(
         return val;  // bool, double, monostate
     },
     sv);
+}
+
+size_t metall_graph::num_edges(const metall_graph::where_clause& where) const {
+  size_t local_size = priv_local_num_edges();
+  if (!where.empty()) {
+    local_size = 0;
+    priv_for_all_edges([&](auto) { ++local_size; }, where);
+  }
+  return ygm::sum(local_size, m_comm);
+}
+
+size_t metall_graph::num_nodes(const metall_graph::where_clause& where) const {
+  size_t local_size = priv_local_num_nodes();
+  if (!where.empty()) {
+    local_size = 0;
+    priv_for_all_nodes([&](auto) { ++local_size; }, where);
+  }
+  return ygm::sum(local_size, m_comm);
 }
 
 }  // namespace metalldata

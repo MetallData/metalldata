@@ -168,71 +168,7 @@ class metall_graph {
     }
   };  // series_name
 
-  struct where_clause {
-   private:
-    using pred_function = std::function<bool(const std::vector<series_types>&)>;
-
-   public:
-    where_clause();
-
-    where_clause(const std::vector<std::string>&                       s_names,
-                 std::function<bool(const std::vector<series_types>&)> pred);
-
-    where_clause(const std::vector<series_name>& s_names, pred_function pred);
-
-    where_clause(const bjsn::value& jlrule);
-
-    where_clause(const bjsn::object& obj);
-
-    where_clause(const std::string& jsonlogic_file_path);
-
-    where_clause(std::istream& jsonlogic_stream);
-
-    const std::vector<series_name>& series_names() const {
-      return m_series_names;
-    }
-
-    bool good() const {
-      if (m_series_names.empty()) {
-        return true;
-      }
-
-      auto first_series_name = m_series_names.front();
-      auto first_prefix = first_series_name.prefix();
-
-      for (const auto& name : m_series_names) {
-        if (first_prefix != name.prefix()) {
-          return false;
-        }
-      }
-      return true;
-    }
-
-    bool is_node_clause() const {
-      return !m_series_names.empty() &&
-             m_series_names.front().is_node_series() && good();
-    }
-
-    bool is_edge_clause() const {
-      return !m_series_names.empty() &&
-             m_series_names.front().is_edge_series() && good();
-    }
-
-    const auto& predicate() const { return m_predicate; }
-
-    bool evaluate(const std::vector<series_types>& data) const {
-      if (m_series_names.empty()) {
-        return true;
-      }
-      return m_predicate(data);
-    }
-
-    bool empty() const { return m_series_names.empty(); }
-
-   private:
-    std::vector<series_name>                              m_series_names;
-    std::function<bool(const std::vector<series_types>&)> m_predicate;
-  };  // where_clause
+  struct where_clause;
 
   /*
 
@@ -288,21 +224,20 @@ class metall_graph {
                                  const std::vector<series_name>& meta,
                                  bool overwrite = false);
 
-  return_code erase_edges(const where_clause& where = where_clause{});
+  return_code erase_edges(const where_clause& where);
 
   return_code erase_edges(const series_name&                     name,
                           boost::unordered_flat_set<std::string> haystack);
 
   template <typename Fn, typename T>  // defined in metall_graph_faker.hpp
   return_code add_faker_series(const metall_graph::series_name& name,
-                               Fn                               faker_func,
-                               const where_clause& where = where_clause{});
+                               Fn faker_func, const where_clause& where);
 
   template <typename Compare = std::greater<void>>
   metalldata::result<std::vector<std::vector<count_types>>> topk(
     size_t k, const series_name& ser_name,
-    const std::vector<series_name>& ser_inc, Compare comp = Compare(),
-    const where_clause& where = where_clause());
+    const std::vector<series_name>& ser_inc, Compare comp,
+    const where_clause& where);
 
   std::map<std::string, std::string> get_edge_selector_info() {
     // Since the m_pedges schema is identical across ranks, we don't have to
@@ -420,23 +355,9 @@ class metall_graph {
     return sns;
   };
 
-  size_t num_edges(const where_clause& where = where_clause{}) const {
-    size_t local_size = priv_local_num_edges();
-    if (!where.empty()) {
-      local_size = 0;
-      priv_for_all_edges([&](auto) { ++local_size; }, where);
-    }
-    return ygm::sum(local_size, m_comm);
-  }
+  size_t num_edges(const where_clause& where) const;
 
-  size_t num_nodes(const where_clause& where = where_clause{}) const {
-    size_t local_size = priv_local_num_nodes();
-    if (!where.empty()) {
-      local_size = 0;
-      priv_for_all_nodes([&](auto) { ++local_size; }, where);
-    }
-    return ygm::sum(local_size, m_comm);
-  }
+  size_t num_nodes(const where_clause& where) const;
 
   size_t num_node_series() const { return m_pnodes->num_series(); };
 
@@ -444,11 +365,11 @@ class metall_graph {
 
   std::map<metall_graph::series_name, size_t> nunique_edge(
     std::unordered_set<metall_graph::series_name> series_names,
-    const where_clause&                           where = where_clause{});
+    const where_clause&                           where);
 
   std::map<metall_graph::series_name, size_t> nunique_node(
     std::unordered_set<metall_graph::series_name> series_names,
-    const where_clause&                           where = where_clause{});
+    const where_clause&                           where);
 
   ygm::container::counting_set<metall_graph::count_types> value_counts(
     metall_graph::series_name sname, const where_clause& where);
@@ -490,46 +411,42 @@ class metall_graph {
 
   operator bool() const { return good(); }
 
-  return_code in_degree(series_name out_name,
-                        const where_clause& = where_clause());
+  return_code in_degree(series_name out_name, const where_clause& where);
 
-  return_code out_degree(series_name out_name,
-                         const where_clause& = where_clause());
+  return_code out_degree(series_name out_name, const where_clause& where);
 
   return_code degrees(series_name in_name, series_name out_name,
-                      const where_clause& = where_clause());
+                      const where_clause& where);
 
   return_code degrees2(series_name in_name, series_name out_name,
-                       const where_clause& = where_clause());
+                       const where_clause& where);
 
   return_code nhops(const series_name& out_node_series, size_t nhops,
                     const std::vector<std::string>& sources,
-                    const where_clause&             where = where_clause());
+                    const where_clause&             where);
 
   return_code connected_components(const series_name&  out_node_series,
-                                   const where_clause& where = where_clause());
+                                   const where_clause& where);
 
   // TODO: also allow val a function
   return_code assign(series_name series_name, const series_types& val,
-                     const where_clause& = where_clause());
+                     const where_clause& where);
 
   return_code sample_edges(const series_name& series_name, size_t k,
                            std::optional<uint64_t> optseed,
-                           const where_clause& = where_clause());
+                           const where_clause&     where);
 
   bjsn::array select_sample_edges(
     size_t k, const std::vector<metall_graph::series_name>& metadata,
-    std::optional<uint64_t>           optseed,
-    const metall_graph::where_clause& where = where_clause{});
+    std::optional<uint64_t> optseed, const metall_graph::where_clause& where);
 
   return_code sample_nodes(const series_name& series_name, size_t k,
                            std::optional<uint64_t> optseed,
-                           const where_clause& = where_clause());
+                           const where_clause&     where);
 
   bjsn::array select_sample_nodes(
     size_t k, const std::vector<metall_graph::series_name>& metadata,
-    std::optional<uint64_t>           optseed,
-    const metall_graph::where_clause& where = where_clause{});
+    std::optional<uint64_t> optseed, const metall_graph::where_clause& where);
 
  private:
   std::string m_metall_path;  ///< Path to underlying metall storage
@@ -716,8 +633,8 @@ class metall_graph {
   size_t priv_local_num_nodes() const { return m_pnodes->num_records(); };
   size_t priv_local_num_edges() const { return m_pedges->num_records(); };
 
-  return_code priv_in_out_degree(series_name name, const where_clause&,
-                                 bool        outdeg);
+  return_code priv_in_out_degree(series_name name, const where_clause& where,
+                                 bool outdeg);
 
   template <typename Fn>
   void priv_for_all_edges(Fn func) const;
@@ -744,7 +661,7 @@ class metall_graph {
   void priv_for_all_nodes_ewhere(Fn func, const where_clause& where) const;
 
   std::pair<std::vector<local_node_idx_type>, std::vector<local_edge_idx_type>>
-  priv_where_subgraph(const where_clause& where = where_clause()) const;
+  priv_where_subgraph(const where_clause& where) const;
 
   // Sets a node metadata column based on a lookup from an associative data
   // structure.
@@ -762,10 +679,11 @@ class metall_graph {
                               const T&           collection);
 
   /**
-   * @brief Retrives or inserts node string label into reverse lookup.   Returns local_node_idx
-   * 
+   * @brief Retrives or inserts node string label into reverse lookup.   Returns
+   * local_node_idx
+   *
    * @param label String node label
-   * @return local_node_idx_type 
+   * @return local_node_idx_type
    */
   local_node_idx_type priv_local_node_find_or_insert(std::string_view label) {
     YGM_ASSERT_RELEASE(m_partitioner.owner(label) == m_comm.rank());
@@ -784,10 +702,11 @@ class metall_graph {
   }
 
   /**
-   * @brief Retrives without inserting node string label into reverse lookup.   Returns local_node_idx
-   * 
+   * @brief Retrives without inserting node string label into reverse lookup.
+   * Returns local_node_idx
+   *
    * @param label String node label
-   * @return local_node_idx_type 
+   * @return local_node_idx_type
    */
   std::optional<local_node_idx_type> priv_local_node_find(
     std::string_view id) const {
@@ -844,6 +763,7 @@ struct hash<metalldata::metall_graph::series_types> {
 };
 }  // namespace std
 
+#include <metalldata/impl/metall_graph_where.hpp>
 #include <metalldata/impl/metall_graph_faker.ipp>
 #include <metalldata/impl/metall_graph_priv_for_all.ipp>
 #include <metalldata/impl/metall_graph_set_column.ipp>

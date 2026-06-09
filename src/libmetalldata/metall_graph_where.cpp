@@ -9,15 +9,13 @@
 namespace {
 static auto priv_compile_jl_rule(bjsn::value jl_rule) {
   // pack rule into a shared_ptr since it is not copyable.
-  std::shared_ptr<jsonlogic::logic_rule> rule
-    = std::make_shared<jsonlogic::logic_rule>(jsonlogic::create_logic(jl_rule));
+  std::shared_ptr<jsonlogic::logic_rule> rule =
+    std::make_shared<jsonlogic::logic_rule>(jsonlogic::create_logic(jl_rule));
   std::vector<std::string> vars;
 
   vars.reserve(rule->variable_names().size());
-  std::ranges::transform( rule->variable_names(),
-                          std::back_inserter(vars),
-                          [](std::string_view sv) { return std::string{sv}; }
-                        );
+  std::ranges::transform(rule->variable_names(), std::back_inserter(vars),
+                         [](std::string_view sv) { return std::string{sv}; });
 
   auto compiled =
     [jlexpr = std::move(rule)](
@@ -77,11 +75,11 @@ metall_graph::where_clause::where_clause(const bjsn::value& jlrule) {
 
 metall_graph::where_clause::where_clause(
   const std::string& jsonlogic_file_path) {
-  bjsn::value jl   = jl::parseFile(jsonlogic_file_path);
+  bjsn::value jl = jl::parseFile(jsonlogic_file_path);
   bjsn::value rule = jl.as_object()["rule"];
 
   auto [compiled, vars] = priv_compile_jl_rule(rule);
-  m_predicate           = compiled;
+  m_predicate = compiled;
   m_series_names.reserve(vars.size());
   for (const auto v : vars) {
     m_series_names.emplace_back(v);
@@ -89,16 +87,63 @@ metall_graph::where_clause::where_clause(
 }
 
 metall_graph::where_clause::where_clause(std::istream& jsonlogic_stream) {
-  bjsn::value jl   = jl::parseStream(jsonlogic_stream);
+  bjsn::value jl = jl::parseStream(jsonlogic_stream);
   bjsn::value rule = jl.as_object()["rule"];
 
   auto [compiled, vars] = priv_compile_jl_rule(rule);
-  m_predicate           = compiled;
+  m_predicate = compiled;
 
   m_series_names.reserve(vars.size());
   for (const auto v : vars) {
     m_series_names.emplace_back(v);
   }
+}
+
+const std::vector<metall_graph::series_name>&
+metall_graph::where_clause::series_names() const {
+  return m_series_names;
+}
+
+bool metall_graph::where_clause::good() const {
+  if (m_series_names.empty()) {
+    return true;
+  }
+
+  auto first_series_name = m_series_names.front();
+  auto first_prefix = first_series_name.prefix();
+
+  for (const auto& name : m_series_names) {
+    if (first_prefix != name.prefix()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool metall_graph::where_clause::is_node_clause() const {
+  return !m_series_names.empty() && m_series_names.front().is_node_series() &&
+         good();
+}
+
+bool metall_graph::where_clause::is_edge_clause() const {
+  return !m_series_names.empty() && m_series_names.front().is_edge_series() &&
+         good();
+}
+
+const auto& metall_graph::where_clause::predicate() const {
+  return m_predicate;
+}
+
+bool metall_graph::where_clause::evaluate(
+  const std::vector<metall_graph::series_types>& data) const {
+  if (m_series_names.empty()) {
+    return true;
+  }
+  return m_predicate(data);
+}
+
+bool metall_graph::where_clause::empty() const {
+  return m_series_names.empty();
 }
 
 }  // namespace metalldata
