@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <cassert>
 #include <cstdint>
+#include <format>
 
 #include <ygm/comm.hpp>
 #include <ygm/io/parquet_parser.hpp>
@@ -29,11 +30,11 @@
 
 namespace metalldata {
 
-metall_graph::return_code metall_graph::ingest_parquet_edges(
+result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
   std::string_view path, bool recursive, std::string_view col_u,
   std::string_view col_v, bool directed,
   const std::optional<std::vector<series_name>>& meta) {
-  return_code to_return;
+  result<std::map<std::string, size_t>> to_return;
   // Note: meta is exclusive of col_u and col_v. The metaset should
   // consist of qualified selector names (start with node. or edge.)
   // The parquet file, since it deals with edge data only, should use
@@ -67,9 +68,8 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
   for (const auto& name : RESERVED_COLUMN_NAMES) {
     if (metaset.contains(name)) {
-      to_return.error =
-        "Error: reserved name " + name.qualified() + " found in meta data.";
-      return to_return;
+      return std::unexpected(
+        std::format("reserved name {} found in meta data", name.qualified()));
     }
   }
 
@@ -95,14 +95,14 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
         // YGM_ASSERT_RELEASE(pcol_type.equal(parquet::Type::BYTE_ARRAY));
 
         mapped_name = U_COL;
-        got_u       = true;
-        u_col_idx   = i;
+        got_u = true;
+        u_col_idx = i;
       } else if (pcol_name == col_v) {
         // see above
         // YGM_ASSERT_RELEASE(pcol_type.equal(parquet::Type::BYTE_ARRAY));
         mapped_name = V_COL;
-        got_v       = true;
-        v_col_idx   = i;
+        got_v = true;
+        v_col_idx = i;
       }
       parquet_to_metall[pcol_name] = mapped_name;
 
@@ -124,36 +124,36 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
         } else {
           std::stringstream ss;
           ss << "Unsupported column type: " << schema[i].type;
-          to_return.warnings[ss.str()]++;
+          to_return.add_warning(ss.str());
         }
 
         if (add_series_err) {
-          to_return.error = "Failed to add source column: " + pcol_name;
+          return std::unexpected(
+            std::format("failed to add source column: {}", pcol_name));
         }
       }
     };
   }  // for schema
 
   if (!got_u) {
-    to_return.error = "did not find u column: " + std::string(col_u);
-    return to_return;
+    return std::unexpected(
+      std::format("did not find u column: {}", std::string(col_u)));
   }
 
   if (!got_v) {
-    to_return.error = "did not find v column: " + std::string(col_v);
-    return to_return;
+    return std::unexpected(
+      std::format("did not find v column: {}", std::string(col_v)));
   }
 
   if (!has_edge_series(DIR_COL)) {
     if (!add_series<bool>(DIR_COL)) {
-      to_return.error = "could not add directed column";
-      return to_return;
+      return std::unexpected("could not add directed column");
     }
   }
 
-  size_t               local_nedges    = 0;
-  static metall_graph* sthis           = nullptr;
-  sthis                                = this;
+  size_t               local_nedges = 0;
+  static metall_graph* sthis = nullptr;
+  sthis = this;
   parquetp.for_all(
     parquet_cols,
     [&](const std::vector<ygm::io::parquet_parser::parquet_type_variant>& row) {
@@ -164,17 +164,18 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
       auto v_val = row[v_col_idx];
 
       if (std::holds_alternative<std::monostate>(u_val)) {
-        to_return.warnings["invalid u value skipped"]++;
+        to_return.add_warning("invalid u value skipped");
         return;
       }
       if (std::holds_alternative<std::monostate>(v_val)) {
-        to_return.warnings["invalid v value skipped"]++;
+        to_return.add_warning("invalid v value skipped");
         return;
       }
 
       auto rec = m_pedges->add_record();
       // first, set the directedness.
-      priv_local_set_edge_field(m_dir_col_idx, local_edge_idx_type{rec}, directed);
+      priv_local_set_edge_field(m_dir_col_idx, local_edge_idx_type{rec},
+                                directed);
       for (size_t i = 0; i < parquet_cols.size(); ++i) {
         auto parquet_ser = parquet_cols[i];
 
@@ -183,14 +184,13 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
           continue;
         }
 
-        
         auto parquet_val = row[i];
 
-        auto              metall_ser = parquet_to_metall[parquet_ser];
+        auto metall_ser = parquet_to_metall[parquet_ser];
         // memoization since we use this a few times.
         bool is_u_or_v = (metall_ser == U_COL || metall_ser == V_COL);
         // an edge is invalid if we have a type coercion problem
-        bool              invalid_edge = false;
+        bool                             invalid_edge = false;
         std::optional<series_index_type> metall_ser_idx_o =
           m_pedges->find_series(metall_ser.unqualified());
         if (!metall_ser_idx_o.has_value()) {
@@ -210,7 +210,7 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
             // if monostate, just skip and log.
             if constexpr (std::is_same_v<T, std::monostate>) {
-              to_return.warnings[uv_invalid]++;
+              to_return.add_warning(uv_invalid);
               invalid_edge = true;
             } else {
               try {
@@ -234,7 +234,7 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
                 ++local_nedges;
               } catch (const std::exception) {
                 // something went wrong with the try block. Skip.
-                to_return.warnings[uv_invalid]++;
+                to_return.add_warning(uv_invalid);
                 invalid_edge = true;
               }
             }
@@ -262,10 +262,10 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
     });  // for_all
 
   m_comm.barrier();
-  to_return.return_info["num_edges_ingested"] = ygm::sum(local_nedges, m_comm);
-  to_return.return_info["num_new_nodes_ingested"] =
-    ygm::sum(m_pnode_to_idx->size() - local_nedges, m_comm);
-  return to_return;
+  std::map<std::string, size_t> retdict{
+    {"num_edges_ingested", ygm::sum(local_nedges, m_comm)},
+    {"num_new_nodes_ingested",
+     ygm::sum(m_pnode_to_idx->size() - local_nedges, m_comm)}};
+  return retdict;
 }
-
 }

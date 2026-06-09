@@ -157,15 +157,15 @@ int main(int argc, char** argv) {
     auto result = graph.ingest_parquet_edges(parquet_path, recursive, col_u,
                                              col_v, directed, meta);
 
-    if (!result.error.empty()) {
-      world.cerr0("Error during ingestion: ", result.error);
+    if (!result) {
+      world.cerr0("Error during ingestion: ", result.error());
       return 1;
     }
 
     // Print warnings if any
-    if (!result.warnings.empty()) {
+    if (!result.warnings().empty()) {
       world.cout0("Warnings during ingestion:");
-      for (const auto& [warning, count] : result.warnings) {
+      for (const auto& [warning, count] : result.warnings()) {
         world.cout0("  [", count, "x] ", warning);
       }
     }

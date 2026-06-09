@@ -3,23 +3,23 @@
 #include "ygm/utility/assert.hpp"
 
 namespace metalldata {
-metall_graph::return_code metall_graph::erase_edges(const where_clause &where) {
+result<> metall_graph::erase_edges(const where_clause &where) {
   metall_graph::return_code to_return;
 
   priv_for_all_edges([&](auto rid) { m_pedges->remove_record(std::to_underlying(rid)); }, where);
 
-  return to_return;
+  return {};
 }
 
-metall_graph::return_code metall_graph::erase_edges(
+result<> metall_graph::erase_edges(
   const metall_graph::series_name       &name,
   boost::unordered_flat_set<std::string> haystack) {
   metall_graph::return_code to_return;
 
   auto idx_o = priv_local_find_edge_series(name.unqualified());
   if (!idx_o.has_value()) {
-    to_return.error = std::format("Series {} not found", name.unqualified());
-    return to_return;
+    return std::unexpected(
+      std::format("series {} not found", name.unqualified()));
   }
 
   auto idx = idx_o.value();
@@ -32,7 +32,7 @@ metall_graph::return_code metall_graph::erase_edges(
     }
   });
 
-  return to_return;
+  return {};
 }
 
 }  // namespace metalldata

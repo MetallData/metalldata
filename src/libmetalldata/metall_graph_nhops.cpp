@@ -29,37 +29,35 @@
 
 namespace metalldata {
 
-metall_graph::return_code metall_graph::nhops(
-  const series_name& out_name, size_t nhops,
-  const std::vector<std::string>& sources, const where_clause& where) {
+result<> metall_graph::nhops(const series_name& out_name, size_t nhops,
+                             const std::vector<std::string>& sources,
+                             const where_clause&             where) {
   return_code to_return;
 
   if (!out_name.is_node_series()) {
-    to_return.error =
-      std::format("Invalid series name: {}", out_name.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("invalid series name: {}", out_name.qualified()));
   }
 
   if (m_pnodes->contains_series(out_name.unqualified())) {
-    to_return.error =
-      std::format("Series {} already exists", out_name.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("series {} already exists", out_name.qualified()));
   }
 
   auto u_col_o = m_pedges->find_series(U_COL.unqualified());
   if (!u_col_o.has_value()) {
-    to_return.error = std::format("Series {} not found", U_COL.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("series {} not found", U_COL.qualified()));
   }
   auto v_col_o = m_pedges->find_series(V_COL.unqualified());
   if (!v_col_o.has_value()) {
-    to_return.error = std::format("Series {} not found", V_COL.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("series {} not found", V_COL.qualified()));
   }
   auto dir_col_o = m_pedges->find_series(DIR_COL.unqualified());
   if (!dir_col_o.has_value()) {
-    to_return.error = std::format("Series {} not found", DIR_COL.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("Series {} not found", DIR_COL.qualified()));
   }
 
   auto u_col = u_col_o.value();
@@ -99,8 +97,7 @@ metall_graph::return_code metall_graph::nhops(
       if (i > 0) error += ", ";
       error += missing_vertices[i];
     }
-    to_return.error = error;
-    return to_return;
+    return std::unexpected(error);
   }
 
   std::map<std::string, int64_t>   local_nhop_map;
@@ -132,8 +129,6 @@ metall_graph::return_code metall_graph::nhops(
     ++cur_level_dist;
   }
 
-  to_return = set_node_column(out_name, local_nhop_map);
-
-  return to_return;
+  return set_node_column(out_name, local_nhop_map);
 }
 }

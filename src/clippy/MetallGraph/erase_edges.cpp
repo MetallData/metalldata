@@ -56,7 +56,7 @@ int main(int argc, char **argv) try {
   auto path = clip.get_state<std::string>("path");
 
   metalldata::metall_graph              mg(comm, path, false);
-  metalldata::metall_graph::return_code rc;
+  metalldata::result<>                  rc;
   if (has_where) {
     auto where = clip.get<boost::json::object>("where");
     metalldata::metall_graph::where_clause where_c;
@@ -88,9 +88,13 @@ int main(int argc, char **argv) try {
     rc = mg.erase_edges(series, erase_list);
   }
 
-  if (!rc.good()) {
-    comm.cerr0(rc.error);
+  if (!rc) {
+    comm.cerr0(rc.error());
     return -1;
+  }
+
+  for (const auto &[warn, count] : rc.warnings()) {
+    comm.cerr0(std::format("{} : {}", warn, count));
   }
 
   return 0;

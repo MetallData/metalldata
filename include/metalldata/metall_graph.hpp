@@ -260,25 +260,25 @@ class metall_graph {
   //
   // Ingest from parquet, provide 2 column names to define an edge, provide if
   // directed, provide list of optional metadata fields
-  return_code ingest_parquet_edges(
+  result<std::map<std::string, size_t>> ingest_parquet_edges(
     std::string_view path, bool recursive, std::string_view col_u,
     std::string_view col_v, bool directed,
     const std::optional<std::vector<series_name>>& meta = std::nullopt);
 
-  return_code ingest_parquet_verts(std::string_view path, bool recursive,
-                                   std::string_view                key,
-                                   const std::vector<std::string>& meta,
-                                   bool overwrite = true);
+  // return_code ingest_parquet_verts(std::string_view path, bool recursive,
+  //                                  std::string_view                key,
+  //                                  const std::vector<std::string>& meta,
+  //                                  bool overwrite = true);
 
-  return_code ingest_ndjson_edges(std::string_view path, bool recursive,
-                                  std::string_view col_u,
-                                  std::string_view col_v, bool directed,
-                                  const std::vector<std::string>& meta);
+  // return_code ingest_ndjson_edges(std::string_view path, bool recursive,
+  //                                 std::string_view col_u,
+  //                                 std::string_view col_v, bool directed,
+  //                                 const std::vector<std::string>& meta);
 
-  return_code ingest_ndjson_verts(std::string_view path, bool recursive,
-                                  std::string_view                key,
-                                  const std::vector<std::string>& meta,
-                                  bool overwrite = true);
+  // return_code ingest_ndjson_verts(std::string_view path, bool recursive,
+  //                                 std::string_view                key,
+  //                                 const std::vector<std::string>& meta,
+  //                                 bool overwrite = true);
 
   return_code dump_parquet_verts(std::string_view                path,
                                  const std::vector<series_name>& meta,
@@ -288,18 +288,18 @@ class metall_graph {
                                  const std::vector<series_name>& meta,
                                  bool overwrite = false);
 
-  return_code erase_edges(const where_clause& where = where_clause{});
+  result<> erase_edges(const where_clause& where = where_clause{});
 
-  return_code erase_edges(const series_name&                     name,
-                          boost::unordered_flat_set<std::string> haystack);
+  result<> erase_edges(const series_name&                     name,
+                       boost::unordered_flat_set<std::string> haystack);
 
   template <typename Fn, typename T>  // defined in metall_graph_faker.hpp
-  return_code add_faker_series(const metall_graph::series_name& name,
-                               Fn                               faker_func,
-                               const where_clause& where = where_clause{});
+  result<> add_faker_series(const metall_graph::series_name& name,
+                            Fn                               faker_func,
+                            const where_clause& where = where_clause{});
 
   template <typename Compare = std::greater<void>>
-  metalldata::result<std::vector<std::vector<count_types>>> topk(
+  result<std::vector<std::vector<count_types>>> topk(
     size_t k, const series_name& ser_name,
     const std::vector<series_name>& ser_inc, Compare comp = Compare(),
     const where_clause& where = where_clause());
@@ -490,24 +490,24 @@ class metall_graph {
 
   operator bool() const { return good(); }
 
-  return_code in_degree(series_name out_name,
-                        const where_clause& = where_clause());
+  result<> in_degree(series_name out_name,
+                     const where_clause& = where_clause());
 
-  return_code out_degree(series_name out_name,
-                         const where_clause& = where_clause());
-
-  return_code degrees(series_name in_name, series_name out_name,
+  result<> out_degree(series_name out_name,
                       const where_clause& = where_clause());
 
-  return_code degrees2(series_name in_name, series_name out_name,
-                       const where_clause& = where_clause());
+  result<> degrees(series_name in_name, series_name out_name,
+                   const where_clause& = where_clause());
 
-  return_code nhops(const series_name& out_node_series, size_t nhops,
-                    const std::vector<std::string>& sources,
-                    const where_clause&             where = where_clause());
+  result<> degrees2(series_name in_name, series_name out_name,
+                    const where_clause& = where_clause());
 
-  return_code connected_components(const series_name&  out_node_series,
-                                   const where_clause& where = where_clause());
+  result<> nhops(const series_name& out_node_series, size_t nhops,
+                 const std::vector<std::string>& sources,
+                 const where_clause&             where = where_clause());
+
+  result<> connected_components(const series_name&  out_node_series,
+                                const where_clause& where = where_clause());
 
   // TODO: also allow val a function
   return_code assign(series_name series_name, const series_types& val,
@@ -716,8 +716,8 @@ class metall_graph {
   size_t priv_local_num_nodes() const { return m_pnodes->num_records(); };
   size_t priv_local_num_edges() const { return m_pedges->num_records(); };
 
-  return_code priv_in_out_degree(series_name name, const where_clause&,
-                                 bool        outdeg);
+  result<> priv_in_out_degree(series_name name, const where_clause&,
+                              bool        outdeg);
 
   template <typename Fn>
   void priv_for_all_edges(Fn func) const;
@@ -758,8 +758,8 @@ class metall_graph {
   // TODO: memoize / persist the node_to_id map so that we're not building it
   // every time.
   template <typename T>
-  return_code set_node_column(const series_name& nodecol_name,
-                              const T&           collection);
+  result<> set_node_column(const series_name& nodecol_name,
+                           const T&           collection);
 
   /**
    * @brief Retrives or inserts node string label into reverse lookup.   Returns local_node_idx
@@ -809,8 +809,8 @@ class metall_graph {
     m_partitioner;
 
   template <typename T>
-  metall_graph::return_code priv_set_column_by_idx(const series_name& col_name,
-                                                   const T& collection);
+  result<> priv_set_column_by_idx(const series_name& col_name,
+                                  const T&           collection);
 
   static count_types priv_series_to_count_type(
     const record_store_type::series_type& sv);

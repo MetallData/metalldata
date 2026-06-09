@@ -9,10 +9,12 @@ template <typename T>
 // of record_id_type to value and:
 // 1. Creates the series
 // 2. For each record id, sets the series value at that record id to the value.
-metall_graph::return_code metall_graph::priv_set_column_by_idx(
-  const metall_graph::series_name& col_name, const T& collection) {
-  metall_graph::return_code to_return;
+//
+// TODO: this needs to be using something other than record_id_type here. We
+// might need to split this up into node and edge versions.
 
+result<> metall_graph::priv_set_column_by_idx(
+  const metall_graph::series_name& col_name, const T& collection) {
   using record_id_type = metall_graph::record_store_type::record_id_type;
   using val_type       = typename T::mapped_type;
 
@@ -20,12 +22,11 @@ metall_graph::return_code metall_graph::priv_set_column_by_idx(
   // create series
   auto col_idx = store->add_series<val_type>(col_name.unqualified());
 
-  size_t invalid_nodes = 0;
   for (const auto& [rid, value] : collection) {
     store->set(col_idx, rid, value);
   }
 
-  return to_return;
+  return {};
 }
 
 // Sets a node metadata column based on a lookup from an associative data
@@ -40,9 +41,9 @@ metall_graph::return_code metall_graph::priv_set_column_by_idx(
 // TODO: memoize / persist the node_to_id map so that we're not building it
 // every time.
 template <typename T>
-metall_graph::return_code metall_graph::set_node_column(
+metalldata::result<> metall_graph::set_node_column(
   const series_name& nodecol_name, const T& collection) {
-  return_code to_return;
+  result<> to_return;
 
   using record_id_type = record_store_type::record_id_type;
   using val_type       = typename T::mapped_type;
@@ -60,8 +61,7 @@ metall_graph::return_code metall_graph::set_node_column(
         continue;
       }
       if (value > std::numeric_limits<int64_t>::max()) {
-        throw std::runtime_error(
-          "Cannot process unsigned integer value > 2**63; aborting");
+        return std::unexpected("Cannot process unsigned integer value > 2**63");
       }
       m_pnodes->set(nodecol_idx, std::to_underlying(nid_o.value()), static_cast<int64_t>(value));
     }
@@ -78,10 +78,10 @@ metall_graph::return_code metall_graph::set_node_column(
     }
   }
   if (invalid_nodes > 0) {
-    to_return.warnings["invalid nodes"] = invalid_nodes;
+    to_return.add_warnings(invalid_nodes, "invalid nodes");
   }
 
-  return to_return;
+  return {};
 }
 
 }  // namespace metalldata
