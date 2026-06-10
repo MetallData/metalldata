@@ -56,8 +56,10 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
       m_pstring_store, manager.get_allocator());
     m_pedges = manager.construct<record_store_type>("edges")(
       m_pstring_store, manager.get_allocator());
-    m_pnode_to_idx = manager.construct<local_vertex_map_type>("nodeindex")(
-      manager.get_allocator());
+    m_pnode_to_idx = manager.construct<map_local_node_to_local_id_type>(
+      "localnodeindex")(manager.get_allocator());
+    m_pnode_to_locator = manager.construct<map_node_to_locator_type>(
+      "globalnodeindex")(manager.get_allocator());
 
     // add the default series for the indices.
     add_series<std::string_view>(NODE_COL);
@@ -73,19 +75,22 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
 
     m_pstring_store =
       manager.find<string_store_type>(metall::unique_instance).first;
-    m_pnodes       = manager.find<record_store_type>("nodes").first;
-    m_pedges       = manager.find<record_store_type>("edges").first;
-    m_pnode_to_idx = manager.find<local_vertex_map_type>("nodeindex").first;
+    m_pnodes = manager.find<record_store_type>("nodes").first;
+    m_pedges = manager.find<record_store_type>("edges").first;
+    m_pnode_to_idx =
+      manager.find<map_local_node_to_local_id_type>("localnodeindex").first;
+    m_pnode_to_locator =
+      manager.find<map_node_to_locator_type>("globalnodeindex").first;
 
     if (!m_pnodes || !m_pedges) {
       m_comm.cerr0(
         "Error: Failed to find required data structures in metall store");
       delete m_pmetall_mpi;
-      m_pmetall_mpi   = nullptr;
+      m_pmetall_mpi = nullptr;
       m_pstring_store = nullptr;
-      m_pnodes        = nullptr;
-      m_pedges        = nullptr;
-      m_pnode_to_idx  = nullptr;
+      m_pnodes = nullptr;
+      m_pedges = nullptr;
+      m_pnode_to_idx = nullptr;
     }
   }
 
@@ -118,9 +123,9 @@ metall_graph::~metall_graph() {
 
   // We don't free these because they are persistent in the metall store
   m_pstring_store = nullptr;
-  m_pnodes        = nullptr;
-  m_pedges        = nullptr;
-  m_pnode_to_idx  = nullptr;
+  m_pnodes = nullptr;
+  m_pedges = nullptr;
+  m_pnode_to_idx = nullptr;
 
   // Destroy the metall manager
   delete m_pmetall_mpi;
