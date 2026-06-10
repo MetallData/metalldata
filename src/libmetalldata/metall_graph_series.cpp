@@ -3,6 +3,29 @@
 
 namespace metalldata {
 
+bool metall_graph::series_name::operator<(
+  const metall_graph::series_name& other) const {
+  if (m_prefix != other.m_prefix) {
+    return m_prefix < other.m_prefix;
+  }
+  return m_unqualified < other.m_unqualified;
+}
+
+std::pair<std::string_view, std::string_view>
+metall_graph::series_name::priv_split_series_str(std::string_view str) {
+  std::string_view prefix;
+  std::string_view unqualified;
+  size_t           pos = str.find('.');
+  if (pos != std::string_view::npos) {
+    prefix = str.substr(0, pos);
+    unqualified = str.substr(pos + 1);
+  } else {
+    prefix = std::string_view{};
+    unqualified = str;
+  }
+  return std::make_pair(prefix, unqualified);
+}
+
 std::optional<std::pair<std::string_view, std::string_view>>
 metall_graph::priv_local_get_edge_uv_labels(
   metall_graph::local_edge_idx_type eid) const {

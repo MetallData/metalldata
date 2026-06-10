@@ -4,8 +4,8 @@
 #include <metalldata/metall_graph.hpp>
 #include <functional>
 #include <queue>
-#include "ygm/detail/collective.hpp"
-#include "ygm/utility/assert.hpp"
+#include <ygm/detail/collective.hpp>
+#include <ygm/utility/assert.hpp>
 
 namespace metalldata {
 

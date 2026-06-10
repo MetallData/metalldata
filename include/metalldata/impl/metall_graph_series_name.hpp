@@ -45,31 +45,14 @@ struct metall_graph::series_name {
   bool operator==(std::string_view other) const { return qualified() == other; }
 
   // required to make collections / sets of series_names
-  bool operator<(const series_name& other) const {
-    if (m_prefix != other.m_prefix) {
-      return m_prefix < other.m_prefix;
-    }
-    return m_unqualified < other.m_unqualified;
-  }
+  bool operator<(const series_name& other) const;
 
  private:
   std::string m_prefix;
   std::string m_unqualified;
 
   static std::pair<std::string_view, std::string_view> priv_split_series_str(
-    std::string_view str) {
-    std::string_view prefix;
-    std::string_view unqualified;
-    size_t           pos = str.find('.');
-    if (pos != std::string_view::npos) {
-      prefix = str.substr(0, pos);
-      unqualified = str.substr(pos + 1);
-    } else {
-      prefix = std::string_view{};
-      unqualified = str;
-    }
-    return std::make_pair(prefix, unqualified);
-  }
+    std::string_view str);
 };  // series_name
 
 namespace detail {
