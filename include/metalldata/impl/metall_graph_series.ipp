@@ -3,43 +3,8 @@
 
 namespace metalldata {
 
-inline std::optional<std::pair<std::string_view, std::string_view>>
-metall_graph::priv_local_get_edge_uv_labels(metall_graph::local_edge_idx_type eid) const {
-  auto u = priv_local_get_edge_field<std::string_view>(m_u_col_idx, eid);
-  auto v = priv_local_get_edge_field<std::string_view>(m_v_col_idx, eid);
-  if (u.has_value() && v.has_value()) {
-    return std::make_pair(u.value(), v.value());
-  } else {
-    return std::nullopt;
-  }
-}
-
-inline std::optional<bool> metall_graph::priv_local_edge_is_directed(
-  metall_graph::local_edge_idx_type eid) const {
-  return priv_local_get_edge_field<bool>(m_dir_col_idx, eid);
-}
-
-inline std::optional<std::string_view> metall_graph::priv_local_get_node_label(
-  metall_graph::local_node_idx_type nid) const {
-  auto l = priv_local_get_node_field(m_node_col_idx, nid);
-  if (l.has_value()) {
-    if (std::holds_alternative<std::string_view>(l.value())) {
-      return std::get<std::string_view>(l.value());
-    }
-  }
-  return std::nullopt;
-}
-
-inline std::optional<metall_graph::series_types>
-metall_graph::priv_local_get_node_field(
-  metall_graph::node_series_idx_type sid,
-  metall_graph::local_node_idx_type  nid) const {
-  return m_pnodes->get_dynamic(std::to_underlying(sid),
-                               std::to_underlying(nid));
-}
-
 template <typename T>
-inline std::optional<T> metall_graph::priv_local_get_node_field(
+std::optional<T> metall_graph::priv_local_get_node_field(
   metall_graph::node_series_idx_type sid,
   metall_graph::local_node_idx_type  nid) const {
   auto f = priv_local_get_node_field(sid, nid);
@@ -49,6 +14,39 @@ inline std::optional<T> metall_graph::priv_local_get_node_field(
     }
   }
   return std::nullopt;
+}
+
+template <typename T>
+bool metall_graph::add_series(
+  const metall_graph::series_name& name) {  // "node.color" or "edge.time"
+  if (has_series(name)) {
+    return false;
+  }
+  if (name.is_node_series()) {
+    m_pnodes->add_series<T>(name.unqualified());
+    return true;
+  }
+  if (name.is_edge_series()) {
+    m_pedges->add_series<T>(name.unqualified());
+    return true;
+  }
+  return false;
+}
+
+// TODO:  Remove this, used by select...
+template <typename Fn>
+void metall_graph::visit_node_field(const metall_graph::series_name& name,
+                                    size_t record_id, Fn func) const {
+  assert(name.is_node_series());
+  m_pnodes->visit_field(name.unqualified(), record_id, func);
+}
+
+// TODO:  Remove this, used by select...
+template <typename Fn>
+void metall_graph::visit_edge_field(const metall_graph::series_name& name,
+                                    size_t record_id, Fn func) const {
+  assert(name.is_edge_series());
+  m_pedges->visit_field(name.unqualified(), record_id, func);
 }
 
 }  // namespace metalldata
