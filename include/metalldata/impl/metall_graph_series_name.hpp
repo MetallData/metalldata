@@ -6,7 +6,7 @@ namespace metalldata {
 struct metall_graph::series_name {
  public:
   series_name() = default;
-  series_name(std::string_view name) {
+  explicit series_name(std::string_view name) {
     auto [prefix, unqualified] = priv_split_series_str(name);
     m_prefix = prefix;
     m_unqualified = unqualified;
