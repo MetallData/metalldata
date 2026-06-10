@@ -98,8 +98,8 @@ int main(int argc, char** argv) {
     }
 
     world.cout0("Successfully opened metall_graph");
-    world.cout0("Total nodes: ", graph.num_nodes());
-    world.cout0("Total edges: ", graph.num_edges());
+    world.cout0("Total nodes: ", graph.num_nodes(metalldata::metall_graph::where_clause{}));
+    world.cout0("Total edges: ", graph.num_edges(metalldata::metall_graph::where_clause{}));
 
     // Create where clause
     metalldata::metall_graph::where_clause where;

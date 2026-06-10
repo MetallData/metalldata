@@ -196,4 +196,22 @@ metall_graph::count_types metall_graph::priv_series_to_count_type(
     sv);
 }
 
+size_t metall_graph::num_edges(const metall_graph::where_clause& where) const {
+  size_t local_size = priv_local_num_edges();
+  if (!where.empty()) {
+    local_size = 0;
+    priv_for_all_edges([&](auto) { ++local_size; }, where);
+  }
+  return ygm::sum(local_size, m_comm);
+}
+
+size_t metall_graph::num_nodes(const metall_graph::where_clause& where) const {
+  size_t local_size = priv_local_num_nodes();
+  if (!where.empty()) {
+    local_size = 0;
+    priv_for_all_nodes([&](auto) { ++local_size; }, where);
+  }
+  return ygm::sum(local_size, m_comm);
+}
+
 }  // namespace metalldata
