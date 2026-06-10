@@ -30,6 +30,7 @@
 #include <ygm/utility/assert.hpp>
 #include <ygm/container/counting_set.hpp>
 #include <metalldata/result.hpp>
+#include "string_table/string_store.hpp"
 
 namespace bjsn = boost::json;
 
@@ -533,7 +534,7 @@ class metall_graph {
   /// hash table from node string label to local id.  For local nodes only.
   using map_local_node_to_local_id_type = boost::unordered::unordered_flat_map<
     string_table_accessor, local_node_idx_type,
-    compact_string::string_accessor_hasher,
+    compact_string::string_accessor_fast_hash,
     std::equal_to<compact_string::string_accessor>,
     metall::manager::allocator_type<
       std::pair<const compact_string::string_accessor, local_node_idx_type>>>;
@@ -541,7 +542,8 @@ class metall_graph {
   /// hash table from node string label to global locator.  For tracking remote
   /// nodes.
   using map_node_to_locator_type = boost::unordered::unordered_flat_map<
-    string_table_accessor, node_locator, compact_string::string_accessor_hasher,
+    string_table_accessor, node_locator,
+    compact_string::string_accessor_fast_hash,
     std::equal_to<compact_string::string_accessor>,
     metall::manager::allocator_type<
       std::pair<const compact_string::string_accessor, node_locator>>>;
@@ -778,27 +780,20 @@ class metall_graph {
                               const T&           collection);
 
   /**
+   * @brief Updates reverse node index after fresh edge ingestion.   Colelctive
+   * method.
+   *
+   */
+  void priv_update_reverse_node_index();
+
+  /**
    * @brief Retrives or inserts node string label into reverse lookup.   Returns
    * local_node_idx
    *
    * @param label String node label
    * @return local_node_idx_type
    */
-  local_node_idx_type priv_local_node_find_or_insert(std::string_view label) {
-    YGM_ASSERT_RELEASE(m_partitioner.owner(label) == m_comm.rank());
-    auto v_in_ss = compact_string::add_string(label, *m_pstring_store);
-    if (!m_pnode_to_idx->contains(v_in_ss)) {
-      auto nid = local_node_idx_type{m_pnodes->add_record()};
-      // m_pnodes->set(m_node_col_idx, ridx, id);
-      // todo remove static_cast
-      priv_local_set_node_field(
-        node_series_idx_type{static_cast<uint32_t>(m_node_col_idx)}, nid,
-        label);
-      m_pnode_to_idx->insert_or_assign(v_in_ss, nid);
-      return nid;
-    }
-    return local_node_idx_type{m_pnode_to_idx->at(v_in_ss)};
-  }
+  local_node_idx_type priv_local_node_find_or_insert(std::string_view label);
 
   /**
    * @brief Retrives without inserting node string label into reverse lookup.
@@ -808,14 +803,7 @@ class metall_graph {
    * @return local_node_idx_type
    */
   std::optional<local_node_idx_type> priv_local_node_find(
-    std::string_view id) const {
-    YGM_ASSERT_RELEASE(m_partitioner.owner(id) == m_comm.rank());
-    auto ret = compact_string::find_string(id, *m_pstring_store);
-    if (ret) {
-      return m_pnode_to_idx->at(ret.value());
-    }
-    return {};
-  }
+    std::string_view label) const;
 
   std::unordered_set<record_id_type> priv_random_idx(
     const std::unordered_set<record_id_type>& filtered_ids_set, size_t k,
