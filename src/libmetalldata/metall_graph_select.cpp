@@ -79,6 +79,7 @@ result<bjsn::array> metall_graph::select_nodes(
     return {};
   }
 
+  std::vector<node_series_idx_type> node_idxs{};
   for (const auto& s : series_set) {
     if (!s.is_node_series()) {
       return std::unexpected(std::format(

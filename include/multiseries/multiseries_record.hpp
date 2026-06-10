@@ -9,6 +9,8 @@
 #include <cstdlib>
 #include <deque>
 #include <memory>
+#include <numeric>
+#include <ranges>
 #include <scoped_allocator>
 #include <stdexcept>
 #include <string>
@@ -164,7 +166,7 @@ class basic_record_store {
   /// \param series_index The index of the series
   /// \param record_id The record ID
   /// \return The series data as a variant.
-  /// If the series name doesn't exist, return std::nullopt.
+  /// If the series doesn't exist, return std::nullopt.
   /// If the series data does not exist, return std::monostate.
   std::optional<series_type> get_dynamic(const series_index_type series_index,
                                          const record_id_type record_id) const {
@@ -173,9 +175,12 @@ class basic_record_store {
     }
     series_type to_return = std::monostate{};  // default
     const auto &container = m_series[series_index].container;
+
     std::visit(
       [&to_return, record_id, series_index](const auto &container) {
-        if (!container.contains(record_id)) return;
+        if (!container.contains(record_id)) {
+          return;
+        }
         using T = std::decay_t<decltype(container)>;
         if constexpr (std::is_same_v<T,
                                      series_container_type<std::string_view>>) {
@@ -192,45 +197,35 @@ class basic_record_store {
   /// \brief Returns selected series data of a single record
   /// \param ser_inc Vector of series indices to include
   /// \param record_id Record ID
-  /// \return A vector of std::variant containing the selected series data
+  /// \return A vector of std::variant containing the selected series data or an
+  /// empty vector if the record id is not found
   /// \note if a value doesn't exist for a given series, std::monostate is
   /// included.
-  std::vector<series_type> get(const std::vector<series_index_type> &ser_inc,
-                               const record_id_type record_id) const {
-    std::vector<series_type> to_return;
+  template <std::ranges::range R>
+    requires std::same_as<std::ranges::range_value_t<R>, series_index_type>
+  std::optional<std::vector<series_type>> get_record(
+    const R &ser_inc, const record_id_type record_id) const {
+    if (!contains_record(record_id)) {
+      return std::nullopt;
+    }
 
+    std::vector<series_type> to_return;
+    if constexpr (std::ranges::sized_range<R>) {
+      to_return.reserve(std::ranges::size(ser_inc));
+    }
     for (const auto &ser : ser_inc) {
-      to_return.push_back(
-        get_dynamic(ser, record_id).value_or(std::monostate{}));
+      to_return.push_back(get_dynamic(ser, record_id).value());
     }
     return to_return;
   }
 
   /// \brief Returns all series data of a single record
   /// \param record_id Record ID
-  /// \return A vector of std::variant containing all series data
-  std::vector<series_type> get(const record_id_type record_id) const {
-    if (!contains_record(record_id)) {
-      return {};
-    }
-
-    std::vector<series_type> to_return_record(m_series.size(),
-                                              std::monostate{});
-    for (size_t si = 0; si < m_series.size(); ++si) {
-      std::visit(
-        [&to_return_record, record_id, si](const auto &container) {
-          if (!container.contains(record_id)) return;
-          using T = std::decay_t<decltype(container)>;
-          if constexpr (std::is_same_v<
-                          T, series_container_type<std::string_view>>) {
-            to_return_record[si] = container.at(record_id).to_view();
-          } else {
-            to_return_record[si] = container.at(record_id);
-          }
-        },
-        m_series[si].container);
-    }
-    return to_return_record;
+  /// \return A vector of std::variant containing all series data, or an empty
+  /// vector if the record id is not found
+  std::optional<std::vector<series_type>> get_record(
+    const record_id_type record_id) const {
+    return get_record(std::views::iota(0, m_series.size()), record_id);
   }
 
   /// \brief Returns if a series data of a record is None (does not exist)
