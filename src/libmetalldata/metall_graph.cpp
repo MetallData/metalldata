@@ -60,10 +60,10 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
       manager.get_allocator());
 
     // add the default series for the indices.
-    add_series<std::string_view>(NODE_COL);
-    add_series<std::string_view>(U_COL);
-    add_series<std::string_view>(V_COL);
-    add_series<bool>(DIR_COL);
+    add_series<std::string_view>(NODE_COL());
+    add_series<std::string_view>(U_COL());
+    add_series<std::string_view>(V_COL());
+    add_series<bool>(DIR_COL());
 
   } else {  // open existing
     comm.barrier();
@@ -73,34 +73,34 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
 
     m_pstring_store =
       manager.find<string_store_type>(metall::unique_instance).first;
-    m_pnodes       = manager.find<record_store_type>("nodes").first;
-    m_pedges       = manager.find<record_store_type>("edges").first;
+    m_pnodes = manager.find<record_store_type>("nodes").first;
+    m_pedges = manager.find<record_store_type>("edges").first;
     m_pnode_to_idx = manager.find<local_vertex_map_type>("nodeindex").first;
 
     if (!m_pnodes || !m_pedges) {
       m_comm.cerr0(
         "Error: Failed to find required data structures in metall store");
       delete m_pmetall_mpi;
-      m_pmetall_mpi   = nullptr;
+      m_pmetall_mpi = nullptr;
       m_pstring_store = nullptr;
-      m_pnodes        = nullptr;
-      m_pedges        = nullptr;
-      m_pnode_to_idx  = nullptr;
+      m_pnodes = nullptr;
+      m_pedges = nullptr;
+      m_pnode_to_idx = nullptr;
     }
   }
 
   ///\todo Instead of hard crashing, need a nicer fail, maybe .good() method
-  YGM_ASSERT_RELEASE(has_node_series(NODE_COL));
-  YGM_ASSERT_RELEASE(has_edge_series(U_COL));
-  YGM_ASSERT_RELEASE(has_edge_series(V_COL));
-  YGM_ASSERT_RELEASE(has_edge_series(DIR_COL));
+  YGM_ASSERT_RELEASE(has_node_series(NODE_COL()));
+  YGM_ASSERT_RELEASE(has_edge_series(U_COL()));
+  YGM_ASSERT_RELEASE(has_edge_series(V_COL()));
+  YGM_ASSERT_RELEASE(has_edge_series(DIR_COL()));
 
   //
   // Find required column names
-  auto u_col_idx_o = m_pedges->find_series(U_COL.unqualified());
-  auto v_col_idx_o = m_pedges->find_series(V_COL.unqualified());
-  auto dir_col_idx_o = m_pedges->find_series(DIR_COL.unqualified());
-  auto node_col_idx_o = m_pnodes->find_series(NODE_COL.unqualified());
+  auto u_col_idx_o = m_pedges->find_series(U_COL().unqualified());
+  auto v_col_idx_o = m_pedges->find_series(V_COL().unqualified());
+  auto dir_col_idx_o = m_pedges->find_series(DIR_COL().unqualified());
+  auto node_col_idx_o = m_pnodes->find_series(NODE_COL().unqualified());
   YGM_ASSERT_RELEASE(u_col_idx_o.has_value());
   YGM_ASSERT_RELEASE(v_col_idx_o.has_value());
   YGM_ASSERT_RELEASE(dir_col_idx_o.has_value());
@@ -118,9 +118,9 @@ metall_graph::~metall_graph() {
 
   // We don't free these because they are persistent in the metall store
   m_pstring_store = nullptr;
-  m_pnodes        = nullptr;
-  m_pedges        = nullptr;
-  m_pnode_to_idx  = nullptr;
+  m_pnodes = nullptr;
+  m_pedges = nullptr;
+  m_pnode_to_idx = nullptr;
 
   // Destroy the metall manager
   delete m_pmetall_mpi;
@@ -129,7 +129,7 @@ metall_graph::~metall_graph() {
 
 // drop_series requires a qualified selector name (starts with node. or edge.)
 bool metall_graph::drop_series(const series_name& name) {
-  if (RESERVED_COLUMN_NAMES.contains(name)) {
+  if (RESERVED_COLUMN_NAMES().contains(name)) {
     m_comm.cerr0("Cannot remove reserved column ", name.qualified());
     return false;
   }
@@ -146,13 +146,13 @@ bool metall_graph::drop_series(const series_name& name) {
 metall_graph::return_code metall_graph::rename_series(
   const series_name& old_name, const series_name& new_name) {
   metall_graph::return_code to_return;
-  if (RESERVED_COLUMN_NAMES.contains(old_name)) {
+  if (RESERVED_COLUMN_NAMES().contains(old_name)) {
     to_return.error =
       std::format("Cannot rename reserved column {}", old_name.qualified());
     return to_return;
   }
 
-  if (RESERVED_COLUMN_NAMES.contains(new_name)) {
+  if (RESERVED_COLUMN_NAMES().contains(new_name)) {
     to_return.error =
       std::format("{} is a reserved name; cannot rename", new_name.qualified());
     return to_return;

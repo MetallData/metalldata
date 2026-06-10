@@ -246,12 +246,16 @@ class metall_graph {
 
   */
 
-  // these are "full qualified" selectors.
-  const series_name           U_COL = series_name("edge.u");
-  const series_name           V_COL = series_name("edge.v");
-  const series_name           DIR_COL = series_name("edge.directed");
-  const series_name           NODE_COL = series_name("node.id");
-  const std::set<series_name> RESERVED_COLUMN_NAMES = {DIR_COL, U_COL, V_COL};
+  // TODO:  Delete these after updating reference locations.  These are "full
+  // qualified" series names.
+  const series_name U_COL() const { return series_name("edge.u"); }
+  const series_name V_COL() const { return series_name("edge.v"); }
+  const series_name DIR_COL() const { return series_name("edge.directed"); }
+  const series_name NODE_COL() const { return series_name("node.id"); }
+  // TODO:  Replace with an priv_is_reserved_name() method
+  const std::set<series_name> RESERVED_COLUMN_NAMES() const {
+    return {DIR_COL(), U_COL(), V_COL()};
+  }
 
   metall_graph(ygm::comm& comm, std::string_view path, bool overwrite = false);
 
@@ -314,9 +318,9 @@ class metall_graph {
       sels[sel] = "default";
     }
     for (const auto& el : m_pnodes->get_series_names()) {
-      auto sel = std::format("{}.{}", U_COL.qualified(), el);
+      auto sel = std::format("node.{}", el);
       sels[sel] = "inherited";
-      sel = std::format("{}.{}", V_COL.qualified(), el);
+      sel = std::format("node.{}", el);
       sels[sel] = "inherited";
     }
 
@@ -762,10 +766,11 @@ class metall_graph {
                               const T&           collection);
 
   /**
-   * @brief Retrives or inserts node string label into reverse lookup.   Returns local_node_idx
-   * 
+   * @brief Retrives or inserts node string label into reverse lookup.   Returns
+   * local_node_idx
+   *
    * @param label String node label
-   * @return local_node_idx_type 
+   * @return local_node_idx_type
    */
   local_node_idx_type priv_local_node_find_or_insert(std::string_view label) {
     YGM_ASSERT_RELEASE(m_partitioner.owner(label) == m_comm.rank());
@@ -784,10 +789,11 @@ class metall_graph {
   }
 
   /**
-   * @brief Retrives without inserting node string label into reverse lookup.   Returns local_node_idx
-   * 
+   * @brief Retrives without inserting node string label into reverse lookup.
+   * Returns local_node_idx
+   *
    * @param label String node label
-   * @return local_node_idx_type 
+   * @return local_node_idx_type
    */
   std::optional<local_node_idx_type> priv_local_node_find(
     std::string_view id) const {

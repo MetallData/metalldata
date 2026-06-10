@@ -7,6 +7,7 @@
 // of a map.
 
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 #include <set>
@@ -79,10 +80,6 @@ metall_graph::return_code metall_graph::priv_in_out_degree(
 
   auto                                      edges_ = m_pedges;
   ygm::container::map<std::string, int64_t> degrees(m_comm);
-
-  auto node_col_id_o = m_pnodes->find_series(NODE_COL.unqualified());
-  YGM_ASSERT_RELEASE(node_col_id_o.has_value());
-  auto node_col_id = node_col_id_o.value();
 
   std::vector<std::string> nodes;
   priv_for_all_nodes(
@@ -167,14 +164,6 @@ metall_graph::return_code metall_graph::degrees(
   ygm::container::map<std::string, int64_t> indegrees(m_comm);
   ygm::container::map<std::string, int64_t> outdegrees(m_comm);
 
-  auto node_col_id_o = m_pnodes->find_series(NODE_COL.unqualified());
-  if (!node_col_id_o.has_value()) {
-    to_return.error = std::format("Series {} not found", NODE_COL.qualified());
-    return to_return;
-  }
-
-  auto node_col_id = node_col_id_o.value();
-
   priv_for_all_nodes(
     [&](local_node_idx_type nid) {
       auto node_name_o = priv_local_get_node_label(nid);
@@ -187,7 +176,6 @@ metall_graph::return_code metall_graph::degrees(
 
   m_comm.barrier();
 
-  
   priv_for_all_edges(
     [&](local_edge_idx_type eid) {
       // Note: clangd may report a false positive error on the next line
@@ -202,7 +190,6 @@ metall_graph::return_code metall_graph::degrees(
       outdegrees.async_visit(out_edge_name,
                              [&](const auto& key, auto& val) { val++; });
 
-      
       bool is_directed = priv_local_edge_is_directed(eid).value_or(false);
       if (!is_directed) {
         indegrees.async_visit(out_edge_name,
@@ -280,26 +267,6 @@ metall_graph::return_code metall_graph::degrees2(
   auto                                      edges_ = m_pedges;
   ygm::container::counting_set<std::string> indegrees(m_comm);
   ygm::container::counting_set<std::string> outdegrees(m_comm);
-
-  auto u_col_o = m_pedges->find_series(U_COL.unqualified());
-  if (!u_col_o.has_value()) {
-    to_return.error = std::format("Series {} not found", U_COL.qualified());
-    return to_return;
-  }
-  auto v_col_o = m_pedges->find_series(V_COL.unqualified());
-  if (!v_col_o.has_value()) {
-    to_return.error = std::format("Series {} not found", V_COL.qualified());
-    return to_return;
-  }
-  auto dir_col_o = m_pedges->find_series(DIR_COL.unqualified());
-  if (!dir_col_o.has_value()) {
-    to_return.error = std::format("Series {} not found", DIR_COL.qualified());
-    return to_return;
-  }
-
-  auto u_col = u_col_o.value();
-  auto v_col = v_col_o.value();
-  auto dir_col = dir_col_o.value();
 
   priv_for_all_edges(
     [&](local_edge_idx_type eid) {

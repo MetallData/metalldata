@@ -65,7 +65,7 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
     }
   }
 
-  for (const auto& name : RESERVED_COLUMN_NAMES) {
+  for (const auto& name : RESERVED_COLUMN_NAMES()) {
     if (metaset.contains(name)) {
       to_return.error =
         "Error: reserved name " + name.qualified() + " found in meta data.";
@@ -94,15 +94,15 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
         // we will be coercing.
         // YGM_ASSERT_RELEASE(pcol_type.equal(parquet::Type::BYTE_ARRAY));
 
-        mapped_name = U_COL;
-        got_u       = true;
-        u_col_idx   = i;
+        mapped_name = U_COL();
+        got_u = true;
+        u_col_idx = i;
       } else if (pcol_name == col_v) {
         // see above
         // YGM_ASSERT_RELEASE(pcol_type.equal(parquet::Type::BYTE_ARRAY));
-        mapped_name = V_COL;
-        got_v       = true;
-        v_col_idx   = i;
+        mapped_name = V_COL();
+        got_v = true;
+        v_col_idx = i;
       }
       parquet_to_metall[pcol_name] = mapped_name;
 
@@ -144,16 +144,16 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
     return to_return;
   }
 
-  if (!has_edge_series(DIR_COL)) {
-    if (!add_series<bool>(DIR_COL)) {
+  if (!has_edge_series(DIR_COL())) {
+    if (!add_series<bool>(DIR_COL())) {
       to_return.error = "could not add directed column";
       return to_return;
     }
   }
 
-  size_t               local_nedges    = 0;
-  static metall_graph* sthis           = nullptr;
-  sthis                                = this;
+  size_t               local_nedges = 0;
+  static metall_graph* sthis = nullptr;
+  sthis = this;
   parquetp.for_all(
     parquet_cols,
     [&](const std::vector<ygm::io::parquet_parser::parquet_type_variant>& row) {
@@ -174,7 +174,8 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
       auto rec = m_pedges->add_record();
       // first, set the directedness.
-      priv_local_set_edge_field(m_dir_col_idx, local_edge_idx_type{rec}, directed);
+      priv_local_set_edge_field(m_dir_col_idx, local_edge_idx_type{rec},
+                                directed);
       for (size_t i = 0; i < parquet_cols.size(); ++i) {
         auto parquet_ser = parquet_cols[i];
 
@@ -183,14 +184,13 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
           continue;
         }
 
-        
         auto parquet_val = row[i];
 
-        auto              metall_ser = parquet_to_metall[parquet_ser];
+        auto metall_ser = parquet_to_metall[parquet_ser];
         // memoization since we use this a few times.
-        bool is_u_or_v = (metall_ser == U_COL || metall_ser == V_COL);
+        bool is_u_or_v = (metall_ser == U_COL() || metall_ser == V_COL());
         // an edge is invalid if we have a type coercion problem
-        bool              invalid_edge = false;
+        bool                             invalid_edge = false;
         std::optional<series_index_type> metall_ser_idx_o =
           m_pedges->find_series(metall_ser.unqualified());
         if (!metall_ser_idx_o.has_value()) {
@@ -206,7 +206,7 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
           // then add to the nodeset.
           if (is_u_or_v) {
             std::string uv_invalid = std::format(
-              "invalid {} value skipped", metall_ser == U_COL ? "u" : "v");
+              "invalid {} value skipped", metall_ser == U_COL() ? "u" : "v");
 
             // if monostate, just skip and log.
             if constexpr (std::is_same_v<T, std::monostate>) {
@@ -268,4 +268,4 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
   return to_return;
 }
 
-}
+}  // namespace metalldata

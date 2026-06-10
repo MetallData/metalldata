@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 #include <set>
@@ -46,37 +47,20 @@ metall_graph::return_code metall_graph::nhops(
     return to_return;
   }
 
-  auto u_col_o = m_pedges->find_series(U_COL.unqualified());
-  if (!u_col_o.has_value()) {
-    to_return.error = std::format("Series {} not found", U_COL.qualified());
-    return to_return;
-  }
-  auto v_col_o = m_pedges->find_series(V_COL.unqualified());
-  if (!v_col_o.has_value()) {
-    to_return.error = std::format("Series {} not found", V_COL.qualified());
-    return to_return;
-  }
-  auto dir_col_o = m_pedges->find_series(DIR_COL.unqualified());
-  if (!dir_col_o.has_value()) {
-    to_return.error = std::format("Series {} not found", DIR_COL.qualified());
-    return to_return;
-  }
-
-  auto u_col = u_col_o.value();
-  auto v_col = v_col_o.value();
-  auto dir_col = dir_col_o.value();
+  auto u_col = std::to_underlying(m_u_col_idx);
+  auto v_col = std::to_underlying(m_v_col_idx);
+  auto dir_col = std::to_underlying(m_dir_col_idx);
 
   // TODO: convert to (rank, node row id) tuples.
   ygm::container::map<std::string, std::vector<std::string>> adj_list(m_comm);
 
   priv_for_all_edges(
     [&](local_edge_idx_type eid) {
-      auto uv_o= priv_local_get_edge_uv_labels(eid);
+      auto uv_o = priv_local_get_edge_uv_labels(eid);
       YGM_ASSERT_RELEASE(uv_o.has_value());
       std::string u(uv_o.value().first);
       std::string v(uv_o.value().second);
 
-      
       bool is_directed = priv_local_edge_is_directed(eid).value_or(false);
       auto adj_inserter = [](const std::string&, std::vector<std::string>& adj,
                              const std::string& vert) { adj.push_back(vert); };
@@ -136,4 +120,4 @@ metall_graph::return_code metall_graph::nhops(
 
   return to_return;
 }
-}
+}  // namespace metalldata
