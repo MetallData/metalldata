@@ -18,6 +18,7 @@ result<> metall_graph::priv_set_column_by_idx(
   using record_id_type = metall_graph::record_store_type::record_id_type;
   using val_type       = typename T::mapped_type;
 
+  result<> to_return;
   auto store = col_name.is_edge_series() ? m_pedges : m_pnodes;
   // create series
   auto col_idx = store->add_series<val_type>(col_name.unqualified());
@@ -26,7 +27,7 @@ result<> metall_graph::priv_set_column_by_idx(
     store->set(col_idx, rid, value);
   }
 
-  return {};
+  return to_return;
 }
 
 // Sets a node metadata column based on a lookup from an associative data
@@ -81,7 +82,7 @@ metalldata::result<> metall_graph::set_node_column(
     to_return.add_warnings(invalid_nodes, "invalid nodes");
   }
 
-  return {};
+  return to_return;
 }
 
 }  // namespace metalldata

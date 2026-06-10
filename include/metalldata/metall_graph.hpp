@@ -77,26 +77,6 @@ class metall_graph {
   using count_types =
     std::variant<std::monostate, bool, int64_t, double, std::string>;
 
-  /**
-   * @brief Return code struct for methods
-   *
-   */
-  struct return_code {
-    std::map<std::string, size_t>   warnings;
-    std::map<std::string, std::any> return_info;
-    std::string                     error;
-    bool                            good() const { return error.empty(); }
-    operator bool() const { return good(); }
-
-    // merges warnings from another return code. If the keys match, the
-    // numbers are incremented.
-    void merge_warnings(return_code other) {
-      for (const auto& [msg, count] : other.warnings) {
-        warnings[msg] += count;
-      }
-    }
-  };
-
   struct series_name {
    public:
     series_name() = default;
@@ -265,28 +245,13 @@ class metall_graph {
     std::string_view col_v, bool directed,
     const std::optional<std::vector<series_name>>& meta = std::nullopt);
 
-  // return_code ingest_parquet_verts(std::string_view path, bool recursive,
-  //                                  std::string_view                key,
-  //                                  const std::vector<std::string>& meta,
-  //                                  bool overwrite = true);
+  result<std::map<std::string, std::any>> dump_parquet_verts(
+    std::string_view path, const std::vector<series_name>& meta,
+    bool overwrite = false);
 
-  // return_code ingest_ndjson_edges(std::string_view path, bool recursive,
-  //                                 std::string_view col_u,
-  //                                 std::string_view col_v, bool directed,
-  //                                 const std::vector<std::string>& meta);
-
-  // return_code ingest_ndjson_verts(std::string_view path, bool recursive,
-  //                                 std::string_view                key,
-  //                                 const std::vector<std::string>& meta,
-  //                                 bool overwrite = true);
-
-  return_code dump_parquet_verts(std::string_view                path,
-                                 const std::vector<series_name>& meta,
-                                 bool overwrite = false);
-
-  return_code dump_parquet_edges(std::string_view                path,
-                                 const std::vector<series_name>& meta,
-                                 bool overwrite = false);
+  result<std::map<std::string, std::any>> dump_parquet_edges(
+    std::string_view path, const std::vector<series_name>& meta,
+    bool overwrite = false);
 
   result<> erase_edges(const where_clause& where = where_clause{});
 
@@ -374,8 +339,8 @@ class metall_graph {
   // edge.)
   bool drop_series(const series_name& name);
 
-  return_code rename_series(const series_name& old_name,
-                            const series_name& new_name);
+  result<> rename_series(const series_name& old_name,
+                         const series_name& new_name);
 
   // has_node_series requires an UNqualified (stripped) selector name.
   bool has_node_series(std::string_view unqualified_name) const {
@@ -470,13 +435,11 @@ class metall_graph {
     m_pedges->visit_field(name.unqualified(), record_id, func);
   }
 
-  // TODO: change unexpected to return_code (see utils.cpp / obj2sn)
-  std::expected<boost::json::array, std::string> select_edges(
+  result<boost::json::array> select_edges(
     const std::unordered_set<metall_graph::series_name>& series_set,
     const metall_graph::where_clause& where, size_t limit);
 
-  // TODO: change unexpected to return_code (see utils.cpp / obj2sn)
-  std::expected<boost::json::array, std::string> select_nodes(
+  result<boost::json::array> select_nodes(
     const std::unordered_set<metall_graph::series_name>& series_set,
     const metall_graph::where_clause& where, size_t limit);
 
@@ -510,21 +473,21 @@ class metall_graph {
                                 const where_clause& where = where_clause());
 
   // TODO: also allow val a function
-  return_code assign(series_name series_name, const series_types& val,
-                     const where_clause& = where_clause());
+  result<> assign(series_name series_name, const series_types& val,
+                  const where_clause& = where_clause());
 
-  return_code sample_edges(const series_name& series_name, size_t k,
-                           std::optional<uint64_t> optseed,
-                           const where_clause& = where_clause());
+  result<> sample_edges(const series_name& series_name, size_t k,
+                        std::optional<uint64_t> optseed,
+                        const where_clause& = where_clause());
 
   bjsn::array select_sample_edges(
     size_t k, const std::vector<metall_graph::series_name>& metadata,
     std::optional<uint64_t>           optseed,
     const metall_graph::where_clause& where = where_clause{});
 
-  return_code sample_nodes(const series_name& series_name, size_t k,
-                           std::optional<uint64_t> optseed,
-                           const where_clause& = where_clause());
+  result<> sample_nodes(const series_name& series_name, size_t k,
+                        std::optional<uint64_t> optseed,
+                        const where_clause& = where_clause());
 
   bjsn::array select_sample_nodes(
     size_t k, const std::vector<metall_graph::series_name>& metadata,
@@ -624,7 +587,7 @@ class metall_graph {
         return std::get<T>(f.value());
       }
     }
-    return {};
+    return std::nullopt;
   }
 
   std::vector<std::optional<series_types>> priv_local_get_edge_fields(
@@ -796,7 +759,7 @@ class metall_graph {
     if (ret) {
       return local_node_idx_type{m_pnode_to_idx->at(ret.value())};
     }
-    return {};
+    return std::nullopt;
   }
 
   std::unordered_set<record_id_type> priv_random_idx(

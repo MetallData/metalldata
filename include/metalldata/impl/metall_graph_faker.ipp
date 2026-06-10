@@ -9,7 +9,8 @@ template <typename Fn, typename T>
 result<> metall_graph::add_faker_series(const metall_graph::series_name& name,
                                         Fn                  faker_func,
                                         const where_clause& where) {
-  auto                      first = faker_func();
+  result<> to_return;
+  auto     first = faker_func();
   using FT                        = std::decay_t<decltype(first)>;
 
   static_assert(std::is_constructible_v<T, FT>,
@@ -31,7 +32,7 @@ result<> metall_graph::add_faker_series(const metall_graph::series_name& name,
   } else if (name.is_node_series()) {
     if (has_node_series(name)) {
       return std::unexpected(
-        std::format("Node series {} already exists", name.qualified()));
+        std::format("node series {} already exists", name.qualified()));
     }
     auto ser_ind = priv_add_node_series<T>(name.unqualified());
     auto rec_p   = m_pnodes;
@@ -42,7 +43,8 @@ result<> metall_graph::add_faker_series(const metall_graph::series_name& name,
       },
       where);
   }
-  return {};
+
+  return to_return;
 }
 
 }  // namespace metalldata

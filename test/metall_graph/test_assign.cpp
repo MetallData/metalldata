@@ -7,6 +7,7 @@
 #include <ygm/comm.hpp>
 #include <iostream>
 #include <string>
+#include <metalldata/result.hpp>
 
 /**
  * @brief Test the assign function with optional JSONLogic filtering
@@ -69,7 +70,7 @@ int main(int argc, char** argv) {
     world.cout0("Successfully added series: ", name.qualified());
 
     // Read JSONLogic rule from file (if provided)
-    metalldata::metall_graph::return_code result;
+    metalldata::result<>                  res;
     std::string                           color_value = "blue";
 
     if (!jsonlogic_file.empty()) {
@@ -91,8 +92,8 @@ int main(int argc, char** argv) {
       result = graph.assign(name, color_value);
     }
 
-    if (!result.error.empty()) {
-      world.cerr0("Error during assign: ", result.error);
+    if (!result) {
+      world.cerr0("Error during assign: ", result.error());
       return 1;
     }
 

@@ -56,17 +56,16 @@ int main(int argc, char **argv) try {
   }
   auto result = mg.dump_parquet_edges(output_path, meta, overwrite);
 
-  if (!result.good()) {
-    comm.cerr0() << "Error: " << result.error << std::endl;
+  if (!result) {
+    comm.cerr0() << "Error: " << result.error() << std::endl;
     return 1;
   }
 
-  for (const auto& [msg, count] : result.warnings) {
+  for (const auto& [msg, count] : result.warnings()) {
     comm.cerr0() << "Warning: " << msg << " (occurred " << count << " times)"
                  << std::endl;
   }
 
-  clip.to_return(0);
   return 0;
 } catch (std::runtime_error e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";

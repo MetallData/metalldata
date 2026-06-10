@@ -44,8 +44,8 @@ int main(int argc, char **argv) try {
   auto sn_obj = clip.get<boost::json::object>("series");
 
   auto try_sn = metalldata::obj2sn(sn_obj);
-  if (!try_sn.has_value()) {
-    comm.cerr0(try_sn.error().error);
+  if (!try_sn) {
+    comm.cerr0(try_sn.error());
     return -1;
   }
 
@@ -61,8 +61,8 @@ int main(int argc, char **argv) try {
   auto addl_series_obj_vec =
     clip.get<std::vector<boost::json::object>>("addl_series");
   auto try_obj = metalldata::obj2sn(addl_series_obj_vec);
-  if (!try_obj.has_value()) {
-    comm.cerr0(try_obj.error().error);
+  if (!try_obj) {
+    comm.cerr0(try_obj.error());
     return -1;
   }
 

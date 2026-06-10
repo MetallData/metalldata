@@ -32,8 +32,6 @@ namespace metalldata {
 result<> metall_graph::nhops(const series_name& out_name, size_t nhops,
                              const std::vector<std::string>& sources,
                              const where_clause&             where) {
-  return_code to_return;
-
   if (!out_name.is_node_series()) {
     return std::unexpected(
       std::format("invalid series name: {}", out_name.qualified()));

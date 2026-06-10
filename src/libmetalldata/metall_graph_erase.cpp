@@ -4,17 +4,17 @@
 
 namespace metalldata {
 result<> metall_graph::erase_edges(const where_clause &where) {
-  metall_graph::return_code to_return;
+  result<> to_return;
 
   priv_for_all_edges([&](auto rid) { m_pedges->remove_record(std::to_underlying(rid)); }, where);
 
-  return {};
+  return to_return;
 }
 
 result<> metall_graph::erase_edges(
   const metall_graph::series_name       &name,
   boost::unordered_flat_set<std::string> haystack) {
-  metall_graph::return_code to_return;
+  result<> to_return;
 
   auto idx_o = priv_local_find_edge_series(name.unqualified());
   if (!idx_o.has_value()) {
@@ -32,7 +32,7 @@ result<> metall_graph::erase_edges(
     }
   });
 
-  return {};
+  return to_return;
 }
 
 }  // namespace metalldata
