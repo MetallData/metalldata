@@ -60,8 +60,8 @@ int main(int argc, char** argv) {
     print_separator("SUMMARY");
     world.cout0("Graph path: ", metall_path);
     world.cout0("Status: ", (graph.good() ? "VALID" : "INVALID"));
-    world.cout0("Total nodes: ", graph.num_nodes());
-    world.cout0("Total edges: ", graph.num_edges());
+    world.cout0("Total nodes: ", graph.num_nodes(metalldata::metall_graph::where_clause{}));
+    world.cout0("Total edges: ", graph.num_edges(metalldata::metall_graph::where_clause{}));
     auto node_series = graph.get_node_series_names();
     auto edge_series = graph.get_edge_series_names();
     world.cout0("Node series count: ", node_series.size());
