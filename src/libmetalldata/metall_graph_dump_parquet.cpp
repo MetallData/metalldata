@@ -31,7 +31,7 @@ result<RC> metall_graph::dump_parquet_verts(
         std::format("column '{}' not found", sn.qualified()));
       continue;
     }
-    if (detail::RESERVED_COLUMN_NAMES.contains(sn)) {
+    if (priv_is_series_reserved(sn)) {
       continue;
     }
 
@@ -213,7 +213,7 @@ result<RC> metall_graph::dump_parquet_edges(
         std::format("column '{}' not found", sn.qualified()));
       continue;
     }
-    if (detail::RESERVED_COLUMN_NAMES.contains(sn)) {
+    if (priv_is_series_reserved(sn)) {
       continue;
     }
 

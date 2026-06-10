@@ -129,7 +129,7 @@ metall_graph::~metall_graph() {
 
 // drop_series requires a qualified selector name (starts with node. or edge.)
 bool metall_graph::drop_series(const series_name& name) {
-  if (detail::RESERVED_COLUMN_NAMES.contains(name)) {
+  if (priv_is_series_reserved(name)) {
     m_comm.cerr0("Cannot remove reserved column ", name.qualified());
     return false;
   }
@@ -145,12 +145,12 @@ bool metall_graph::drop_series(const series_name& name) {
 
 result<> metall_graph::rename_series(const series_name& old_name,
                                      const series_name& new_name) {
-  if (detail::RESERVED_COLUMN_NAMES.contains(old_name)) {
+  if (priv_is_series_reserved(old_name)) {
     return std::unexpected(
       std::format("cannot rename reserved column {}", old_name.qualified()));
   }
 
-  if (detail::RESERVED_COLUMN_NAMES.contains(new_name)) {
+  if (priv_is_series_reserved(new_name)) {
     return std::unexpected(std::format("{} is a reserved name; cannot rename",
                                        new_name.qualified()));
   }

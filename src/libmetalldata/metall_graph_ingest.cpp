@@ -66,8 +66,8 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
     }
   }
 
-  for (const auto& name : detail::RESERVED_COLUMN_NAMES) {
-    if (metaset.contains(name)) {
+  for (const auto& name : metaset) {
+    if (priv_is_series_reserved(name)) {
       return std::unexpected(
         std::format("reserved name {} found in meta data", name.qualified()));
     }

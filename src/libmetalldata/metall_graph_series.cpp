@@ -1,4 +1,5 @@
 #include <metalldata/metall_graph.hpp>
+#include "metalldata/impl/metall_graph_series_name.hpp"
 
 namespace metalldata {
 
@@ -110,6 +111,13 @@ metall_graph::priv_local_find_edge_series(
   }
 
   return ret;
+}
+
+bool metall_graph::priv_is_series_reserved(
+  const metall_graph::series_name& name) const {
+  static const std::set<series_name> RESERVED{
+    detail::U_COL, detail::V_COL, detail::DIR_COL, detail::NODE_COL};
+  return RESERVED.contains(name);
 }
 
 }  // namespace metalldata

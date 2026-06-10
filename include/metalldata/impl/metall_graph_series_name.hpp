@@ -79,9 +79,6 @@ static const metall_graph::series_name U_COL{"edge.u"};
 static const metall_graph::series_name V_COL{"edge.v"};
 static const metall_graph::series_name DIR_COL{"edge.directed"};
 static const metall_graph::series_name NODE_COL{"node.id"};
-// TODO:  Replace with an priv_is_reserved_name() method
-static const std::set<metall_graph::series_name> RESERVED_COLUMN_NAMES{
-  {DIR_COL, U_COL, V_COL}};
 }  // namespace detail
 
 }  // namespace metalldata

@@ -293,6 +293,15 @@ class metall_graph {
   node_series_idx_type m_node_col_idx;
 
   /**
+   * @brief Returns true if the series_name is reserved
+   *
+   * @param name
+   * @return true
+   * @return false
+   */
+  bool priv_is_series_reserved(const series_name& name) const;
+
+  /**
    * @brief Returns an edge's endpoints (u,v) as string_views
    *
    * @param eid Edge ID
