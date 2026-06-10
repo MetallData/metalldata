@@ -14,7 +14,7 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
   field_specs.reserve(1 + meta.size());
 
   // Add the node ID column (always a string)
-  field_specs.push_back(std::format("{}:s", NODE_COL().unqualified()));
+  field_specs.push_back(std::format("{}:s", detail::NODE_COL.unqualified()));
 
   // Add metadata columns with their types
   // Collect series indices first
@@ -27,7 +27,7 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
         .warnings[std::format("Column '{}' not found", sn.qualified())]++;
       continue;
     }
-    if (RESERVED_COLUMN_NAMES().contains(sn)) {
+    if (detail::RESERVED_COLUMN_NAMES.contains(sn)) {
       continue;
     }
 
@@ -123,10 +123,10 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
     }
 
     // Prepare node ID series index
-    auto node_col_idx_o = m_pnodes->find_series(NODE_COL().unqualified());
+    auto node_col_idx_o = m_pnodes->find_series(detail::NODE_COL.unqualified());
     if (!node_col_idx_o.has_value()) {
       to_return.error =
-        std::format("Series {} not found", NODE_COL().qualified());
+        std::format("Series {} not found", detail::NODE_COL.qualified());
       return to_return;
     }
     auto node_col_idx = node_col_idx_o.value();
@@ -194,9 +194,9 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
   field_specs.reserve(3 + meta.size());
 
   // Add the edge U, V, and directed columns
-  field_specs.push_back(std::format("{}:s", U_COL().unqualified()));
-  field_specs.push_back(std::format("{}:s", V_COL().unqualified()));
-  field_specs.push_back(std::format("{}:b", DIR_COL().unqualified()));
+  field_specs.push_back(std::format("{}:s", detail::U_COL.unqualified()));
+  field_specs.push_back(std::format("{}:s", detail::V_COL.unqualified()));
+  field_specs.push_back(std::format("{}:b", detail::DIR_COL.unqualified()));
 
   // Add metadata columns with their types
   // Collect series indices first
@@ -210,7 +210,7 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
         .warnings[std::format("Column '{}' not found", sn.qualified())]++;
       continue;
     }
-    if (RESERVED_COLUMN_NAMES().contains(sn)) {
+    if (detail::RESERVED_COLUMN_NAMES.contains(sn)) {
       continue;
     }
 
