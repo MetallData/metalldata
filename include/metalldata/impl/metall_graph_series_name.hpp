@@ -1,4 +1,5 @@
 #pragma once
+#include <dirent.h>
 #include <metalldata/metall_graph.hpp>
 
 namespace metalldata {
@@ -47,6 +48,18 @@ struct metall_graph::series_name {
   // required to make collections / sets of series_names
   bool operator<(const series_name& other) const;
 
+  bool is_reserved() const {
+    return *this == U_COL || *this == V_COL || *this == DIR_COL ||
+           *this == NODE_COL;
+  }
+
+  // TODO:  Delete these after updating reference locations.  These are "full
+  // qualified" series names.
+  static const series_name U_COL;
+  static const series_name V_COL;
+  static const series_name DIR_COL;
+  static const series_name NODE_COL;
+
  private:
   std::string m_prefix;
   std::string m_unqualified;
@@ -55,14 +68,14 @@ struct metall_graph::series_name {
     std::string_view str);
 };  // series_name
 
-namespace detail {
-// TODO:  Delete these after updating reference locations.  These are "full
-// qualified" series names.
-static const metall_graph::series_name U_COL{"edge.u"};
-static const metall_graph::series_name V_COL{"edge.v"};
-static const metall_graph::series_name DIR_COL{"edge.directed"};
-static const metall_graph::series_name NODE_COL{"node.id"};
-}  // namespace detail
+inline const metall_graph::series_name metall_graph::series_name::U_COL{
+  "edge.u"};
+inline const metall_graph::series_name metall_graph::series_name::V_COL{
+  "edge.v"};
+inline const metall_graph::series_name metall_graph::series_name::DIR_COL{
+  "edge.directed"};
+inline const metall_graph::series_name metall_graph::series_name::NODE_COL{
+  "node.id"};
 
 }  // namespace metalldata
 

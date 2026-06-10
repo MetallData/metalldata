@@ -127,9 +127,6 @@ class metall_graph {
   template <typename T>
   bool add_series(const series_name& name);
 
-  template <typename T>
-  bool add_series(std::string_view name);
-
   // drop_series requires a qualified selector name (starts with node. or
   // edge.)
   bool drop_series(const series_name& name);
@@ -258,15 +255,6 @@ class metall_graph {
   edge_series_idx_type m_v_col_idx;
   edge_series_idx_type m_dir_col_idx;
   node_series_idx_type m_node_col_idx;
-
-  /**
-   * @brief Returns true if the series_name is reserved
-   *
-   * @param name
-   * @return true
-   * @return false
-   */
-  bool priv_is_series_reserved(const series_name& name) const;
 
   /**
    * @brief Returns an edge's endpoints (u,v) as string_views

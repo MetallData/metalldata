@@ -67,7 +67,7 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
   }
 
   for (const auto& name : metaset) {
-    if (priv_is_series_reserved(name)) {
+    if (name.is_reserved()) {
       return std::unexpected(
         std::format("reserved name {} found in meta data", name.qualified()));
     }
@@ -94,13 +94,13 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
         // we will be coercing.
         // YGM_ASSERT_RELEASE(pcol_type.equal(parquet::Type::BYTE_ARRAY));
 
-        mapped_name = detail::U_COL;
+        mapped_name = series_name::U_COL;
         got_u = true;
         u_col_idx = i;
       } else if (pcol_name == col_v) {
         // see above
         // YGM_ASSERT_RELEASE(pcol_type.equal(parquet::Type::BYTE_ARRAY));
-        mapped_name = detail::V_COL;
+        mapped_name = series_name::V_COL;
         got_v = true;
         v_col_idx = i;
       }
@@ -145,8 +145,8 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
       std::format("did not find v column: {}", std::string(col_v)));
   }
 
-  if (!has_edge_series(detail::DIR_COL)) {
-    if (!add_series<bool>(detail::DIR_COL)) {
+  if (!has_edge_series(series_name::DIR_COL)) {
+    if (!add_series<bool>(series_name::DIR_COL)) {
       return std::unexpected("could not add directed column");
     }
   }
@@ -188,8 +188,8 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
 
         auto metall_ser = parquet_to_metall[parquet_ser];
         // memoization since we use this a few times.
-        bool is_u_or_v =
-          (metall_ser == detail::U_COL || metall_ser == detail::V_COL);
+        bool is_u_or_v = (metall_ser == series_name::U_COL ||
+                          metall_ser == series_name::V_COL);
         // an edge is invalid if we have a type coercion problem
         bool                             invalid_edge = false;
         std::optional<series_index_type> metall_ser_idx_o =
@@ -208,7 +208,7 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
           if (is_u_or_v) {
             std::string uv_invalid =
               std::format("invalid {} value skipped",
-                          metall_ser == detail::U_COL ? "u" : "v");
+                          metall_ser == series_name::U_COL ? "u" : "v");
 
             // if monostate, just skip and log.
             if constexpr (std::is_same_v<T, std::monostate>) {

@@ -18,7 +18,8 @@ result<RC> metall_graph::dump_parquet_verts(
   field_specs.reserve(1 + meta.size());
 
   // Add the node ID column (always a string)
-  field_specs.push_back(std::format("{}:s", detail::NODE_COL.unqualified()));
+  field_specs.push_back(
+    std::format("{}:s", series_name::NODE_COL.unqualified()));
 
   // Add metadata columns with their types
   // Collect series indices first
@@ -31,7 +32,7 @@ result<RC> metall_graph::dump_parquet_verts(
         std::format("column '{}' not found", sn.qualified()));
       continue;
     }
-    if (priv_is_series_reserved(sn)) {
+    if (sn.is_reserved()) {
       continue;
     }
 
@@ -125,10 +126,11 @@ result<RC> metall_graph::dump_parquet_verts(
     }
 
     // Prepare node ID series index
-    auto node_col_idx_o = m_pnodes->find_series(detail::NODE_COL.unqualified());
+    auto node_col_idx_o =
+      m_pnodes->find_series(series_name::NODE_COL.unqualified());
     if (!node_col_idx_o.has_value()) {
       return std::unexpected(
-        std::format("series {} not found", detail::NODE_COL.qualified()));
+        std::format("series {} not found", series_name::NODE_COL.qualified()));
     }
     auto node_col_idx = node_col_idx_o.value();
     // Write rows
@@ -197,9 +199,10 @@ result<RC> metall_graph::dump_parquet_edges(
   field_specs.reserve(3 + meta.size());
 
   // Add the edge U, V, and directed columns
-  field_specs.push_back(std::format("{}:s", detail::U_COL.unqualified()));
-  field_specs.push_back(std::format("{}:s", detail::V_COL.unqualified()));
-  field_specs.push_back(std::format("{}:b", detail::DIR_COL.unqualified()));
+  field_specs.push_back(std::format("{}:s", series_name::U_COL.unqualified()));
+  field_specs.push_back(std::format("{}:s", series_name::V_COL.unqualified()));
+  field_specs.push_back(
+    std::format("{}:b", series_name::DIR_COL.unqualified()));
 
   // Add metadata columns with their types
   // Collect series indices first
@@ -213,7 +216,7 @@ result<RC> metall_graph::dump_parquet_edges(
         std::format("column '{}' not found", sn.qualified()));
       continue;
     }
-    if (priv_is_series_reserved(sn)) {
+    if (sn.is_reserved()) {
       continue;
     }
 

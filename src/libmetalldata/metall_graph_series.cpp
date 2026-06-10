@@ -36,9 +36,9 @@ std::map<std::string, std::string> metall_graph::get_edge_selector_info() {
     sels[sel] = "default";
   }
   for (const auto& el : m_pnodes->get_series_names()) {
-    auto sel = std::format("{}.{}", detail::U_COL.qualified(), el);
+    auto sel = std::format("{}.{}", series_name::U_COL.qualified(), el);
     sels[sel] = "inherited";
-    sel = std::format("{}.{}", detail::V_COL.qualified(), el);
+    sel = std::format("{}.{}", series_name::V_COL.qualified(), el);
     sels[sel] = "inherited";
   }
 
@@ -173,13 +173,6 @@ metall_graph::priv_local_find_edge_series(
   }
 
   return ret;
-}
-
-bool metall_graph::priv_is_series_reserved(
-  const metall_graph::series_name& name) const {
-  static const std::set<series_name> RESERVED{
-    detail::U_COL, detail::V_COL, detail::DIR_COL, detail::NODE_COL};
-  return RESERVED.contains(name);
 }
 
 }  // namespace metalldata

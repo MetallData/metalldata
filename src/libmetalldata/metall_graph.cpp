@@ -60,10 +60,10 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
       manager.get_allocator());
 
     // add the default series for the indices.
-    add_series<std::string_view>(detail::NODE_COL);
-    add_series<std::string_view>(detail::U_COL);
-    add_series<std::string_view>(detail::V_COL);
-    add_series<bool>(detail::DIR_COL);
+    add_series<std::string_view>(series_name::NODE_COL);
+    add_series<std::string_view>(series_name::U_COL);
+    add_series<std::string_view>(series_name::V_COL);
+    add_series<bool>(series_name::DIR_COL);
 
   } else {  // open existing
     comm.barrier();
@@ -90,17 +90,19 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
   }
 
   ///\todo Instead of hard crashing, need a nicer fail, maybe .good() method
-  YGM_ASSERT_RELEASE(has_node_series(detail::NODE_COL));
-  YGM_ASSERT_RELEASE(has_edge_series(detail::U_COL));
-  YGM_ASSERT_RELEASE(has_edge_series(detail::V_COL));
-  YGM_ASSERT_RELEASE(has_edge_series(detail::DIR_COL));
+  YGM_ASSERT_RELEASE(has_node_series(series_name::NODE_COL));
+  YGM_ASSERT_RELEASE(has_edge_series(series_name::U_COL));
+  YGM_ASSERT_RELEASE(has_edge_series(series_name::V_COL));
+  YGM_ASSERT_RELEASE(has_edge_series(series_name::DIR_COL));
 
   //
   // Find required column names
-  auto u_col_idx_o = m_pedges->find_series(detail::U_COL.unqualified());
-  auto v_col_idx_o = m_pedges->find_series(detail::V_COL.unqualified());
-  auto dir_col_idx_o = m_pedges->find_series(detail::DIR_COL.unqualified());
-  auto node_col_idx_o = m_pnodes->find_series(detail::NODE_COL.unqualified());
+  auto u_col_idx_o = m_pedges->find_series(series_name::U_COL.unqualified());
+  auto v_col_idx_o = m_pedges->find_series(series_name::V_COL.unqualified());
+  auto dir_col_idx_o =
+    m_pedges->find_series(series_name::DIR_COL.unqualified());
+  auto node_col_idx_o =
+    m_pnodes->find_series(series_name::NODE_COL.unqualified());
   YGM_ASSERT_RELEASE(u_col_idx_o.has_value());
   YGM_ASSERT_RELEASE(v_col_idx_o.has_value());
   YGM_ASSERT_RELEASE(dir_col_idx_o.has_value());
@@ -129,7 +131,7 @@ metall_graph::~metall_graph() {
 
 // drop_series requires a qualified selector name (starts with node. or edge.)
 bool metall_graph::drop_series(const series_name& name) {
-  if (priv_is_series_reserved(name)) {
+  if (name.is_reserved()) {
     m_comm.cerr0("Cannot remove reserved column ", name.qualified());
     return false;
   }
@@ -145,12 +147,12 @@ bool metall_graph::drop_series(const series_name& name) {
 
 result<> metall_graph::rename_series(const series_name& old_name,
                                      const series_name& new_name) {
-  if (priv_is_series_reserved(old_name)) {
+  if (old_name.is_reserved()) {
     return std::unexpected(
       std::format("cannot rename reserved column {}", old_name.qualified()));
   }
 
-  if (priv_is_series_reserved(new_name)) {
+  if (new_name.is_reserved()) {
     return std::unexpected(std::format("{} is a reserved name; cannot rename",
                                        new_name.qualified()));
   }

@@ -33,12 +33,6 @@ bool metall_graph::add_series(
   return false;
 }
 
-template <typename T>
-bool metall_graph::add_series(std::string_view name) {
-  series_name sname{name};
-  return add_series<T>(sname);
-}
-
 // TODO:  Remove this, used by select...
 template <typename Fn>
 void metall_graph::visit_node_field(const metall_graph::series_name& name,
