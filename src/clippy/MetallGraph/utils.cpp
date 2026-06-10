@@ -6,28 +6,21 @@
 
 namespace metalldata {
 
-std::expected<metall_graph::series_name, metall_graph::return_code> obj2sn(
-  const boost::json::object &obj) {
-  metall_graph::return_code to_return;
+result<metall_graph::series_name> obj2sn(const boost::json::object &obj) {
   if (!obj.contains("rule")) {
-    to_return.error = "Series name invalid (norule)";
-    return std::unexpected(to_return);
+    return std::unexpected("series name invalid (norule)");
   }
 
   auto rule     = obj.at("rule");
   auto rule_obj = rule.get_object();
   if (!rule_obj.contains("var")) {
-    to_return.error = "Series name invalid (novar)";
-    return std::unexpected(to_return);
+    return std::unexpected("series name invalid (novar)");
   }
   return metall_graph::series_name(rule_obj.at("var").as_string());
 }
 
-std::expected<std::unordered_set<metall_graph::series_name>,
-              metall_graph::return_code>
-obj2sn(const std::unordered_set<boost::json::object> &objset) {
-  metall_graph::return_code to_return;
-
+result<std::unordered_set<metall_graph::series_name>> obj2sn(
+  const std::unordered_set<boost::json::object> &objset) {
   std::unordered_set<metall_graph::series_name> sns;
   for (const auto &obj : objset) {
     auto r = obj2sn(obj);
@@ -41,10 +34,8 @@ obj2sn(const std::unordered_set<boost::json::object> &objset) {
   return sns;
 }
 
-std::expected<std::vector<metall_graph::series_name>, metall_graph::return_code>
-obj2sn(const std::vector<boost::json::object> &objset) {
-  metall_graph::return_code to_return;
-
+result<std::vector<metall_graph::series_name>> obj2sn(
+  const std::vector<boost::json::object> &objset) {
   std::vector<metall_graph::series_name> sns;
   for (const auto &obj : objset) {
     auto r = obj2sn(obj);

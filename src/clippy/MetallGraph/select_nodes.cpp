@@ -56,8 +56,8 @@ int main(int argc, char **argv) try {
     auto series_obj_set =
       clip.get<std::unordered_set<boost::json::object>>("series_names");
     auto try_obj = metalldata::obj2sn(series_obj_set);
-    if (!try_obj.has_value()) {
-      comm.cerr0(try_obj.error().error);
+    if (!try_obj) {
+      comm.cerr0(try_obj.error());
       return -1;
     }
     series_set = try_obj.value();

@@ -59,15 +59,12 @@ std::unordered_set<metall_graph::record_id_type> metall_graph::priv_random_idx(
 
 // Creates a column of bool where true values indicate that the edge has been
 // selected during the random sample.
-metall_graph::return_code metall_graph::sample_edges(
+result<> metall_graph::sample_edges(
   const metall_graph::series_name& series_name, size_t k,
   std::optional<uint64_t> optseed, const metall_graph::where_clause& where) {
-  metall_graph::return_code to_return;
-
   if (has_edge_series(series_name)) {
-    to_return.error =
-      std::format("Series {} already exists", series_name.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("series {} already exists", series_name.qualified()));
   }
 
   uint64_t seed;
@@ -90,7 +87,7 @@ metall_graph::return_code metall_graph::sample_edges(
   }
   m_comm.barrier();
   priv_set_column_by_idx(series_name, local_map);
-  return to_return;
+  return result<>{};
 }
 
 bjsn::array metall_graph::select_sample_edges(
@@ -187,15 +184,12 @@ bjsn::array metall_graph::select_sample_edges(
 
 // Creates a column of bool where true values indicate that the edge has been
 // selected during the random sample.
-metall_graph::return_code metall_graph::sample_nodes(
+result<> metall_graph::sample_nodes(
   const metall_graph::series_name& series_name, size_t k,
   std::optional<uint64_t> optseed, const metall_graph::where_clause& where) {
-  metall_graph::return_code to_return;
-
   if (has_node_series(series_name)) {
-    to_return.error =
-      std::format("Series {} already exists", series_name.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("Series {} already exists", series_name.qualified()));
   }
 
   uint64_t seed;
@@ -218,7 +212,7 @@ metall_graph::return_code metall_graph::sample_nodes(
   }
   m_comm.barrier();
   priv_set_column_by_idx(series_name, local_map);
-  return to_return;
+  return result<>{};
 }
 
 bjsn::array metall_graph::select_sample_nodes(

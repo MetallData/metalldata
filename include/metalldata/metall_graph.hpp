@@ -77,26 +77,6 @@ class metall_graph {
   using count_types =
     std::variant<std::monostate, bool, int64_t, double, std::string>;
 
-  /**
-   * @brief Return code struct for methods
-   *
-   */
-  struct return_code {
-    std::map<std::string, size_t>   warnings;
-    std::map<std::string, std::any> return_info;
-    std::string                     error;
-    bool                            good() const { return error.empty(); }
-    operator bool() const { return good(); }
-
-    // merges warnings from another return code. If the keys match, the
-    // numbers are incremented.
-    void merge_warnings(return_code other) {
-      for (const auto& [msg, count] : other.warnings) {
-        warnings[msg] += count;
-      }
-    }
-  };
-
   struct series_name {
    public:
     series_name() = default;
@@ -197,45 +177,30 @@ class metall_graph {
   //
   // Ingest from parquet, provide 2 column names to define an edge, provide if
   // directed, provide list of optional metadata fields
-  return_code ingest_parquet_edges(
+  result<std::map<std::string, size_t>> ingest_parquet_edges(
     std::string_view path, bool recursive, std::string_view col_u,
     std::string_view col_v, bool directed,
     const std::optional<std::vector<series_name>>& meta = std::nullopt);
 
-  return_code ingest_parquet_verts(std::string_view path, bool recursive,
-                                   std::string_view                key,
-                                   const std::vector<std::string>& meta,
-                                   bool overwrite = true);
+  result<std::map<std::string, std::any>> dump_parquet_verts(
+    std::string_view path, const std::vector<series_name>& meta,
+    bool overwrite = false);
 
-  return_code ingest_ndjson_edges(std::string_view path, bool recursive,
-                                  std::string_view col_u,
-                                  std::string_view col_v, bool directed,
-                                  const std::vector<std::string>& meta);
+  result<std::map<std::string, std::any>> dump_parquet_edges(
+    std::string_view path, const std::vector<series_name>& meta,
+    bool overwrite = false);
 
-  return_code ingest_ndjson_verts(std::string_view path, bool recursive,
-                                  std::string_view                key,
-                                  const std::vector<std::string>& meta,
-                                  bool overwrite = true);
+  result<> erase_edges(const where_clause& where);
 
-  return_code dump_parquet_verts(std::string_view                path,
-                                 const std::vector<series_name>& meta,
-                                 bool overwrite = false);
-
-  return_code dump_parquet_edges(std::string_view                path,
-                                 const std::vector<series_name>& meta,
-                                 bool overwrite = false);
-
-  return_code erase_edges(const where_clause& where);
-
-  return_code erase_edges(const series_name&                     name,
-                          boost::unordered_flat_set<std::string> haystack);
+  result<> erase_edges(const series_name&                     name,
+                       boost::unordered_flat_set<std::string> haystack);
 
   template <typename Fn, typename T>  // defined in metall_graph_faker.hpp
-  return_code add_faker_series(const metall_graph::series_name& name,
-                               Fn faker_func, const where_clause& where);
+  result<> add_faker_series(const metall_graph::series_name& name,
+                            Fn faker_func, const where_clause& where);
 
   template <typename Compare = std::greater<void>>
-  metalldata::result<std::vector<std::vector<count_types>>> topk(
+  result<std::vector<std::vector<count_types>>> topk(
     size_t k, const series_name& ser_name,
     const std::vector<series_name>& ser_inc, Compare comp,
     const where_clause& where);
@@ -310,8 +275,8 @@ class metall_graph {
   // edge.)
   bool drop_series(const series_name& name);
 
-  return_code rename_series(const series_name& old_name,
-                            const series_name& new_name);
+  result<> rename_series(const series_name& old_name,
+                         const series_name& new_name);
 
   // has_node_series requires an UNqualified (stripped) selector name.
   bool has_node_series(std::string_view unqualified_name) const {
@@ -392,13 +357,11 @@ class metall_graph {
     m_pedges->visit_field(name.unqualified(), record_id, func);
   }
 
-  // TODO: change unexpected to return_code (see utils.cpp / obj2sn)
-  std::expected<boost::json::array, std::string> select_edges(
+  result<boost::json::array> select_edges(
     const std::unordered_set<metall_graph::series_name>& series_set,
     const metall_graph::where_clause& where, size_t limit);
 
-  // TODO: change unexpected to return_code (see utils.cpp / obj2sn)
-  std::expected<boost::json::array, std::string> select_nodes(
+  result<boost::json::array> select_nodes(
     const std::unordered_set<metall_graph::series_name>& series_set,
     const metall_graph::where_clause& where, size_t limit);
 
@@ -412,38 +375,38 @@ class metall_graph {
 
   operator bool() const { return good(); }
 
-  return_code in_degree(series_name out_name, const where_clause& where);
+  result<> in_degree(series_name out_name, const where_clause& where);
 
-  return_code out_degree(series_name out_name, const where_clause& where);
+  result<> out_degree(series_name out_name, const where_clause& where);
 
-  return_code degrees(series_name in_name, series_name out_name,
-                      const where_clause& where);
+  result<> degrees(series_name in_name, series_name out_name,
+                   const where_clause& where);
 
-  return_code degrees2(series_name in_name, series_name out_name,
-                       const where_clause& where);
+  result<> degrees2(series_name in_name, series_name out_name,
+                    const where_clause& where);
 
-  return_code nhops(const series_name& out_node_series, size_t nhops,
-                    const std::vector<std::string>& sources,
-                    const where_clause&             where);
+  result<> nhops(const series_name& out_node_series, size_t nhops,
+                 const std::vector<std::string>& sources,
+                 const where_clause&             where);
 
-  return_code connected_components(const series_name&  out_node_series,
-                                   const where_clause& where);
+  result<> connected_components(const series_name&  out_node_series,
+                                const where_clause& where);
 
   // TODO: also allow val a function
-  return_code assign(series_name series_name, const series_types& val,
-                     const where_clause& where);
+  result<> assign(series_name series_name, const series_types& val,
+                  const where_clause& where);
 
-  return_code sample_edges(const series_name& series_name, size_t k,
-                           std::optional<uint64_t> optseed,
-                           const where_clause&     where);
+  result<> sample_edges(const series_name& series_name, size_t k,
+                        std::optional<uint64_t> optseed,
+                        const where_clause&     where);
 
   bjsn::array select_sample_edges(
     size_t k, const std::vector<metall_graph::series_name>& metadata,
     std::optional<uint64_t> optseed, const metall_graph::where_clause& where);
 
-  return_code sample_nodes(const series_name& series_name, size_t k,
-                           std::optional<uint64_t> optseed,
-                           const where_clause&     where);
+  result<> sample_nodes(const series_name& series_name, size_t k,
+                        std::optional<uint64_t> optseed,
+                        const where_clause&     where);
 
   bjsn::array select_sample_nodes(
     size_t k, const std::vector<metall_graph::series_name>& metadata,
@@ -542,7 +505,7 @@ class metall_graph {
         return std::get<T>(f.value());
       }
     }
-    return {};
+    return std::nullopt;
   }
 
   std::vector<std::optional<series_types>> priv_local_get_edge_fields(
@@ -634,8 +597,8 @@ class metall_graph {
   size_t priv_local_num_nodes() const { return m_pnodes->num_records(); };
   size_t priv_local_num_edges() const { return m_pedges->num_records(); };
 
-  return_code priv_in_out_degree(series_name name, const where_clause& where,
-                                 bool outdeg);
+  result<> priv_in_out_degree(series_name name, const where_clause& where,
+                              bool outdeg);
 
   template <typename Fn>
   void priv_for_all_edges(Fn func) const;
@@ -676,8 +639,8 @@ class metall_graph {
   // TODO: memoize / persist the node_to_id map so that we're not building it
   // every time.
   template <typename T>
-  return_code set_node_column(const series_name& nodecol_name,
-                              const T&           collection);
+  result<> set_node_column(const series_name& nodecol_name,
+                           const T&           collection);
 
   /**
    * @brief Retrives or inserts node string label into reverse lookup.   Returns
@@ -716,7 +679,7 @@ class metall_graph {
     if (ret) {
       return local_node_idx_type{m_pnode_to_idx->at(ret.value())};
     }
-    return {};
+    return std::nullopt;
   }
 
   std::unordered_set<record_id_type> priv_random_idx(
@@ -729,8 +692,8 @@ class metall_graph {
     m_partitioner;
 
   template <typename T>
-  metall_graph::return_code priv_set_column_by_idx(const series_name& col_name,
-                                                   const T& collection);
+  result<> priv_set_column_by_idx(const series_name& col_name,
+                                  const T&           collection);
 
   static count_types priv_series_to_count_type(
     const record_store_type::series_type& sv);

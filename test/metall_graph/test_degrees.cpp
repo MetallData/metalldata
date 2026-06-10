@@ -123,8 +123,8 @@ int main(int argc, char** argv) {
       world.cout0("  In-degree  -> ", in_col.qualified());
       world.cout0("  Out-degree -> ", out_col.qualified());
       auto result = graph.degrees(in_col, out_col, where);
-      if (!result.error.empty()) {
-        world.cerr0("Error computing degrees: ", result.error);
+      if (!result) {
+        world.cerr0("Error computing degrees: ", result.error());
         return 1;
       }
       world.cout0("Degree computation complete");
@@ -132,8 +132,8 @@ int main(int argc, char** argv) {
       // Only in-degree
       world.cout0("Computing in-degree -> ", in_col.qualified());
       auto result = graph.in_degree(in_col, where);
-      if (!result.error.empty()) {
-        world.cerr0("Error computing in-degree: ", result.error);
+      if (!result) {
+        world.cerr0("Error computing in-degree: ", result.error());
         return 1;
       }
       world.cout0("In-degree computation complete");
@@ -141,8 +141,8 @@ int main(int argc, char** argv) {
       // Only out-degree
       world.cout0("Computing out-degree -> ", out_col.qualified());
       auto result = graph.out_degree(out_col, where);
-      if (!result.error.empty()) {
-        world.cerr0("Error computing out-degree: ", result.error);
+      if (!result) {
+        world.cerr0("Error computing out-degree: ", result.error());
         return 1;
       }
       world.cout0("Out-degree computation complete");

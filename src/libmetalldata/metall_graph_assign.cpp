@@ -3,15 +3,15 @@
 
 namespace metalldata {
 
-metall_graph::return_code metall_graph::assign(
-  series_name name, const metall_graph::series_types& val,
-  const metall_graph::where_clause& where) {
+result<> metall_graph::assign(series_name                       name,
+                              const metall_graph::series_types& val,
+                              const metall_graph::where_clause& where) {
   using record_id_type = record_store_type::record_id_type;
-  return_code to_return;
+  result<> to_return;
 
   if (has_series(name)) {
-    to_return.error = std::format("Series {} already exists", name.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("series {} already exists", name.qualified()));
   }
 
   if (name.is_edge_series()) {
@@ -35,14 +35,13 @@ metall_graph::return_code metall_graph::assign(
       val);
 
     if (!assigned_ok) {
-      to_return.error = "Invalid type for value; aborting";
-      return to_return;
+      return std::unexpected("invalid type for value");
     }
 
     auto name_idx_o = priv_local_find_edge_series(name.unqualified());
     if (!name_idx_o.has_value()) {
-      to_return.error = std::format("Series {} not found", name.qualified());
-      return to_return;
+      return std::unexpected(
+        std::format("series {} not found", name.qualified()));
     }
     auto name_idx = name_idx_o.value();
 
@@ -80,13 +79,12 @@ metall_graph::return_code metall_graph::assign(
       val);
 
     if (!assigned_ok) {
-      to_return.error = "Invalid type for value; aborting";
-      return to_return;
+      return std::unexpected("invalid type for value; aborting");
     }
     auto name_idx_o = priv_local_find_node_series(name.unqualified());
     if (!name_idx_o.has_value()) {
-      to_return.error = std::format("Series {} not found", name.qualified());
-      return to_return;
+      return std::unexpected(
+        std::format("series {} not found", name.qualified()));
     }
     auto name_idx = name_idx_o.value();
 
@@ -105,7 +103,8 @@ metall_graph::return_code metall_graph::assign(
     };
     priv_for_all_nodes(wrapper, where);
   } else {
-    to_return.error = std::format("Unknown series name: {}", name.qualified());
+    return std::unexpected(
+      std::format("unknown series name: {}", name.qualified()));
   };
 
   return to_return;

@@ -52,10 +52,10 @@ namespace metalldata {
 ///   r = compute_result(items);  // warnings intact
 ///   return r;
 /// @endcode
-template <typename T>
+template <typename T = void>
 struct result : std::expected<T, std::string> {
   using Base = std::expected<T, std::string>;
-  using Base::expected;
+  using Base::Base;
 
   template <typename TT>
   result& operator=(TT&& value) {
@@ -66,6 +66,16 @@ struct result : std::expected<T, std::string> {
   template <typename... Args>
   void add_warning(std::format_string<Args...> fmt, Args&&... args) {
     m_warnings[std::format(fmt, std::forward<Args>(args)...)]++;
+  }
+
+  void add_warning(std::string msg) { m_warnings[std::move(msg)]++; }
+
+  template <typename... Args>
+  void add_warnings(size_t n, std::format_string<Args...> fmt, Args&&... args) {
+    m_warnings[std::format(fmt, std::forward<Args>(args)...)] += n;
+  }
+  void add_warnings(size_t n, std::string msg) {
+    m_warnings[std::move(msg)] += n;
   }
 
   const std::map<std::string, size_t>& warnings() const { return m_warnings; }
