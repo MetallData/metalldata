@@ -452,7 +452,7 @@ class metall_graph {
   /// hash table from node string label to local id.  For local nodes only.
   using map_local_node_to_local_id_type = boost::unordered::unordered_flat_map<
     string_table_accessor, local_node_idx_type,
-    compact_string::string_accessor_fast_hash,
+    compact_string::string_accessor_hasher,
     std::equal_to<compact_string::string_accessor>,
     metall::manager::allocator_type<
       std::pair<const compact_string::string_accessor, local_node_idx_type>>>;
@@ -460,8 +460,7 @@ class metall_graph {
   /// hash table from node string label to global locator.  For tracking remote
   /// nodes.
   using map_node_to_locator_type = boost::unordered::unordered_flat_map<
-    string_table_accessor, node_locator,
-    compact_string::string_accessor_fast_hash,
+    string_table_accessor, node_locator, compact_string::string_accessor_hasher,
     std::equal_to<compact_string::string_accessor>,
     metall::manager::allocator_type<
       std::pair<const compact_string::string_accessor, node_locator>>>;
