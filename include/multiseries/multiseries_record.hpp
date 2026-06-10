@@ -202,6 +202,7 @@ class basic_record_store {
   /// \note if a value doesn't exist for a given series, std::monostate is
   /// included.
   template <std::ranges::range R>
+  // constrain the range to elements of series_index_type
     requires std::same_as<std::ranges::range_value_t<R>, series_index_type>
   std::optional<std::vector<series_type>> get_record(
     const R &ser_inc, const record_id_type record_id) const {
