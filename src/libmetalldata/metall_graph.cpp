@@ -62,10 +62,10 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
       "globalnodeindex")(manager.get_allocator());
 
     // add the default series for the indices.
-    add_series<std::string_view>(NODE_COL);
-    add_series<std::string_view>(U_COL);
-    add_series<std::string_view>(V_COL);
-    add_series<bool>(DIR_COL);
+    add_series<std::string_view>(series_name::NODE_COL);
+    add_series<std::string_view>(series_name::U_COL);
+    add_series<std::string_view>(series_name::V_COL);
+    add_series<bool>(series_name::DIR_COL);
 
   } else {  // open existing
     comm.barrier();
@@ -95,17 +95,19 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
   }
 
   ///\todo Instead of hard crashing, need a nicer fail, maybe .good() method
-  YGM_ASSERT_RELEASE(has_node_series(NODE_COL));
-  YGM_ASSERT_RELEASE(has_edge_series(U_COL));
-  YGM_ASSERT_RELEASE(has_edge_series(V_COL));
-  YGM_ASSERT_RELEASE(has_edge_series(DIR_COL));
+  YGM_ASSERT_RELEASE(has_node_series(series_name::NODE_COL));
+  YGM_ASSERT_RELEASE(has_edge_series(series_name::U_COL));
+  YGM_ASSERT_RELEASE(has_edge_series(series_name::V_COL));
+  YGM_ASSERT_RELEASE(has_edge_series(series_name::DIR_COL));
 
   //
   // Find required column names
-  auto u_col_idx_o = m_pedges->find_series(U_COL.unqualified());
-  auto v_col_idx_o = m_pedges->find_series(V_COL.unqualified());
-  auto dir_col_idx_o = m_pedges->find_series(DIR_COL.unqualified());
-  auto node_col_idx_o = m_pnodes->find_series(NODE_COL.unqualified());
+  auto u_col_idx_o = m_pedges->find_series(series_name::U_COL.unqualified());
+  auto v_col_idx_o = m_pedges->find_series(series_name::V_COL.unqualified());
+  auto dir_col_idx_o =
+    m_pedges->find_series(series_name::DIR_COL.unqualified());
+  auto node_col_idx_o =
+    m_pnodes->find_series(series_name::NODE_COL.unqualified());
   YGM_ASSERT_RELEASE(u_col_idx_o.has_value());
   YGM_ASSERT_RELEASE(v_col_idx_o.has_value());
   YGM_ASSERT_RELEASE(dir_col_idx_o.has_value());
@@ -134,7 +136,7 @@ metall_graph::~metall_graph() {
 
 // drop_series requires a qualified selector name (starts with node. or edge.)
 bool metall_graph::drop_series(const series_name& name) {
-  if (RESERVED_COLUMN_NAMES.contains(name)) {
+  if (name.is_reserved()) {
     m_comm.cerr0("Cannot remove reserved column ", name.qualified());
     return false;
   }
@@ -148,39 +150,34 @@ bool metall_graph::drop_series(const series_name& name) {
   return false;
 }
 
-metall_graph::return_code metall_graph::rename_series(
-  const series_name& old_name, const series_name& new_name) {
-  metall_graph::return_code to_return;
-  if (RESERVED_COLUMN_NAMES.contains(old_name)) {
-    to_return.error =
-      std::format("Cannot rename reserved column {}", old_name.qualified());
-    return to_return;
+result<> metall_graph::rename_series(const series_name& old_name,
+                                     const series_name& new_name) {
+  if (old_name.is_reserved()) {
+    return std::unexpected(
+      std::format("cannot rename reserved column {}", old_name.qualified()));
   }
 
-  if (RESERVED_COLUMN_NAMES.contains(new_name)) {
-    to_return.error =
-      std::format("{} is a reserved name; cannot rename", new_name.qualified());
-    return to_return;
+  if (new_name.is_reserved()) {
+    return std::unexpected(std::format("{} is a reserved name; cannot rename",
+                                       new_name.qualified()));
   }
 
   if (old_name.prefix() != new_name.prefix()) {
-    to_return.error =
-      std::format("Series must be of the same type (got {} and {}) ",
-                  old_name.prefix(), new_name.prefix());
-    return to_return;
+    return std::unexpected(
+      std::format("series must be of the same type (got {} and {}) ",
+                  old_name.prefix(), new_name.prefix()));
   }
 
   if (old_name.is_node_series()) {
     m_pnodes->rename_series(old_name.unqualified(), new_name.unqualified());
-    return to_return;
+    return result<>{};
   }
   if (old_name.is_edge_series()) {
     m_pedges->rename_series(old_name.unqualified(), new_name.unqualified());
-    return to_return;
+    return result<>{};
   }
-  to_return.error =
-    std::format("Unknown series type: {}", old_name.qualified());
-  return to_return;
+  return std::unexpected(
+    std::format("Unknown series type: {}", old_name.qualified()));
 }
 
 /// Converts a multiseries series_type variant to a metall_graph data_types

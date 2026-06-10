@@ -63,12 +63,12 @@ int main(int argc, char **argv) try {
       ? mg.ingest_parquet_edges(input_path, true, col_u, col_v, directed, meta)
       : mg.ingest_parquet_edges(input_path, true, col_u, col_v, directed);
 
-  if (!rc.good()) {
-    comm.cerr0(rc.error);
+  if (!rc) {
+    comm.cerr0(rc.error());
     return -1;
   }
 
-  for (const auto &[warn, count] : rc.warnings) {
+  for (const auto &[warn, count] : rc.warnings()) {
     comm.cerr0(std::format("{} : {}", warn, count));
   }
 
@@ -77,6 +77,7 @@ int main(int argc, char **argv) try {
   // TODO: the return_info dict vals are std::any. This needs explicit JSON
   // serialization if we want to return info from it.
   //   clip.to_return(rc.return_info);
+  clip.to_return(rc.value());
   return 0;
 } catch (std::runtime_error e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";

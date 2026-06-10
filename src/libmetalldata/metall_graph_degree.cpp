@@ -7,6 +7,7 @@
 // of a map.
 
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 #include <set>
@@ -32,13 +33,13 @@
 
 namespace metalldata {
 
-metall_graph::return_code metall_graph::out_degree(
-  series_name out_name, const metall_graph::where_clause& where) {
+result<> metall_graph::out_degree(series_name                       out_name,
+                                  const metall_graph::where_clause& where) {
   return priv_in_out_degree(out_name, where, true);
 }
 
-metall_graph::return_code metall_graph::in_degree(
-  series_name in_name, const metall_graph::where_clause& where) {
+result<> metall_graph::in_degree(series_name                       in_name,
+                                 const metall_graph::where_clause& where) {
   return priv_in_out_degree(in_name, where, false);
 }
 
@@ -51,14 +52,13 @@ metall_graph::return_code metall_graph::in_degree(
  * @param series_name Name of the series to store degree values
  * @param where Where clause to filter nodes
  * @param outdeg If true, compute out-degree; if false, compute in-degree
- * @return return_code indicating success or failure
+ * @return result<void>
  */
-metall_graph::return_code metall_graph::priv_in_out_degree(
+result<> metall_graph::priv_in_out_degree(
   series_name name, const metall_graph::where_clause& where, bool outdeg) {
   using record_id_type = record_store_type::record_id_type;
 
-  metall_graph::return_code to_return;
-  edge_series_idx_type      degcol, otherdegcol;
+  edge_series_idx_type degcol, otherdegcol;
   if (outdeg) {
     degcol = m_u_col_idx;
     otherdegcol = m_v_col_idx;
@@ -68,21 +68,17 @@ metall_graph::return_code metall_graph::priv_in_out_degree(
   }
 
   if (!name.is_node_series()) {
-    to_return.error = std::format("Invalid series name: {}", name.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("invalid series name: {}", name.qualified()));
   }
 
   if (m_pnodes->contains_series(name.unqualified())) {
-    to_return.error = std::format("Series {} already exists", name.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("series {} already exists", name.qualified()));
   }
 
   auto                                      edges_ = m_pedges;
   ygm::container::map<std::string, int64_t> degrees(m_comm);
-
-  auto node_col_id_o = m_pnodes->find_series(NODE_COL.unqualified());
-  YGM_ASSERT_RELEASE(node_col_id_o.has_value());
-  auto node_col_id = node_col_id_o.value();
 
   std::vector<std::string> nodes;
   priv_for_all_nodes(
@@ -129,51 +125,34 @@ metall_graph::return_code metall_graph::priv_in_out_degree(
   // }
 
   m_comm.barrier();
-  set_node_column(name, degrees);
-
-  return to_return;
+  return set_node_column(name, degrees);
 }
 
-metall_graph::return_code metall_graph::degrees(
-  series_name in_name, series_name out_name,
-  const metall_graph::where_clause& where) {
+result<> metall_graph::degrees(series_name in_name, series_name out_name,
+                               const metall_graph::where_clause& where) {
   using record_id_type = record_store_type::record_id_type;
 
-  metall_graph::return_code to_return;
-
   if (!in_name.is_node_series()) {
-    to_return.error =
-      std::format("Invalid series name: {}", in_name.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("invalid series name: {}", in_name.qualified()));
   }
 
   if (!out_name.is_node_series()) {
-    to_return.error =
-      std::format("Invalid series name: {}", out_name.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("invalid series name: {}", out_name.qualified()));
   }
 
   if (m_pnodes->contains_series(in_name.unqualified())) {
-    to_return.error =
-      std::format("Series {} already exists", in_name.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("series {} already exists", in_name.qualified()));
   }
   if (m_pnodes->contains_series(out_name.unqualified())) {
-    to_return.error =
-      std::format("Series {} already exists", out_name.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("series {} already exists", out_name.qualified()));
   }
 
   ygm::container::map<std::string, int64_t> indegrees(m_comm);
   ygm::container::map<std::string, int64_t> outdegrees(m_comm);
-
-  auto node_col_id_o = m_pnodes->find_series(NODE_COL.unqualified());
-  if (!node_col_id_o.has_value()) {
-    to_return.error = std::format("Series {} not found", NODE_COL.qualified());
-    return to_return;
-  }
-
-  auto node_col_id = node_col_id_o.value();
 
   priv_for_all_nodes(
     [&](local_node_idx_type nid) {
@@ -187,7 +166,6 @@ metall_graph::return_code metall_graph::degrees(
 
   m_comm.barrier();
 
-  
   priv_for_all_edges(
     [&](local_edge_idx_type eid) {
       // Note: clangd may report a false positive error on the next line
@@ -202,7 +180,6 @@ metall_graph::return_code metall_graph::degrees(
       outdegrees.async_visit(out_edge_name,
                              [&](const auto& key, auto& val) { val++; });
 
-      
       bool is_directed = priv_local_edge_is_directed(eid).value_or(false);
       if (!is_directed) {
         indegrees.async_visit(out_edge_name,
@@ -240,66 +217,39 @@ metall_graph::return_code metall_graph::degrees(
   // because it uses the same partitioning scheme as we used when we added the
   // nodes in ingest.
 
-  to_return = set_node_column(in_name, indegrees);
+  auto to_return = set_node_column(in_name, indegrees);
   auto to_return2 = set_node_column(out_name, outdegrees);
   to_return.merge_warnings(to_return2);
 
   return to_return;
 }
 
-metall_graph::return_code metall_graph::degrees2(
-  series_name in_name, series_name out_name,
-  const metall_graph::where_clause& where) {
+result<> metall_graph::degrees2(series_name in_name, series_name out_name,
+                                const metall_graph::where_clause& where) {
   using record_id_type = record_store_type::record_id_type;
 
-  metall_graph::return_code to_return;
-
   if (!in_name.is_node_series()) {
-    to_return.error =
-      std::format("Invalid series name: {}", in_name.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("invalid series name: {}", in_name.qualified()));
   }
 
   if (!out_name.is_node_series()) {
-    to_return.error =
-      std::format("Invalid series name: {}", out_name.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("invalid series name: {}", out_name.qualified()));
   }
 
   if (m_pnodes->contains_series(in_name.unqualified())) {
-    to_return.error =
-      std::format("Series {} already exists", in_name.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("series {} already exists", in_name.qualified()));
   }
   if (m_pnodes->contains_series(out_name.unqualified())) {
-    to_return.error =
-      std::format("Series {} already exists", out_name.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("series {} already exists", out_name.qualified()));
   }
 
   auto                                      edges_ = m_pedges;
   ygm::container::counting_set<std::string> indegrees(m_comm);
   ygm::container::counting_set<std::string> outdegrees(m_comm);
-
-  auto u_col_o = m_pedges->find_series(U_COL.unqualified());
-  if (!u_col_o.has_value()) {
-    to_return.error = std::format("Series {} not found", U_COL.qualified());
-    return to_return;
-  }
-  auto v_col_o = m_pedges->find_series(V_COL.unqualified());
-  if (!v_col_o.has_value()) {
-    to_return.error = std::format("Series {} not found", V_COL.qualified());
-    return to_return;
-  }
-  auto dir_col_o = m_pedges->find_series(DIR_COL.unqualified());
-  if (!dir_col_o.has_value()) {
-    to_return.error = std::format("Series {} not found", DIR_COL.qualified());
-    return to_return;
-  }
-
-  auto u_col = u_col_o.value();
-  auto v_col = v_col_o.value();
-  auto dir_col = dir_col_o.value();
 
   priv_for_all_edges(
     [&](local_edge_idx_type eid) {
@@ -324,7 +274,7 @@ metall_graph::return_code metall_graph::degrees2(
   // explicit here.
   m_comm.barrier();
 
-  to_return = set_node_column(in_name, indegrees);
+  auto to_return = set_node_column(in_name, indegrees);
   auto to_return2 = set_node_column(out_name, outdegrees);
   to_return.merge_warnings(to_return2);
 

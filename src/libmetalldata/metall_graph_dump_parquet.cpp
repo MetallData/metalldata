@@ -2,18 +2,24 @@
 #include <parquet_writer/parquet_writer.hpp>
 #include <format>
 #include <fstream>
+#include <utility>
+#include <map>
 
+namespace {
+using RC = std::map<std::string, std::any>;
+}
 namespace metalldata {
-metall_graph::return_code metall_graph::dump_parquet_verts(
+result<RC> metall_graph::dump_parquet_verts(
   std::string_view path, const std::vector<series_name>& meta, bool overwrite) {
-  return_code to_return;
+  result<RC> to_return;
 
   // Build field specifications: node.id (string) + metadata columns
   std::vector<std::string> field_specs;
   field_specs.reserve(1 + meta.size());
 
   // Add the node ID column (always a string)
-  field_specs.push_back(std::format("{}:s", NODE_COL.unqualified()));
+  field_specs.push_back(
+    std::format("{}:s", series_name::NODE_COL.unqualified()));
 
   // Add metadata columns with their types
   // Collect series indices first
@@ -22,11 +28,11 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
   for (const auto& sn : meta) {
     auto idx_o = m_pnodes->find_series(sn.unqualified());
     if (!idx_o.has_value()) {
-      to_return
-        .warnings[std::format("Column '{}' not found", sn.qualified())]++;
+      to_return.add_warning(
+        std::format("column '{}' not found", sn.qualified()));
       continue;
     }
-    if (RESERVED_COLUMN_NAMES.contains(sn)) {
+    if (sn.is_reserved()) {
       continue;
     }
 
@@ -53,7 +59,7 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
       }
       auto sample_val = sample_val_o.value();
 
-      char type_char  = 's';  // default to string
+      char type_char = 's';  // default to string
       bool found_type = false;
       std::visit(
         [&type_char, &found_type](const auto& v) {
@@ -61,23 +67,23 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
           if constexpr (std::is_same_v<T, std::monostate>) {
             found_type = false;
           } else if constexpr (std::is_same_v<T, bool>) {
-            type_char  = 'b';
+            type_char = 'b';
             found_type = true;
           } else if constexpr (std::is_same_v<T, int64_t>) {
-            type_char  = 'i';
+            type_char = 'i';
             found_type = true;
           } else if constexpr (std::is_same_v<T, double>) {
-            type_char  = 'f';
+            type_char = 'f';
             found_type = true;
           } else if constexpr (std::is_same_v<T, std::string_view>) {
-            type_char  = 's';
+            type_char = 's';
             found_type = true;
           }
         },
         sample_val);
 
       if (found_type) {
-        meta_info[i]       = {idx, type_char};
+        meta_info[i] = {idx, type_char};
         type_determined[i] = true;
       } else {
         all_determined = false;
@@ -87,7 +93,7 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
     if (all_determined) break;
   }
 
-  m_comm.cerr0("meta_series.size = ", meta_series.size());
+  // m_comm.cerr0("meta_series.size = ", meta_series.size());
   // Build field specs with determined types
   for (size_t i = 0; i < meta_series.size(); ++i) {
     auto [idx, sn] = meta_series[i];
@@ -106,9 +112,8 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
   if (!overwrite) {
     std::ifstream file_check(filename);
     if (file_check.good()) {
-      to_return.error = std::format(
-        "File '{}' already exists and overwrite is false", filename);
-      return to_return;
+      return std::unexpected(std::format(
+        "file '{}' already exists and overwrite is false", filename));
     }
   }
 
@@ -117,16 +122,15 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
     parquet_writer::ParquetWriter writer(filename, field_specs);
 
     if (!writer.is_valid()) {
-      to_return.error = "Failed to create Parquet writer";
-      return to_return;
+      return std::unexpected("failed to create Parquet writer");
     }
 
     // Prepare node ID series index
-    auto node_col_idx_o = m_pnodes->find_series(NODE_COL.unqualified());
+    auto node_col_idx_o =
+      m_pnodes->find_series(series_name::NODE_COL.unqualified());
     if (!node_col_idx_o.has_value()) {
-      to_return.error =
-        std::format("Series {} not found", NODE_COL.qualified());
-      return to_return;
+      return std::unexpected(
+        std::format("series {} not found", series_name::NODE_COL.qualified()));
     }
     auto node_col_idx = node_col_idx_o.value();
     // Write rows
@@ -156,26 +160,28 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
 
       auto status = writer.write_row(row);
       if (!status.ok()) {
-        to_return.warnings["Write errors"]++;
+        to_return.add_warning("write error");
       }
     });
 
     // Flush and close
     auto flush_status = writer.flush();
     if (!flush_status.ok()) {
-      to_return.warnings["Flush failed"]++;
+      to_return.add_warning("flush failed");
     }
 
     auto close_status = writer.close();
     if (!close_status.ok()) {
-      to_return.warnings["Close failed"]++;
+      to_return.add_warning("close failed");
     }
 
-    to_return.return_info["rows_written"] = m_pnodes->num_records();
-    to_return.return_info["filename"]     = filename;
+    RC retdict{{"rows_written", m_pnodes->num_records()},
+               {"filename", filename}};
+
+    to_return = retdict;
 
   } catch (const std::exception& e) {
-    to_return.error = std::format("Exception: {}", e.what());
+    return std::unexpected(std::format("exception: {}", e.what()));
   }
 
   m_comm.barrier();
@@ -183,9 +189,9 @@ metall_graph::return_code metall_graph::dump_parquet_verts(
   return to_return;
 }
 
-metall_graph::return_code metall_graph::dump_parquet_edges(
+result<RC> metall_graph::dump_parquet_edges(
   std::string_view path, const std::vector<series_name>& meta, bool overwrite) {
-  return_code to_return;
+  result<RC> to_return;
 
   // Build field specifications: edge.u, edge.v, edge.directed + metadata
   // columns
@@ -193,9 +199,10 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
   field_specs.reserve(3 + meta.size());
 
   // Add the edge U, V, and directed columns
-  field_specs.push_back(std::format("{}:s", U_COL.unqualified()));
-  field_specs.push_back(std::format("{}:s", V_COL.unqualified()));
-  field_specs.push_back(std::format("{}:b", DIR_COL.unqualified()));
+  field_specs.push_back(std::format("{}:s", series_name::U_COL.unqualified()));
+  field_specs.push_back(std::format("{}:s", series_name::V_COL.unqualified()));
+  field_specs.push_back(
+    std::format("{}:b", series_name::DIR_COL.unqualified()));
 
   // Add metadata columns with their types
   // Collect series indices first
@@ -205,11 +212,11 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
     auto idx_o = m_pedges->find_series(sn.unqualified());
 
     if (!idx_o.has_value()) {
-      to_return
-        .warnings[std::format("Column '{}' not found", sn.qualified())]++;
+      to_return.add_warning(
+        std::format("column '{}' not found", sn.qualified()));
       continue;
     }
-    if (RESERVED_COLUMN_NAMES.contains(sn)) {
+    if (sn.is_reserved()) {
       continue;
     }
 
@@ -236,7 +243,7 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
       }
       auto sample_val = sample_val_o.value();
 
-      char type_char  = 's';  // default to string
+      char type_char = 's';  // default to string
       bool found_type = false;
       std::visit(
         [&type_char, &found_type](const auto& v) {
@@ -244,23 +251,23 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
           if constexpr (std::is_same_v<T, std::monostate>) {
             found_type = false;
           } else if constexpr (std::is_same_v<T, bool>) {
-            type_char  = 'b';
+            type_char = 'b';
             found_type = true;
           } else if constexpr (std::is_same_v<T, int64_t>) {
-            type_char  = 'i';
+            type_char = 'i';
             found_type = true;
           } else if constexpr (std::is_same_v<T, double>) {
-            type_char  = 'f';
+            type_char = 'f';
             found_type = true;
           } else if constexpr (std::is_same_v<T, std::string_view>) {
-            type_char  = 's';
+            type_char = 's';
             found_type = true;
           }
         },
         sample_val);
 
       if (found_type) {
-        meta_info[i]       = {idx, type_char};
+        meta_info[i] = {idx, type_char};
         type_determined[i] = true;
       } else {
         all_determined = false;
@@ -289,9 +296,8 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
   if (!overwrite) {
     std::ifstream file_check(filename);
     if (file_check.good()) {
-      to_return.error = std::format(
-        "File '{}' already exists and overwrite is false", filename);
-      return to_return;
+      return std::unexpected(std::format(
+        "file '{}' already exists and overwrite is false", filename));
     }
   }
 
@@ -300,30 +306,12 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
     parquet_writer::ParquetWriter writer(filename, field_specs);
 
     if (!writer.is_valid()) {
-      to_return.error = "Failed to create Parquet writer";
-      return to_return;
+      return std::unexpected("failed to create Parquet writer");
     }
 
-    // Prepare edge U, V, and directed series indices
-    auto u_col_o = m_pedges->find_series(U_COL.unqualified());
-    if (!u_col_o.has_value()) {
-      to_return.error = std::format("Series {} not found", U_COL.qualified());
-      return to_return;
-    }
-    auto v_col_o = m_pedges->find_series(V_COL.unqualified());
-    if (!v_col_o.has_value()) {
-      to_return.error = std::format("Series {} not found", V_COL.qualified());
-      return to_return;
-    }
-    auto dir_col_o = m_pedges->find_series(DIR_COL.unqualified());
-    if (!dir_col_o.has_value()) {
-      to_return.error = std::format("Series {} not found", DIR_COL.qualified());
-      return to_return;
-    }
-
-    auto u_col = u_col_o.value();
-    auto v_col = v_col_o.value();
-    auto dir_col = dir_col_o.value();
+    auto u_col = std::to_underlying(m_u_col_idx);
+    auto v_col = std::to_underlying(m_v_col_idx);
+    auto dir_col = std::to_underlying(m_dir_col_idx);
 
     // Write rows
     m_pedges->for_all_rows([&](record_id_type rid) {
@@ -383,26 +371,27 @@ metall_graph::return_code metall_graph::dump_parquet_edges(
 
       auto status = writer.write_row(row);
       if (!status.ok()) {
-        to_return.warnings["Write errors"]++;
+        to_return.add_warning("write error");
       }
     });
 
     // Flush and close
     auto flush_status = writer.flush();
     if (!flush_status.ok()) {
-      to_return.warnings["Flush failed"]++;
+      to_return.add_warning("flush failed");
     }
 
     auto close_status = writer.close();
     if (!close_status.ok()) {
-      to_return.warnings["Close failed"]++;
+      to_return.add_warning("Close failed");
     }
 
-    to_return.return_info["rows_written"] = m_pedges->num_records();
-    to_return.return_info["filename"]     = filename;
+    RC retdict{{"rows_written", m_pedges->num_records()},
+               {"filename", filename}};
+    to_return = retdict;
 
   } catch (const std::exception& e) {
-    to_return.error = std::format("Exception: {}", e.what());
+    return std::unexpected(std::format("exception: {}", e.what()));
   }
 
   m_comm.barrier();

@@ -50,8 +50,8 @@ int main(int argc, char **argv) try {
   metalldata::metall_graph mg(comm, path, false);
 
   auto result = mg.rename_series(old_name, new_name);
-  if (!result.good()) {
-    comm.cerr0(result.error);
+  if (!result) {
+    comm.cerr0(result.error());
     return 1;
   }
   clip.update_selectors(mg.get_selector_info());

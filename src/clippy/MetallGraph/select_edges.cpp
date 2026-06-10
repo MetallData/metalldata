@@ -58,8 +58,8 @@ int main(int argc, char **argv) try {
     auto series_obj_set =
       clip.get<std::unordered_set<boost::json::object>>("series_names");
     auto try_obj = metalldata::obj2sn(series_obj_set);
-    if (!try_obj.has_value()) {
-      comm.cerr0(try_obj.error().error);
+    if (!try_obj) {
+      comm.cerr0(try_obj.error());
       return -1;
     }
     series_set = try_obj.value();
@@ -68,7 +68,7 @@ int main(int argc, char **argv) try {
   // Build array of edge dictionaries
   auto expected_array = mg.select_edges(series_set, where_c, limit);
 
-  if (!expected_array.has_value()) {
+  if (!expected_array) {
     comm.cerr0(expected_array.error());
     return -1;
   }

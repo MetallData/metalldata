@@ -4,18 +4,20 @@
 #include <metalldata/metall_graph.hpp>
 #include <functional>
 #include <queue>
-#include "ygm/detail/collective.hpp"
-#include "ygm/utility/assert.hpp"
+#include <ygm/detail/collective.hpp>
+#include <ygm/utility/assert.hpp>
 
 namespace metalldata {
 
 template <typename Compare>
-
-metalldata::result<std::vector<std::vector<metall_graph::count_types>>>
+metalldata::result<
+  std::vector<std::vector<metalldata::metall_graph::count_types>>>
 metall_graph::topk(size_t k, const series_name& ser_name,
                    const std::vector<series_name>& ser_inc, Compare comp,
                    const where_clause& where) {
   record_store_type* pdata;
+  result<std::vector<std::vector<metalldata::metall_graph::count_types>>>
+    to_return;
 
   if (!has_series(ser_name)) {
     return std::unexpected(
@@ -28,7 +30,6 @@ metall_graph::topk(size_t k, const series_name& ser_name,
     return std::unexpected("Series type is unknown.");
   }
 
-  result<std::vector<std::vector<metall_graph::count_types>>> ret{};
   // we make sure that the compared column is element 0. This
   // also guarantees that the vector is not empty.
   std::vector<series_name> ser_inc_unq{ser_name};
@@ -36,7 +37,7 @@ metall_graph::topk(size_t k, const series_name& ser_name,
   for (const auto& ser : ser_inc) {
     if ((is_edge && !ser.is_edge_series()) ||
         (!is_edge && !ser.is_node_series())) {
-      ret.add_warning("invalid series {} ignored", ser.qualified());
+      to_return.add_warning("invalid series {} ignored", ser.qualified());
       continue;
     } else {
       ser_inc_unq.emplace_back(ser);
@@ -49,7 +50,7 @@ metall_graph::topk(size_t k, const series_name& ser_name,
   if (is_edge) {
     for (const auto& idx : priv_local_find_edge_series(ser_inc_unq)) {
       if (!idx.has_value()) {
-        ret.add_warning("found invalid edge series index; skipping");
+        to_return.add_warning("found invalid edge series index; skipping");
       } else {
         edge_idxs.emplace_back(idx.value());
       }
@@ -57,7 +58,7 @@ metall_graph::topk(size_t k, const series_name& ser_name,
   } else {
     for (const auto& idx : priv_local_find_node_series(ser_inc_unq)) {
       if (!idx.has_value()) {
-        ret.add_warning("found invalid node series index; skipping");
+        to_return.add_warning("found invalid node series index; skipping");
       } else {
         node_idxs.emplace_back(idx.value());
       }
@@ -159,8 +160,8 @@ metall_graph::topk(size_t k, const series_name& ser_name,
       return out;
     },
     m_comm);
-  ret = topk_outcome;
-  return ret;
+  to_return = topk_outcome;
+  return to_return;
 }
 
 }  // namespace metalldata

@@ -31,7 +31,8 @@ add_library(libmetalldata STATIC
             metall_graph_nunique.cpp 
             metall_graph_value_counts.cpp 
             metall_graph_priv_where_subgraph.cpp
-            metall_graph_indexing.cpp) 
+            metall_graph_indexing.cpp
+            metall_graph_series.cpp) 
 set_target_properties(libmetalldata PROPERTIES
   IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/lib/libmetalldata.so"
   INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/include/metalldata"
