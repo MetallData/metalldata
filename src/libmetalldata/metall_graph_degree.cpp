@@ -7,6 +7,7 @@
 // of a map.
 
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 #include <set>
@@ -57,7 +58,7 @@ result<> metall_graph::priv_in_out_degree(
   series_name name, const metall_graph::where_clause& where, bool outdeg) {
   using record_id_type = record_store_type::record_id_type;
 
-  edge_series_idx_type      degcol, otherdegcol;
+  edge_series_idx_type degcol, otherdegcol;
   if (outdeg) {
     degcol = m_u_col_idx;
     otherdegcol = m_v_col_idx;
@@ -78,10 +79,6 @@ result<> metall_graph::priv_in_out_degree(
 
   auto                                      edges_ = m_pedges;
   ygm::container::map<std::string, int64_t> degrees(m_comm);
-
-  auto node_col_id_o = m_pnodes->find_series(NODE_COL.unqualified());
-  YGM_ASSERT_RELEASE(node_col_id_o.has_value());
-  auto node_col_id = node_col_id_o.value();
 
   std::vector<std::string> nodes;
   priv_for_all_nodes(
@@ -157,14 +154,6 @@ result<> metall_graph::degrees(series_name in_name, series_name out_name,
   ygm::container::map<std::string, int64_t> indegrees(m_comm);
   ygm::container::map<std::string, int64_t> outdegrees(m_comm);
 
-  auto node_col_id_o = m_pnodes->find_series(NODE_COL.unqualified());
-  if (!node_col_id_o.has_value()) {
-    return std::unexpected(
-      std::format("series {} not found", NODE_COL.qualified()));
-  }
-
-  auto node_col_id = node_col_id_o.value();
-
   priv_for_all_nodes(
     [&](local_node_idx_type nid) {
       auto node_name_o = priv_local_get_node_label(nid);
@@ -177,7 +166,6 @@ result<> metall_graph::degrees(series_name in_name, series_name out_name,
 
   m_comm.barrier();
 
-  
   priv_for_all_edges(
     [&](local_edge_idx_type eid) {
       // Note: clangd may report a false positive error on the next line
@@ -192,7 +180,6 @@ result<> metall_graph::degrees(series_name in_name, series_name out_name,
       outdegrees.async_visit(out_edge_name,
                              [&](const auto& key, auto& val) { val++; });
 
-      
       bool is_directed = priv_local_edge_is_directed(eid).value_or(false);
       if (!is_directed) {
         indegrees.async_visit(out_edge_name,
@@ -263,26 +250,6 @@ result<> metall_graph::degrees2(series_name in_name, series_name out_name,
   auto                                      edges_ = m_pedges;
   ygm::container::counting_set<std::string> indegrees(m_comm);
   ygm::container::counting_set<std::string> outdegrees(m_comm);
-
-  auto u_col_o = m_pedges->find_series(U_COL.unqualified());
-  if (!u_col_o.has_value()) {
-    return std::unexpected(
-      std::format("series {} not found", U_COL.qualified()));
-  }
-  auto v_col_o = m_pedges->find_series(V_COL.unqualified());
-  if (!v_col_o.has_value()) {
-    return std::unexpected(
-      std::format("series {} not found", V_COL.qualified()));
-  }
-  auto dir_col_o = m_pedges->find_series(DIR_COL.unqualified());
-  if (!dir_col_o.has_value()) {
-    return std::unexpected(
-      std::format("series {} not found", DIR_COL.qualified()));
-  }
-
-  auto u_col = u_col_o.value();
-  auto v_col = v_col_o.value();
-  auto dir_col = dir_col_o.value();
 
   priv_for_all_edges(
     [&](local_edge_idx_type eid) {
