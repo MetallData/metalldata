@@ -168,6 +168,7 @@ class metall_graph {
     }
   };  // series_name
 
+  /// Forward declared, see impl/metall_graph_where.hpp
   struct where_clause;
 
   /*
