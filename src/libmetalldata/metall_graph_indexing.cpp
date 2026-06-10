@@ -1,5 +1,5 @@
 #include <metalldata/metall_graph.hpp>
-#include "string_table/string_store.hpp"
+#include <string_table/string_store.hpp>
 
 namespace metalldata {
 
@@ -21,7 +21,9 @@ metall_graph::priv_local_node_find(std::string_view label) const {
   YGM_ASSERT_RELEASE(m_partitioner.owner(label) == m_comm.rank());
   auto id_osa = compact_string::find_string(label, *m_pstring_store);
   if (id_osa.has_value()) {
-    return m_pnode_to_idx->at(id_osa.value());
+    if (m_pnode_to_idx->contains(id_osa.value())) {
+      return m_pnode_to_idx->at(id_osa.value());
+    }
   }
   return std::nullopt;
 }
