@@ -11,7 +11,7 @@
 #include <ygm/utility/boost_json.hpp>
 
 namespace metalldata {
-std::expected<bjsn::array, std::string> metall_graph::select_edges(
+result<bjsn::array> metall_graph::select_edges(
   const std::unordered_set<metall_graph::series_name>& series_set,
   const metall_graph::where_clause& where, size_t limit) {
   if (series_set.empty()) {
@@ -20,7 +20,7 @@ std::expected<bjsn::array, std::string> metall_graph::select_edges(
 
   for (const auto& s : series_set) {
     if (!s.is_edge_series()) {
-      return std::unexpected("All series must be of type edge.");
+      return std::unexpected("all series must be of type edge.");
     }
   }
 
@@ -72,7 +72,7 @@ std::expected<bjsn::array, std::string> metall_graph::select_edges(
   return limited;
 }
 
-std::expected<bjsn::array, std::string> metall_graph::select_nodes(
+result<bjsn::array> metall_graph::select_nodes(
   const std::unordered_set<metall_graph::series_name>& series_set,
   const metall_graph::where_clause& where, size_t limit) {
   if (series_set.empty()) {
@@ -82,7 +82,7 @@ std::expected<bjsn::array, std::string> metall_graph::select_nodes(
   for (const auto& s : series_set) {
     if (!s.is_node_series()) {
       return std::unexpected(std::format(
-        "All series must be of type node (got {}).", s.qualified()));
+        "all series must be of type node (got {}).", s.qualified()));
     }
   }
 

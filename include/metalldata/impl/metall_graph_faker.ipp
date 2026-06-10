@@ -6,11 +6,11 @@
 
 namespace metalldata {
 template <typename Fn, typename T>
-metall_graph::return_code metall_graph::add_faker_series(
-  const metall_graph::series_name& name, Fn faker_func,
-  const where_clause& where) {
-  metall_graph::return_code to_return;
-  auto                      first = faker_func();
+result<> metall_graph::add_faker_series(const metall_graph::series_name& name,
+                                        Fn                  faker_func,
+                                        const where_clause& where) {
+  result<> to_return;
+  auto     first = faker_func();
   using FT                        = std::decay_t<decltype(first)>;
 
   static_assert(std::is_constructible_v<T, FT>,
@@ -18,9 +18,8 @@ metall_graph::return_code metall_graph::add_faker_series(
 
   if (name.is_edge_series()) {
     if (has_edge_series(name)) {
-      to_return.error =
-        std::format("Edge series {} already exists", name.qualified());
-      return to_return;
+      return std::unexpected(
+        std::format("edge series {} already exists", name.qualified()));
     }
     auto ser_ind = priv_add_edge_series<T>(name.unqualified());
     auto rec_p   = m_pedges;
@@ -32,9 +31,8 @@ metall_graph::return_code metall_graph::add_faker_series(
       where);
   } else if (name.is_node_series()) {
     if (has_node_series(name)) {
-      to_return.error =
-        std::format("Node series {} already exists", name.qualified());
-      return to_return;
+      return std::unexpected(
+        std::format("node series {} already exists", name.qualified()));
     }
     auto ser_ind = priv_add_node_series<T>(name.unqualified());
     auto rec_p   = m_pnodes;
@@ -45,6 +43,7 @@ metall_graph::return_code metall_graph::add_faker_series(
       },
       where);
   }
+
   return to_return;
 }
 

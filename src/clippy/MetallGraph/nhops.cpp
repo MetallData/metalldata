@@ -55,17 +55,17 @@ int main(int argc, char **argv) try {
 
   auto rc = mg.nhops(sname, nhops, seeds, where_c);
 
-  if (!rc.good()) {
-    comm.cerr0(rc.error);
+  if (!rc) {
+    comm.cerr0(rc.error());
     return -1;
   }
 
-  for (const auto &[warn, count] : rc.warnings) {
+  for (const auto &[warn, count] : rc.warnings()) {
     comm.cerr0(std::format("{} : {}", warn, count));
   }
 
   clip.update_selectors(mg.get_selector_info());
-  clip.to_return(0);
+
   return 0;
 } catch (std::runtime_error e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";

@@ -31,20 +31,16 @@
 
 namespace metalldata {
 
-metall_graph::return_code metall_graph::connected_components(
-  const series_name& out_name, const where_clause& where) {
-  return_code to_return;
-
+result<> metall_graph::connected_components(const series_name&  out_name,
+                                            const where_clause& where) {
   if (!out_name.is_node_series()) {
-    to_return.error =
-      std::format("Invalid series name: {}", out_name.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("Invalid series name: {}", out_name.qualified()));
   }
 
   if (m_pnodes->contains_series(out_name.unqualified())) {
-    to_return.error =
-      std::format("Series {} already exists", out_name.qualified());
-    return to_return;
+    return std::unexpected(
+      std::format("Series {} already exists", out_name.qualified()));
   }
 
   // TODO: convert to (rank, node row id) tuples.
@@ -132,9 +128,8 @@ metall_graph::return_code metall_graph::connected_components(
     local_cc_map[v] = adj.first;
   });
 
-  to_return = set_node_column(out_name, local_cc_map);
-
-  return to_return;
+  // no warnings possible here, so just return the result directly.
+  return set_node_column(out_name, local_cc_map);
 }
 
 }  // namespace metalldata

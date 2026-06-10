@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <cassert>
 #include <cstdint>
+#include <format>
 
 #include <ygm/comm.hpp>
 #include <ygm/io/parquet_parser.hpp>
@@ -29,11 +30,11 @@
 
 namespace metalldata {
 
-metall_graph::return_code metall_graph::ingest_parquet_edges(
+result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
   std::string_view path, bool recursive, std::string_view col_u,
   std::string_view col_v, bool directed,
   const std::optional<std::vector<series_name>>& meta) {
-  return_code to_return;
+  result<std::map<std::string, size_t>> to_return;
   // Note: meta is exclusive of col_u and col_v. The metaset should
   // consist of qualified selector names (start with node. or edge.)
   // The parquet file, since it deals with edge data only, should use
@@ -67,9 +68,8 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
   for (const auto& name : detail::RESERVED_COLUMN_NAMES) {
     if (metaset.contains(name)) {
-      to_return.error =
-        "Error: reserved name " + name.qualified() + " found in meta data.";
-      return to_return;
+      return std::unexpected(
+        std::format("reserved name {} found in meta data", name.qualified()));
     }
   }
 
@@ -124,30 +124,30 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
         } else {
           std::stringstream ss;
           ss << "Unsupported column type: " << schema[i].type;
-          to_return.warnings[ss.str()]++;
+          to_return.add_warning(ss.str());
         }
 
         if (add_series_err) {
-          to_return.error = "Failed to add source column: " + pcol_name;
+          return std::unexpected(
+            std::format("failed to add source column: {}", pcol_name));
         }
       }
     };
   }  // for schema
 
   if (!got_u) {
-    to_return.error = "did not find u column: " + std::string(col_u);
-    return to_return;
+    return std::unexpected(
+      std::format("did not find u column: {}", std::string(col_u)));
   }
 
   if (!got_v) {
-    to_return.error = "did not find v column: " + std::string(col_v);
-    return to_return;
+    return std::unexpected(
+      std::format("did not find v column: {}", std::string(col_v)));
   }
 
   if (!has_edge_series(detail::DIR_COL)) {
     if (!add_series<bool>(detail::DIR_COL)) {
-      to_return.error = "could not add directed column";
-      return to_return;
+      return std::unexpected("could not add directed column");
     }
   }
 
@@ -164,11 +164,11 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
       auto v_val = row[v_col_idx];
 
       if (std::holds_alternative<std::monostate>(u_val)) {
-        to_return.warnings["invalid u value skipped"]++;
+        to_return.add_warning("invalid u value skipped");
         return;
       }
       if (std::holds_alternative<std::monostate>(v_val)) {
-        to_return.warnings["invalid v value skipped"]++;
+        to_return.add_warning("invalid v value skipped");
         return;
       }
 
@@ -212,7 +212,7 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
 
             // if monostate, just skip and log.
             if constexpr (std::is_same_v<T, std::monostate>) {
-              to_return.warnings[uv_invalid]++;
+              to_return.add_warning(uv_invalid);
               invalid_edge = true;
             } else {
               try {
@@ -236,7 +236,7 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
                 ++local_nedges;
               } catch (const std::exception) {
                 // something went wrong with the try block. Skip.
-                to_return.warnings[uv_invalid]++;
+                to_return.add_warning(uv_invalid);
                 invalid_edge = true;
               }
             }
@@ -264,10 +264,11 @@ metall_graph::return_code metall_graph::ingest_parquet_edges(
     });  // for_all
 
   m_comm.barrier();
-  to_return.return_info["num_edges_ingested"] = ygm::sum(local_nedges, m_comm);
-  to_return.return_info["num_new_nodes_ingested"] =
-    ygm::sum(m_pnode_to_idx->size() - local_nedges, m_comm);
-  return to_return;
+  std::map<std::string, size_t> retdict{
+    {"num_edges_ingested", ygm::sum(local_nedges, m_comm)},
+    {"num_new_nodes_ingested",
+     ygm::sum(m_pnode_to_idx->size() - local_nedges, m_comm)}};
+  return retdict;
 }
 
 }  // namespace metalldata

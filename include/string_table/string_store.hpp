@@ -409,7 +409,7 @@ std::optional<string_accessor> find_string(std::string_view           sv,
   if (ptr) {
     return string_accessor(ptr, sv.length());
   }
-  return {};
+  return std::nullopt;
 }
 
 }  // namespace compact_string
