@@ -118,44 +118,11 @@ class metall_graph {
     const std::vector<series_name>& ser_inc, Compare comp,
     const where_clause& where);
 
-  std::map<std::string, std::string> get_edge_selector_info() {
-    // Since the m_pedges schema is identical across ranks, we don't have to
-    // collect. Also: the "edge" prefix (and "node" in the corresponding
-    // function) need to match the corresponding meta.json values.
-    std::map<std::string, std::string> sels;
-    for (const auto& el : m_pedges->get_series_names()) {
-      auto sel = std::format("edge.{}", el);
-      sels[sel] = "default";
-    }
-    for (const auto& el : m_pnodes->get_series_names()) {
-      auto sel = std::format("node.{}", el);
-      sels[sel] = "inherited";
-      sel = std::format("node.{}", el);
-      sels[sel] = "inherited";
-    }
+  std::map<std::string, std::string> get_edge_selector_info();
 
-    return sels;
-  }
+  std::map<std::string, std::string> get_node_selector_info();
 
-  std::map<std::string, std::string> get_node_selector_info() {
-    // Since the m_pedges schema is identical across ranks, we don't have to
-    // collect.
-    std::map<std::string, std::string> sels;
-    for (const auto& el : m_pnodes->get_series_names()) {
-      auto sel = std::format("node.{}", el);
-      sels[sel] = "default";
-    }
-    return sels;
-  }
-
-  std::map<std::string, std::string> get_selector_info() {
-    std::map<std::string, std::string> sels = get_edge_selector_info();
-
-    std::map<std::string, std::string> nsels = get_node_selector_info();
-    sels.insert(nsels.begin(), nsels.end());
-
-    return sels;
-  }
+  std::map<std::string, std::string> get_selector_info();
 
   template <typename T>
   bool add_series(const series_name& name);

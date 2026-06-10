@@ -26,6 +26,45 @@ metall_graph::series_name::priv_split_series_str(std::string_view str) {
   return std::make_pair(prefix, unqualified);
 }
 
+std::map<std::string, std::string> metall_graph::get_edge_selector_info() {
+  // Since the m_pedges schema is identical across ranks, we don't have to
+  // collect. Also: the "edge" prefix (and "node" in the corresponding
+  // function) need to match the corresponding meta.json values.
+  std::map<std::string, std::string> sels;
+  for (const auto& el : m_pedges->get_series_names()) {
+    auto sel = std::format("edge.{}", el);
+    sels[sel] = "default";
+  }
+  for (const auto& el : m_pnodes->get_series_names()) {
+    auto sel = std::format("{}.{}", detail::U_COL.qualified(), el);
+    sels[sel] = "inherited";
+    sel = std::format("{}.{}", detail::V_COL.qualified(), el);
+    sels[sel] = "inherited";
+  }
+
+  return sels;
+}
+
+std::map<std::string, std::string> metall_graph::get_node_selector_info() {
+  // Since the m_pedges schema is identical across ranks, we don't have to
+  // collect.
+  std::map<std::string, std::string> sels;
+  for (const auto& el : m_pnodes->get_series_names()) {
+    auto sel = std::format("node.{}", el);
+    sels[sel] = "default";
+  }
+  return sels;
+}
+
+std::map<std::string, std::string> metall_graph::get_selector_info() {
+  std::map<std::string, std::string> sels = get_edge_selector_info();
+
+  std::map<std::string, std::string> nsels = get_node_selector_info();
+  sels.insert(nsels.begin(), nsels.end());
+
+  return sels;
+}
+
 std::optional<std::pair<std::string_view, std::string_view>>
 metall_graph::priv_local_get_edge_uv_labels(
   metall_graph::local_edge_idx_type eid) const {
