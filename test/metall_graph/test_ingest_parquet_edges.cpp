@@ -6,8 +6,8 @@
 using series_name = metalldata::metall_graph::series_name;
 
 int main(int argc, char** argv) {
-  std::string parquet_path = "multiparq";    // Default path
-  std::string metall_path  = "ingestedges";  // Default path
+  std::string parquet_path = "../data/metall_graph/pqmulti/";  // Default path
+  std::string metall_path = "ingestedges";                     // Default path
   if (argc > 1) {
     parquet_path = argv[1];
   }
