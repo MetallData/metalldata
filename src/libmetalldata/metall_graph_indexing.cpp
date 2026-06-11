@@ -41,12 +41,21 @@ metall_graph::priv_local_get_node_locator(std::string_view label) const {
 }
 
 void metall_graph::priv_update_reverse_node_index() {
-  // setup for collective
+  // Setup for collective.
   static metall_graph* spthis = this;
   m_comm.barrier();
 
-  // TODO:  add local nodes also
+  // Index local nodes.
+  priv_for_all_nodes([&](local_node_idx_type nid) {
+    auto u_o = priv_local_get_node_label(nid);
+    if (u_o.has_value()) {
+      auto u_sa = compact_string::add_string(u_o.value(), *m_pstring_store);
+      m_pnode_to_locator->insert_or_assign(u_sa,
+                                           node_locator{m_comm.rank(), nid});
+    }
+  });
 
+  // Index edges.   Query request and response necessary.
   priv_for_all_edges([&](local_edge_idx_type eid) {
     auto uv_o = priv_local_get_edge_uv_labels(eid);
     YGM_ASSERT_RELEASE(uv_o.has_value());
@@ -88,16 +97,16 @@ result<> metall_graph::priv_check_index_integrity() const {
   priv_for_all_nodes([&](local_node_idx_type nid) {
     auto u_o = priv_local_get_node_label(nid);
     if (!u_o.has_value()) {
-      to_return.add_warning("Error in node id column");
+      to_return.add_warning();
       return;
     }
     auto u_id_o = priv_local_get_node_id(u_o.value());
     if (!u_id_o.has_value()) {
-      to_return.add_warning("Missing entry in m_pnode_to_idx");
+      to_return.add_warning();
       return;
     }
     if (u_id_o.value() != nid) {
-      to_return.add_warning("Invalid entry in m_pnode_to_idx");
+      to_return.add_warning();
     }
   });
 

@@ -21,7 +21,7 @@ constexpr size_t   MAX_ID = (size_t{1} << ID_BITS) - 1;
  */
 struct metall_graph::node_locator {
  public:
-  node_locator(size_t rank, metall_graph::local_node_idx_type nid)
+  node_locator(int rank, metall_graph::local_node_idx_type nid)
       : m_rank(rank), m_local_id(std::to_underlying(nid)) {}
 
   int owner() const { return static_cast<int>(m_rank); }
@@ -43,7 +43,7 @@ struct metall_graph::node_locator {
  */
 struct metall_graph::edge_locator {
  public:
-  edge_locator(size_t rank, metall_graph::local_edge_idx_type eid)
+  edge_locator(int rank, metall_graph::local_edge_idx_type eid)
       : m_rank(rank), m_local_id(std::to_underlying(eid)) {}
 
   int owner() const { return static_cast<int>(m_rank); }
