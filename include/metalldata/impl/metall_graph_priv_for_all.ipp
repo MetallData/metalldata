@@ -105,7 +105,7 @@ void metall_graph::priv_for_all_edges(
     priv_for_all_edges_nwhere(func, where);
   } else if (where.is_edge_clause()) {
     priv_for_all_edges_ewhere(func, where);
-  } else { //defaults to empty
+  } else {  // defaults to empty
     priv_for_all_edges(func);
   }
 };
@@ -169,7 +169,7 @@ void metall_graph::priv_for_all_nodes_ewhere(
 
   // 2. Compute node ids from vertex labels
   for (const auto& node : nodeset) {
-    auto opsa = priv_local_node_find(node);
+    auto opsa = priv_local_get_node_id(node);
     YGM_ASSERT_RELEASE(opsa.has_value());
     func(local_node_idx_type{opsa.value()});
   }
@@ -189,7 +189,7 @@ void metall_graph::priv_for_all_nodes(
     priv_for_all_nodes_nwhere(func, where);
   } else if (where.is_edge_clause()) {
     priv_for_all_nodes_ewhere(func, where);
-  } else { // defaults to empty
+  } else {  // defaults to empty
     priv_for_all_nodes(func);
   }
 }

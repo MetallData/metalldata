@@ -1,28 +1,40 @@
 #include <metalldata/metall_graph.hpp>
 #include <string_table/string_store.hpp>
+#include "ygm/detail/collective.hpp"
 
 namespace metalldata {
 
 metall_graph::local_node_idx_type metall_graph::priv_local_node_find_or_insert(
   std::string_view label) {
   YGM_ASSERT_RELEASE(m_partitioner.owner(label) == m_comm.rank());
-  auto v_in_ss = compact_string::add_string(label, *m_pstring_store);
-  if (!m_pnode_to_idx->contains(v_in_ss)) {
+  auto label_osa = compact_string::add_string(label, *m_pstring_store);
+  if (!m_pnode_to_idx->contains(label_osa)) {
     auto nid = local_node_idx_type{m_pnodes->add_record()};
     priv_local_set_node_field(m_node_col_idx, nid, label);
-    m_pnode_to_idx->insert_or_assign(v_in_ss, nid);
+    m_pnode_to_idx->insert_or_assign(label_osa, nid);
     return nid;
   }
-  return m_pnode_to_idx->at(v_in_ss);
+  return m_pnode_to_idx->at(label_osa);
 }
 
 std::optional<metall_graph::local_node_idx_type>
-metall_graph::priv_local_node_find(std::string_view label) const {
+metall_graph::priv_local_get_node_id(std::string_view label) const {
   YGM_ASSERT_RELEASE(m_partitioner.owner(label) == m_comm.rank());
-  auto id_osa = compact_string::find_string(label, *m_pstring_store);
-  if (id_osa.has_value()) {
-    if (m_pnode_to_idx->contains(id_osa.value())) {
-      return m_pnode_to_idx->at(id_osa.value());
+  auto label_osa = compact_string::find_string(label, *m_pstring_store);
+  if (label_osa.has_value()) {
+    if (m_pnode_to_idx->contains(label_osa.value())) {
+      return m_pnode_to_idx->at(label_osa.value());
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<metall_graph::node_locator>
+metall_graph::priv_local_get_node_locator(std::string_view label) const {
+  auto label_osa = compact_string::find_string(label, *m_pstring_store);
+  if (label_osa.has_value()) {
+    if (m_pnode_to_locator->contains(label_osa.value())) {
+      return m_pnode_to_locator->at(label_osa.value());
     }
   }
   return std::nullopt;
@@ -33,6 +45,8 @@ void metall_graph::priv_update_reverse_node_index() {
   static metall_graph* spthis = this;
   m_comm.barrier();
 
+  // TODO:  add local nodes also
+
   priv_for_all_edges([&](local_edge_idx_type eid) {
     auto uv_o = priv_local_get_edge_uv_labels(eid);
     YGM_ASSERT_RELEASE(uv_o.has_value());
@@ -42,7 +56,7 @@ void metall_graph::priv_update_reverse_node_index() {
       compact_string::add_string(uv_o.value().second, *m_pstring_store);
 
     auto request = [](int requester, const std::string& label) {
-      auto nid_o = spthis->priv_local_node_find(label);
+      auto nid_o = spthis->priv_local_get_node_id(label);
       YGM_ASSERT_RELEASE(nid_o.has_value());
       node_locator nl(spthis->m_comm.rank(), nid_o.value());
 
@@ -65,6 +79,87 @@ void metall_graph::priv_update_reverse_node_index() {
                    std::string{v_sa.to_view()});
     }
   });
+}
+
+result<> metall_graph::priv_check_index_integrity() const {
+  result<> to_return;
+  //
+  // Loop over local nodes and check m_pnode_to_idx
+  priv_for_all_nodes([&](local_node_idx_type nid) {
+    auto u_o = priv_local_get_node_label(nid);
+    if (!u_o.has_value()) {
+      to_return.add_warning("Error in node id column");
+      return;
+    }
+    auto u_id_o = priv_local_get_node_id(u_o.value());
+    if (!u_id_o.has_value()) {
+      to_return.add_warning("Missing entry in m_pnode_to_idx");
+      return;
+    }
+    if (u_id_o.value() != nid) {
+      to_return.add_warning("Invalid entry in m_pnode_to_idx");
+    }
+  });
+
+  //
+  // Loop over low edges and check m_pnode_to_locator by sending message to node
+  // owner
+  static const metall_graph* spthis = this;
+  static result<>*           spto_return = &to_return;
+  m_comm.barrier();
+  priv_for_all_edges([&](local_edge_idx_type eid) {
+    auto uv_o = priv_local_get_edge_uv_labels(eid);
+    if (!uv_o.has_value()) {
+      to_return.add_warning("Error in edge u/v columns");
+      return;
+    }
+    std::string u_label{uv_o.value().first};
+    std::string v_label{uv_o.value().second};
+    auto        u_locator_o = priv_local_get_node_locator(u_label);
+    if (!u_locator_o.has_value()) {
+      to_return.add_warning("Mising U entry in m_pnode_to_locator");
+      return;
+    }
+
+    auto v_locator_o = priv_local_get_node_locator(v_label);
+    if (!v_locator_o.has_value()) {
+      to_return.add_warning("Mising V entry in m_pnode_to_locator");
+      return;
+    }
+
+    int u_owner = m_partitioner.owner(u_label);
+    if (u_owner != u_locator_o.value().owner()) {
+      to_return.add_warning("Incorrect U owner");
+      return;
+    }
+    int v_owner = m_partitioner.owner(v_label);
+    if (v_owner != v_locator_o.value().owner()) {
+      to_return.add_warning("Incorrect V owner");
+      return;
+    }
+
+    auto index_check = [](const std::string& label, local_node_idx_type nid) {
+      auto nlabel_o = spthis->priv_local_get_node_label(nid);
+      if (!nlabel_o.has_value()) {
+        spto_return->add_warning("Reverse node index has unkown value");
+        return;
+      }
+      if (label != nlabel_o.value()) {
+        spto_return->add_warning("Reverse node index points to wrong node");
+        return;
+      }
+    };
+    m_comm.async(u_owner, index_check, u_label, u_locator_o.value().local());
+    m_comm.async(v_owner, index_check, v_label, v_locator_o.value().local());
+  });
+
+  bool local_errors = !to_return.warnings().empty();
+  bool global_erros = ygm::logical_or(local_errors, m_comm);
+  if (global_erros) {
+    to_return = std::unexpected("Index errors found, see warnings for details");
+  }
+
+  return to_return;
 }
 
 }  // namespace metalldata

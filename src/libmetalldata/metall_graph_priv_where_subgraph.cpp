@@ -74,7 +74,7 @@ metall_graph::priv_where_subgraph(
 
     // 2. Compute node ids from vertex labels
     for (const auto& node : nodeset) {
-      auto opsa = priv_local_node_find(node);
+      auto opsa = priv_local_get_node_id(node);
       YGM_ASSERT_RELEASE(opsa.has_value());
       to_return.first.push_back(opsa.value());
     }

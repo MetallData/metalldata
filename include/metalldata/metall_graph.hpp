@@ -484,8 +484,27 @@ class metall_graph {
    * @param label String node label
    * @return local_node_idx_type
    */
-  std::optional<local_node_idx_type> priv_local_node_find(
+  std::optional<local_node_idx_type> priv_local_get_node_id(
     std::string_view label) const;
+
+  /**
+   * @brief Retrives node locator from reverse index.
+   * If the locator is not found, that means the local data partition has no
+   * knowledge of the node label.
+   *
+   *
+   * @param label String node label
+   * @return node_locator
+   */
+  std::optional<node_locator> priv_local_get_node_locator(
+    std::string_view label) const;
+
+  /**
+   * @brief Check's the integrity of the indexes
+   *
+   * @return result<>
+   */
+  result<> priv_check_index_integrity() const;
 
   std::unordered_set<record_id_type> priv_random_idx(
     const std::unordered_set<record_id_type>& filtered_ids_set, size_t k,
