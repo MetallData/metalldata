@@ -240,14 +240,12 @@ class string_accessor {
 
 struct string_accessor_hasher {
   std::size_t operator()(const string_accessor &str) const {
-    // return std::bit_cast<size_t>(str);
     return boost::hash_range(str.c_str(), str.c_str() + str.length());
   }
 };
 
 struct string_accessor_fast_hash {
   std::size_t operator()(const string_accessor &str) const {
-    // return std::bit_cast<size_t>(str);
     return str.fast_hash();
   }
 };
