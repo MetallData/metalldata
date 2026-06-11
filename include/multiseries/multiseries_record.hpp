@@ -26,12 +26,12 @@
 #include <boost/unordered/unordered_map.hpp>
 #include <boost/unordered/unordered_flat_map.hpp>
 
-#include "string_table/string_store.hpp"
-#include "multiseries/container.hpp"
+#include <string_table/string_store.hpp>
+#include <multiseries/container.hpp>
 
 namespace multiseries {
 namespace {
-namespace bc   = boost::container;
+namespace bc = boost::container;
 namespace cstr = compact_string;
 }  // namespace
 
@@ -59,10 +59,10 @@ class basic_record_store {
     typename std::pointer_traits<pointer_type>::template rebind<T>;
 
  public:
-  using series_index_type         = size_t;
-  using record_id_type            = size_t;
-  using allocator_type            = Alloc;
-  using string_store_type         = cstr::string_store<allocator_type>;
+  using series_index_type = size_t;
+  using record_id_type = size_t;
+  using allocator_type = Alloc;
+  using string_store_type = cstr::string_store<allocator_type>;
   using string_store_pointer_type = other_pointer_type<string_store_type>;
   using series_type =
     std::variant<std::monostate, bool, int64_t, double, std::string_view>;
@@ -137,8 +137,8 @@ class basic_record_store {
     }
 
     m_series.push_back(
-      {.name      = string_type(series_name.data(), series_name.size(),
-                                m_record_status.get_allocator()),
+      {.name = string_type(series_name.data(), series_name.size(),
+                           m_record_status.get_allocator()),
        .container = series_container_type<series_type>(
          kind, m_record_status.get_allocator())});
 
