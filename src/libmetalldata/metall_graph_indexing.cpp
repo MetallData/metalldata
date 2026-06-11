@@ -110,42 +110,42 @@ result<> metall_graph::priv_check_index_integrity() const {
   priv_for_all_edges([&](local_edge_idx_type eid) {
     auto uv_o = priv_local_get_edge_uv_labels(eid);
     if (!uv_o.has_value()) {
-      to_return.add_warning("Error in edge u/v columns");
+      to_return.add_warning();
       return;
     }
     std::string u_label{uv_o.value().first};
     std::string v_label{uv_o.value().second};
     auto        u_locator_o = priv_local_get_node_locator(u_label);
     if (!u_locator_o.has_value()) {
-      to_return.add_warning("Mising U entry in m_pnode_to_locator");
+      to_return.add_warning();
       return;
     }
 
     auto v_locator_o = priv_local_get_node_locator(v_label);
     if (!v_locator_o.has_value()) {
-      to_return.add_warning("Mising V entry in m_pnode_to_locator");
+      to_return.add_warning();
       return;
     }
 
     int u_owner = m_partitioner.owner(u_label);
     if (u_owner != u_locator_o.value().owner()) {
-      to_return.add_warning("Incorrect U owner");
+      to_return.add_warning();
       return;
     }
     int v_owner = m_partitioner.owner(v_label);
     if (v_owner != v_locator_o.value().owner()) {
-      to_return.add_warning("Incorrect V owner");
+      to_return.add_warning();
       return;
     }
 
     auto index_check = [](const std::string& label, local_node_idx_type nid) {
       auto nlabel_o = spthis->priv_local_get_node_label(nid);
       if (!nlabel_o.has_value()) {
-        spto_return->add_warning("Reverse node index has unkown value");
+        spto_return->add_warning();
         return;
       }
       if (label != nlabel_o.value()) {
-        spto_return->add_warning("Reverse node index points to wrong node");
+        spto_return->add_warning();
         return;
       }
     };

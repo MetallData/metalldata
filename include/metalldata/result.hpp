@@ -2,6 +2,7 @@
 #include <map>
 #include <expected>
 #include <format>
+#include <source_location>
 
 namespace metalldata {
 
@@ -69,6 +70,11 @@ struct result : std::expected<T, std::string> {
   }
 
   void add_warning(std::string msg) { m_warnings[std::move(msg)]++; }
+
+  void add_warning(
+    const std::source_location& loc = std::source_location::current()) {
+    add_warning("{}:{} ({})", loc.file_name(), loc.line(), loc.function_name());
+  }
 
   template <typename... Args>
   void add_warnings(size_t n, std::format_string<Args...> fmt, Args&&... args) {
