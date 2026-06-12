@@ -1,5 +1,6 @@
 #pragma once
 #include <metalldata/metall_graph.hpp>
+#include <type_traits>
 #include <utility>
 
 namespace metalldata {
@@ -61,5 +62,7 @@ struct metall_graph::edge_locator {
 
 static_assert(sizeof(metall_graph::node_locator) == 8);
 static_assert(sizeof(metall_graph::edge_locator) == 8);
+static_assert(std::is_standard_layout_v<metall_graph::node_locator>);
+static_assert(std::is_standard_layout_v<metall_graph::edge_locator>);
 
 }  // namespace metalldata
