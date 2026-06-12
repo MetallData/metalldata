@@ -8,12 +8,13 @@
 
 using series_name = metalldata::metall_graph::series_name;
 
+std::filesystem::path data_path = DATA_PATH;
+
 namespace metalldata {
 class metall_graph_test {
  public:
   void run_test(ygm::comm& comm) {
-    std::string parquet_path =
-      "../../../data/metall_graph/pqmulti/";               // Default path
+    std::filesystem::path    parquet_path = data_path / "metall_graph/pqmulti";
     std::string              metall_path = "ingestedges";  // Default path
     std::vector<series_name> cols{series_name("edge.color"),
                                   series_name("edge.name"),
@@ -26,8 +27,8 @@ class metall_graph_test {
     comm.barrier();
     metalldata::metall_graph test(comm, metall_path);
     comm.cerr0("past creation of testgraph\n");
-    auto ret_ingest =
-      test.ingest_parquet_edges(parquet_path, false, "s", "t", true, cols);
+    auto ret_ingest = test.ingest_parquet_edges(parquet_path.string(), false,
+                                                "s", "t", true, cols);
     if (!ret_ingest) {
       comm.cout(ret_ingest.error());
       MPI_Abort(comm.get_mpi_comm(), 1);

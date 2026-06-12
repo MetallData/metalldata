@@ -9,6 +9,9 @@ function(add_metallgraph_test name source)
   target_link_libraries(${name} PRIVATE libmetalldata)
   target_compile_definitions(${name} PRIVATE METALLDATA_USE_PARQUET)
 
+  target_compile_definitions(${name} PRIVATE DATA_PATH="${CMAKE_SOURCE_DIR}/data"
+)
+
   setup_clippy_target(${name})
   setup_ygm_target(${name})
   setup_metall_target(${name})
