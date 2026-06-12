@@ -1,6 +1,8 @@
 #include <metalldata/metall_graph.hpp>
 #include <string_table/string_store.hpp>
+#include "metalldata/impl/metall_graph_locator.ipp"
 #include "ygm/detail/collective.hpp"
+#include "ygm/utility/assert.hpp"
 
 namespace metalldata {
 
@@ -50,8 +52,9 @@ void metall_graph::priv_update_reverse_node_index() {
     auto u_o = priv_local_get_node_label(nid);
     if (u_o.has_value()) {
       auto u_sa = compact_string::add_string(u_o.value(), *m_pstring_store);
-      m_pnode_to_locator->insert_or_assign(u_sa,
-                                           node_locator{m_comm.rank(), nid});
+      auto nl_o = init_node_locator(m_comm.rank(), nid);
+      YGM_ASSERT_DEBUG(nl_o.has_value());
+      m_pnode_to_locator->insert_or_assign(u_sa, nl_o.value());
     }
   });
 
@@ -67,7 +70,9 @@ void metall_graph::priv_update_reverse_node_index() {
     auto request = [](int requester, const std::string& label) {
       auto nid_o = spthis->priv_local_get_node_id(label);
       YGM_ASSERT_RELEASE(nid_o.has_value());
-      node_locator nl(spthis->m_comm.rank(), nid_o.value());
+      auto nl_o = init_node_locator(spthis->m_comm.rank(), nid_o.value());
+      YGM_ASSERT_DEBUG(nl_o.has_value());
+      node_locator nl = nl_o.value();
 
       auto response = [nl](const std::string& label) {
         auto l_sa =
@@ -137,12 +142,12 @@ result<> metall_graph::priv_check_index_integrity() const {
     }
 
     int u_owner = m_partitioner.owner(u_label);
-    if (u_owner != u_locator_o.value().owner()) {
+    if (u_owner != owner(u_locator_o.value())) {
       to_return.add_warning();
       return;
     }
     int v_owner = m_partitioner.owner(v_label);
-    if (v_owner != v_locator_o.value().owner()) {
+    if (v_owner != owner(v_locator_o.value())) {
       to_return.add_warning();
       return;
     }
@@ -158,8 +163,8 @@ result<> metall_graph::priv_check_index_integrity() const {
         return;
       }
     };
-    m_comm.async(u_owner, index_check, u_label, u_locator_o.value().local());
-    m_comm.async(v_owner, index_check, v_label, v_locator_o.value().local());
+    m_comm.async(u_owner, index_check, u_label, local(u_locator_o.value()));
+    m_comm.async(v_owner, index_check, v_label, local(v_locator_o.value()));
   });
 
   bool local_errors = !to_return.warnings().empty();

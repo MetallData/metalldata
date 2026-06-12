@@ -1,68 +1,45 @@
 #pragma once
 #include <metalldata/metall_graph.hpp>
-#include <type_traits>
+#include <metalldata/detail/generic_locator.hpp>
+#include <optional>
 #include <utility>
 
 namespace metalldata {
 
-/**
- * @brief constexprs used to configure bitsets of locators
- *
- */
-namespace {
-constexpr unsigned RANK_BITS = 20;
-constexpr unsigned ID_BITS = 64 - RANK_BITS;
-constexpr size_t   MAX_RANK = (size_t{1} << RANK_BITS) - 1;
-constexpr size_t   MAX_ID = (size_t{1} << ID_BITS) - 1;
-}  // namespace
+inline int owner(metall_graph::node_locator nl) {
+  return owner(detail::generic_locator{std::to_underlying(nl)});
+}
 
-/**
- * @brief Global node locator that stores both rank owner and local index
- *
- */
-struct metall_graph::node_locator {
- public:
-  node_locator(int rank, metall_graph::local_node_idx_type nid)
-      : m_rank(rank), m_local_id(std::to_underlying(nid)) {}
+inline metall_graph::local_node_idx_type local(metall_graph::node_locator nl) {
+  return metall_graph::local_node_idx_type{
+    local(detail::generic_locator{std::to_underlying(nl)})};
+}
 
-  int owner() const { return static_cast<int>(m_rank); }
-
-  metall_graph::local_node_idx_type local() const {
-    return metall_graph::local_node_idx_type{m_local_id};
+inline std::optional<metall_graph::node_locator> init_node_locator(
+  int owner, metall_graph::local_node_idx_type nid) {
+  auto gl_o = detail::init_generic_locator(owner, std::to_underlying(nid));
+  if (gl_o.has_value()) {
+    return metall_graph::node_locator{std::to_underlying(gl_o.value())};
   }
+  return std::nullopt;
+}
 
-  bool good() const { return m_rank != MAX_RANK && m_local_id != MAX_ID; }
+inline int owner(metall_graph::edge_locator el) {
+  return owner(detail::generic_locator{std::to_underlying(el)});
+}
 
- private:
-  size_t m_rank : RANK_BITS = MAX_RANK;
-  size_t m_local_id : ID_BITS = MAX_ID;
-};
+inline metall_graph::local_edge_idx_type local(metall_graph::edge_locator el) {
+  return metall_graph::local_edge_idx_type{
+    local(detail::generic_locator{std::to_underlying(el)})};
+}
 
-/**
- * @brief Global edge locator that stores both rank owner and local index
- *
- */
-struct metall_graph::edge_locator {
- public:
-  edge_locator(int rank, metall_graph::local_edge_idx_type eid)
-      : m_rank(rank), m_local_id(std::to_underlying(eid)) {}
-
-  int owner() const { return static_cast<int>(m_rank); }
-
-  metall_graph::local_edge_idx_type local() const {
-    return metall_graph::local_edge_idx_type{m_local_id};
+inline std::optional<metall_graph::edge_locator> init_edge_locator(
+  int owner, metall_graph::local_edge_idx_type eid) {
+  auto gl_o = detail::init_generic_locator(owner, std::to_underlying(eid));
+  if (gl_o.has_value()) {
+    return metall_graph::edge_locator{std::to_underlying(gl_o.value())};
   }
-
-  bool good() const { return m_rank != MAX_RANK && m_local_id != MAX_ID; }
-
- private:
-  size_t m_rank : RANK_BITS = MAX_RANK;
-  size_t m_local_id : ID_BITS = MAX_ID;
-};
-
-static_assert(sizeof(metall_graph::node_locator) == 8);
-static_assert(sizeof(metall_graph::edge_locator) == 8);
-static_assert(std::is_standard_layout_v<metall_graph::node_locator>);
-static_assert(std::is_standard_layout_v<metall_graph::edge_locator>);
+  return std::nullopt;
+}
 
 }  // namespace metalldata

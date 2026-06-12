@@ -72,10 +72,17 @@ class metall_graph {
   using count_types =
     std::variant<std::monostate, bool, int64_t, double, std::string>;
 
-  /// Forward declared, see impl/metall_graph_locator.ipp
-  struct node_locator;
-  /// Forward declared, see impl/metall_graph_locator.ipp
-  struct edge_locator;
+  /// See impl/metall_graph_locator.ipp
+  enum class node_locator : std::size_t;
+  friend std::optional<metall_graph::node_locator> init_node_locator(
+    int, metall_graph::local_node_idx_type);
+  friend metall_graph::local_node_idx_type local(metall_graph::node_locator nl);
+
+  /// See impl/metall_graph_locator.ipp
+  enum class edge_locator : std::size_t;
+  friend std::optional<metall_graph::edge_locator> init_edge_locator(
+    int, metall_graph::local_edge_idx_type);
+  friend metall_graph::local_edge_idx_type local(metall_graph::edge_locator el);
 
   /// Forward declared, see impl/metall_graph_series_name.hpp
   struct series_name;
