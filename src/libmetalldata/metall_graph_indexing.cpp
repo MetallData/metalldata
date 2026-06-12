@@ -163,8 +163,8 @@ result<> metall_graph::priv_check_index_integrity() const {
   });
 
   bool local_errors = !to_return.warnings().empty();
-  bool global_erros = ygm::logical_or(local_errors, m_comm);
-  if (global_erros) {
+  bool global_errors = ygm::logical_or(local_errors, m_comm);
+  if (global_errors) {
     to_return = std::unexpected("Index errors found, see warnings for details");
   }
 
