@@ -1,8 +1,7 @@
 #include <metalldata/metall_graph.hpp>
 #include <string_table/string_store.hpp>
-#include "metalldata/impl/metall_graph_locator.ipp"
-#include "ygm/detail/collective.hpp"
-#include "ygm/utility/assert.hpp"
+#include <ygm/detail/collective.hpp>
+#include <ygm/utility/assert.hpp>
 
 namespace metalldata {
 
