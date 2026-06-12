@@ -24,29 +24,21 @@ jobs:
         run: sudo apt-get install openmpi-bin libopenmpi-dev
       - name: Build and test
         run: |
-          pushd /dev/shm
-          wget -q https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.bz2
-          mkdir boost
-          tar xf boost_1_87_0.tar.bz2 -C boost --strip-components 1
-          export CPLUS_INCLUDE_PATH="${PWD}/boost"
-          popd
+          # pushd /dev/shm
+          # wget -q https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.bz2
+          # mkdir boost
+          # tar xf boost_1_87_0.tar.bz2 -C boost --strip-components 1
+          # export CPLUS_INCLUDE_PATH="${PWD}/boost"
+          # popd
           cd $GITHUB_WORKSPACE
           mkdir build
           cd build
-          cmake ../ -DMETALLDATA_BUILD_TESTS=ON
+          cmake ../ -DMETALLDATA_BUILD_TESTS=ON BOOST_FETCH_URL=https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.bz2
           make -j6
           make test
-          # removed 20250814 sbromberger
-          #cd ../tests
-          # export OMPI_MCA_rmaps_base_oversubscribe=1
-          # bash run_test.sh
       - name: end-to-end testing
         run: |
           cd $GITHUB_WORKSPACE/build
           python -m venv venv
           source venv/bin/activate
-          cd $GITHUB_WORKSPACE/test/clippy
-          pip install -r requirements.txt -r requirements-dev.txt
-          CLIPPY_BACKEND_PATH=$GITHUB_WORKSPACE/build/src/clippy pytest tests/
-          # repeat test with MPI
-          CLIPPY_BACKEND_PATH=$GITHUB_WORKSPACE/build/src/clippy CLIPPY_CMD_PREFIX="mpirun --oversubscribe -np 4" pytest tests/
+          make pytest
