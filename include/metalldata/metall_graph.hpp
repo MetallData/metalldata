@@ -522,6 +522,9 @@ class metall_graph {
   static count_types priv_series_to_count_type(
     const record_store_type::series_type& sv);
 
+  /// Forward declared friend for testing internal state
+  friend class metall_graph_test;
+
 };  // class metall_graph
 
 }  // namespace metalldata
