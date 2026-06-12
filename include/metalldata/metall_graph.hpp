@@ -72,10 +72,8 @@ class metall_graph {
   using count_types =
     std::variant<std::monostate, bool, int64_t, double, std::string>;
 
-  /// Forward declared, see impl/metall_graph_locator.ipp
-  struct node_locator;
-  /// Forward declared, see impl/metall_graph_locator.ipp
-  struct edge_locator;
+  enum class node_locator : std::size_t;
+  enum class edge_locator : std::size_t;
 
   /// Forward declared, see impl/metall_graph_series_name.hpp
   struct series_name;
@@ -522,6 +520,18 @@ class metall_graph {
   static count_types priv_series_to_count_type(
     const record_store_type::series_type& sv);
 
+  static int                         owner(node_locator nl);
+  static local_node_idx_type         local(node_locator nl);
+  static std::optional<node_locator> init_node_locator(int owner,
+                                                       local_node_idx_type nid);
+  static int                         owner(edge_locator nl);
+  static local_edge_idx_type         local(edge_locator nl);
+  static std::optional<edge_locator> init_edge_locator(int owner,
+                                                       local_edge_idx_type nid);
+
+  // Forward declared, see: impl/metall_graph_nodeset.hpp
+  class nodeset;
+
   /// Forward declared friend for testing internal state
   friend class metall_graph_test;
 
@@ -543,7 +553,7 @@ struct std::hash<metalldata::metall_graph::series_types> {
   }
 };
 
-#include <metalldata/impl/metall_graph_locator.ipp>
+#include <metalldata/impl/metall_graph_nodeset.hpp>
 #include <metalldata/impl/metall_graph_series_name.hpp>
 #include <metalldata/impl/metall_graph_where.hpp>
 #include <metalldata/impl/metall_graph_faker.ipp>

@@ -1,7 +1,9 @@
-#include <mpi.h>
+#undef NDEBUG
+
 #include <filesystem>
-#include <metalldata/metall_graph.hpp>
 #include <ygm/comm.hpp>
+#include <metalldata/metall_graph.hpp>
+
 #include <vector>
 #include <string>
 #include <ygm/utility/assert.hpp>

@@ -1,5 +1,6 @@
 #pragma once
 #include <metalldata/metall_graph.hpp>
+#include <unordered_set>
 #include <ygm/utility/assert.hpp>
 
 namespace metalldata {
@@ -9,36 +10,44 @@ void metall_graph::priv_for_all_edges_nwhere(
   Fn func, const metall_graph::where_clause& where) const {
   YGM_ASSERT_RELEASE(where.is_node_clause());
   // 1. Compute the set of nodes that satisfy the node where clause.
-  ygm::container::set<std::string> nodeset(m_comm);
+  nodeset filtered_nodes(m_comm);
   priv_for_all_nodes_nwhere(
     [&](local_node_idx_type nid) {
       auto u = priv_local_get_node_label(nid);
-      if (u.has_value()) {
-        nodeset.async_insert(std::string(u.value()));
-      }
+      YGM_ASSERT_DEBUG(u.has_value());
+      auto uo = priv_local_get_node_locator(u.value());
+      YGM_ASSERT_DEBUG(uo.has_value());
+      filtered_nodes.async_insert(uo.value());
     },
     where);
   m_comm.barrier();
 
   // 2. Gather list of nodes needed by rank local edges
-  std::set<std::string> nodes_i_need;
+  std::set<node_locator> nodes_i_need;
   priv_for_all_edges([&](local_edge_idx_type eid) {
     auto uv_o = priv_local_get_edge_uv_labels(eid);
     if (uv_o.has_value()) {
       auto [u, v] = uv_o.value();
-      nodes_i_need.insert(std::string(u));
-      nodes_i_need.insert(std::string(v));
+      auto uo = priv_local_get_node_locator(u);
+      auto vo = priv_local_get_node_locator(v);
+      YGM_ASSERT_DEBUG(uo.has_value() && vo.has_value());
+      nodes_i_need.insert(uo.value());
+      nodes_i_need.insert(uo.value());
     }
   });
-  std::set<std::string> nodes_alive = nodeset.gather_values(nodes_i_need);
+  std::set<node_locator> nodes_alive =
+    filtered_nodes.gather_values(nodes_i_need);
 
   // 3. Compute the set of edges that are incident on those nodes.
   priv_for_all_edges([&](local_edge_idx_type eid) {
     auto uv_o = priv_local_get_edge_uv_labels(eid);
     if (uv_o.has_value()) {
       auto [u, v] = uv_o.value();
-      if (nodes_alive.contains(std::string(u)) &&
-          nodes_alive.contains(std::string(v))) {
+      auto uo = priv_local_get_node_locator(u);
+      auto vo = priv_local_get_node_locator(v);
+      YGM_ASSERT_DEBUG(uo.has_value() && vo.has_value());
+      if (nodes_alive.contains(uo.value()) &&
+          nodes_alive.contains(vo.value())) {
         func(eid);
       }
     }
@@ -156,23 +165,22 @@ void metall_graph::priv_for_all_nodes_ewhere(
 
   // 1. compute the set of edges that satisfy the edge where clause & save
   // vertex labels
-  ygm::container::set<std::string> nodeset(m_comm);
+  nodeset nodesalive(m_comm);
   priv_for_all_edges_ewhere(
     [&](local_edge_idx_type eid) {
       auto uv_o = priv_local_get_edge_uv_labels(eid);
       YGM_ASSERT_RELEASE(uv_o.has_value());
       auto [u, v] = uv_o.value();
-      nodeset.async_insert(std::string(u));
-      nodeset.async_insert(std::string(v));
+      auto uo = priv_local_get_node_locator(u);
+      auto vo = priv_local_get_node_locator(v);
+      YGM_ASSERT_DEBUG(uo.has_value() && vo.has_value());
+      nodesalive.async_insert(uo.value());
+      nodesalive.async_insert(vo.value());
     },
     where);
 
   // 2. Compute node ids from vertex labels
-  for (const auto& node : nodeset) {
-    auto opsa = priv_local_get_node_id(node);
-    YGM_ASSERT_RELEASE(opsa.has_value());
-    func(local_node_idx_type{opsa.value()});
-  }
+  nodesalive.for_all([&](node_locator nl) { func(local(nl)); });
 }
 
 template <typename Fn>
