@@ -32,6 +32,7 @@
 #include <metalldata/result.hpp>
 #include <string_table/string_accessor.hpp>
 #include <string_table/string_store.hpp>
+#include <metalldata/detail/generic_locator.hpp>
 
 namespace bjsn = boost::json;
 
@@ -541,16 +542,16 @@ class metall_graph {
   static count_types priv_series_to_count_type(
     const record_store_type::series_type& sv);
 
-  static int                         owner(node_locator nl);
-  static local_node_idx_type         local(node_locator nl);
-  static std::optional<node_locator> init_node_locator(int owner,
-                                                       local_node_idx_type nid);
-  static int                         owner(edge_locator nl);
-  static local_edge_idx_type         local(edge_locator nl);
-  static std::optional<edge_locator> init_edge_locator(int owner,
-                                                       local_edge_idx_type nid);
+  static detail::rank_type   owner(node_locator nl);
+  static local_node_idx_type local(node_locator nl);
+  static node_locator        init_node_locator(detail::rank_type   owner,
+                                               local_node_idx_type nid);
+  static detail::rank_type   owner(edge_locator nl);
+  static local_edge_idx_type local(edge_locator nl);
+  static edge_locator        init_edge_locator(detail::rank_type   owner,
+                                               local_edge_idx_type nid);
 
-  // Forward declared, see: impl/metall_graph_nod_locator_eset.hpp
+  // Forward declared, see: impl/metall_graph_nod_locator_set.hpp
   class node_locator_set;
 
   /// Forward declared friend for testing internal state
@@ -574,7 +575,7 @@ struct std::hash<metalldata::metall_graph::series_types> {
   }
 };
 
-#include <metalldata/impl/metall_graph_nod_locator_eset.hpp>
+#include <metalldata/impl/metall_graph_node_locator_set.hpp>
 #include <metalldata/impl/metall_graph_series_name.hpp>
 #include <metalldata/impl/metall_graph_where.hpp>
 #include <metalldata/impl/metall_graph_faker.ipp>
