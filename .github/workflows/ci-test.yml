@@ -28,7 +28,7 @@ jobs:
           mkdir build
           cd build
           cmake ../ -DMETALLDATA_BUILD_TESTS=ON BOOST_FETCH_URL=https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.bz2
-          make -j6
+          cmake --build . --parallel
           make test
       - name: end-to-end testing
         run: |
