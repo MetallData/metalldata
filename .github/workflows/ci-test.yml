@@ -33,9 +33,9 @@ jobs:
       - name: end-to-end testing
         run: |
           cd $GITHUB_WORKSPACE/build
-          python -m venv venv
+          python3 -m venv venv
           source venv/bin/activate
-          pip install -r ../test/clippy/requirements.txt -r ../test/clippy/requirements-dev.txt
+          python3 -m pip install -r ../test/clippy/requirements.txt -r ../test/clippy/requirements-dev.txt
           echo "inspecting"
           which python
           which python3
