@@ -28,14 +28,19 @@ class metall_graph::nodeset {
   template <typename Fn>
   void for_all_local(Fn func) {
     // setup for collective
-    static Fn*        spfunc = func;
-    static ygm::comm* spcomm = m_set.comm();
+    static Fn* spfunc = nullptr;
+    spfunc = &func;
+    static ygm::comm* spcomm = nullptr;
+    spcomm = &(m_set.comm());
     m_set.comm().cf_barrier();
     m_set.for_all([](node_locator nl) {
       int  dest = owner(nl);
       auto rlambda = [](local_node_idx_type nid) { (*spfunc)(nid); };
       spcomm->async(dest, rlambda, local(nl));
     });
+    m_set.comm().barrier();
+    spfunc = nullptr;
+    spcomm = nullptr;
   }
 
   /**
