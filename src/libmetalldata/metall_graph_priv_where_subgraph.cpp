@@ -23,7 +23,7 @@ metall_graph::priv_where_subgraph(
     });
   } else if (where.is_node_clause()) {
     // 1. Compute the set of nodes that satisfy the node where clause.
-    nodeset filtered_nodes(m_comm);
+    node_locator_set filtered_nodes(m_comm);
     priv_for_all_nodes_nwhere(
       [&](local_node_idx_type nid) {
         to_return.first.push_back(nid);
@@ -68,7 +68,7 @@ metall_graph::priv_where_subgraph(
   } else if (where.is_edge_clause()) {
     // 1. compute the set of edges that satisfy the edge where clause & save
     // vertex labels
-    nodeset nodesalive(m_comm);
+    node_locator_set nodesalive(m_comm);
     priv_for_all_edges_ewhere(
       [&](local_edge_idx_type eid) {
         auto uv_o = priv_local_get_edge_uv_labels(eid);

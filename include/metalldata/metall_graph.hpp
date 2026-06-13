@@ -530,7 +530,7 @@ class metall_graph {
                                                        local_edge_idx_type nid);
 
   // Forward declared, see: impl/metall_graph_nodeset.hpp
-  class nodeset;
+  class node_locator_set;
 
   /// Forward declared friend for testing internal state
   friend class metall_graph_test;

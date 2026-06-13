@@ -10,7 +10,7 @@ void metall_graph::priv_for_all_edges_nwhere(
   Fn func, const metall_graph::where_clause& where) const {
   YGM_ASSERT_RELEASE(where.is_node_clause());
   // 1. Compute the set of nodes that satisfy the node where clause.
-  nodeset filtered_nodes(m_comm);
+  node_locator_set filtered_nodes(m_comm);
   priv_for_all_nodes_nwhere(
     [&](local_node_idx_type nid) {
       auto u = priv_local_get_node_label(nid);
@@ -165,7 +165,7 @@ void metall_graph::priv_for_all_nodes_ewhere(
 
   // 1. compute the set of edges that satisfy the edge where clause & save
   // vertex labels
-  nodeset nodesalive(m_comm);
+  node_locator_set nodesalive(m_comm);
   priv_for_all_edges_ewhere(
     [&](local_edge_idx_type eid) {
       auto uv_o = priv_local_get_edge_uv_labels(eid);
