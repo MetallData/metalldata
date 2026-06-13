@@ -8,16 +8,17 @@ namespace metalldata {
 metall_graph::local_node_idx_type metall_graph::priv_local_node_find_or_insert(
   std::string_view label) {
   YGM_ASSERT_RELEASE(m_partitioner.owner(label) == m_comm.rank());
-  auto label_osa = compact_string::add_string(label, *m_pstring_store);
-  if (!m_pnode_to_idx->contains(label_osa)) {
+  auto label_sa = compact_string::add_string(label, *m_pstring_store);
+  if (!m_pnode_to_idx->contains(label_sa)) {
     auto nid = local_node_idx_type{m_pnodes->add_record()};
     priv_local_set_node_field(m_node_col_idx, nid, label);
-    m_pnode_to_idx->insert_or_assign(label_osa, nid);
+    m_pnode_to_idx->insert_or_assign(label_sa, nid);
     return nid;
   }
-  return m_pnode_to_idx->at(label_osa);
+  return m_pnode_to_idx->at(label_sa);
 }
 
+// TODO unify with priv_local_get_node_locator
 std::optional<metall_graph::local_node_idx_type>
 metall_graph::priv_local_get_node_id(std::string_view label) const {
   YGM_ASSERT_RELEASE(m_partitioner.owner(label) == m_comm.rank());
@@ -43,7 +44,8 @@ metall_graph::priv_local_get_node_locator(std::string_view label) const {
 
 void metall_graph::priv_update_reverse_node_index() {
   // Setup for collective.
-  static metall_graph* spthis = this;
+  static metall_graph* spthis = nullptr;
+  spthis = this;
   m_comm.barrier();
 
   // Index local nodes.
@@ -89,6 +91,7 @@ void metall_graph::priv_update_reverse_node_index() {
                    std::string{v_sa.to_view()});
     }
   });
+  m_comm.barrier();
 }
 
 result<> metall_graph::priv_check_index_integrity() const {
