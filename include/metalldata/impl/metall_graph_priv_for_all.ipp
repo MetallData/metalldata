@@ -153,19 +153,19 @@ void metall_graph::priv_for_all_nodes_ewhere(
 
   // 1. compute the set of edges that satisfy the edge where clause & save
   // vertex labels
-  node_locator_set nodesalive(m_comm);
+  node_locator_set nodes_alive(m_comm);
   priv_for_all_edges_ewhere(
     [&](local_edge_idx_type eid) {
       auto uvloco = priv_local_get_edge_uv_locators(eid);
       YGM_ASSERT_DEBUG(uvloco.has_value());
       auto [uloc, vloc] = uvloco.value();
-      nodesalive.async_insert(uloc);
-      nodesalive.async_insert(vloc);
+      nodes_alive.async_insert(uloc);
+      nodes_alive.async_insert(vloc);
     },
     where);
 
   // 2. Compute node ids from vertex labels
-  nodesalive.for_all_local([&](local_node_idx_type nl) { func(nl); });
+  nodes_alive.for_all_local([&](local_node_idx_type nl) { func(nl); });
 }
 
 template <typename Fn>
