@@ -1,6 +1,3 @@
-# This version contains a workaround for the Boost.Unordered file missing issue.
-# Specifically, we download boost manually and include the path to $CMAKE_PREFIX_PATH
-# so that cmake can find Boost.Unordered header files.
 name: CI Test
 
 on:
