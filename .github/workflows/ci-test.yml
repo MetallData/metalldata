@@ -35,5 +35,5 @@ jobs:
           cd $GITHUB_WORKSPACE/build
           python -m venv venv
           source venv/bin/activate
-          pip install -r test/clippy/requirements.txt -r test/clippy/requirements-dev.txt
+          pip install -r ../test/clippy/requirements.txt -r ../test/clippy/requirements-dev.txt
           make pytest
