@@ -262,7 +262,7 @@ class metall_graph {
   record_store_type* m_pnodes = nullptr;
   /// Dataframe for directed edges
   record_store_type* m_pedges = nullptr;
-  /// Map from vertex string to local nide id
+  /// Map from vertex string to local node id
   map_local_node_to_local_id_type* m_pnode_to_idx = nullptr;
   /// Map from vertex string to node locator
   map_node_to_locator_type* m_pnode_to_locator = nullptr;
