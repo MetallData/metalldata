@@ -41,6 +41,15 @@ metall_graph::priv_local_get_node_locator(std::string_view label) const {
   return std::nullopt;
 }
 
+std::optional<metall_graph::node_locator>
+metall_graph::priv_local_get_node_locator(local_node_idx_type nid) const {
+  auto nlbo = priv_local_get_node_label(nid);
+  if (nlbo.has_value()) {
+    return priv_local_get_node_locator(nlbo.value());
+  }
+  return std::nullopt;
+}
+
 void metall_graph::priv_update_reverse_node_index() {
   // Setup for collective.
   static metall_graph* spthis = this;

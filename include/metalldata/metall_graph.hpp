@@ -283,6 +283,15 @@ class metall_graph {
   priv_local_get_edge_uv_labels(local_edge_idx_type eid) const;
 
   /**
+   * @brief Returns an edge's endpoints (u,v) as node_locators
+   *
+   * @param eid Edge ID
+   * @return std::optional<std::pair<node_locator, node_locator>>
+   */
+  std::optional<std::pair<node_locator, node_locator>>
+  priv_local_get_edge_uv_locators(local_edge_idx_type eid) const;
+
+  /**
    * @brief Returns an edge's directed field
    *
    * @param eid Edge Id
@@ -496,6 +505,18 @@ class metall_graph {
    */
   std::optional<node_locator> priv_local_get_node_locator(
     std::string_view label) const;
+
+  /**
+   * @brief Retrives node locator from reverse index.
+   * If the locator is not found, that means the local data partition has no
+   * knowledge of the node label.
+   *
+   *
+   * @param nid locla node index
+   * @return node_locator
+   */
+  std::optional<node_locator> priv_local_get_node_locator(
+    local_node_idx_type nid) const;
 
   /**
    * @brief Check's the integrity of the indexes

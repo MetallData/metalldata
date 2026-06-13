@@ -27,42 +27,31 @@ metall_graph::priv_where_subgraph(
     priv_for_all_nodes_nwhere(
       [&](local_node_idx_type nid) {
         to_return.first.push_back(nid);
-        auto u = priv_local_get_node_label(nid);
-        YGM_ASSERT_DEBUG(u.has_value());
-        auto uo = priv_local_get_node_locator(u.value());
-        YGM_ASSERT_DEBUG(uo.has_value());
-        filtered_nodes.async_insert(uo.value());
+        auto uloco = priv_local_get_node_locator(nid);
+        YGM_ASSERT_DEBUG(uloco.has_value());
+        filtered_nodes.async_insert(uloco.value());
       },
       where);
 
     // 2. Gather list of nodes needed by rank local edges
     std::set<node_locator> nodes_i_need;
     priv_for_all_edges([&](local_edge_idx_type eid) {
-      auto uv_o = priv_local_get_edge_uv_labels(eid);
-      if (uv_o.has_value()) {
-        auto [u, v] = uv_o.value();
-        auto uo = priv_local_get_node_locator(u);
-        auto vo = priv_local_get_node_locator(v);
-        YGM_ASSERT_DEBUG(uo.has_value() && vo.has_value());
-        nodes_i_need.insert(uo.value());
-        nodes_i_need.insert(uo.value());
-      }
+      auto uvloco = priv_local_get_edge_uv_locators(eid);
+      YGM_ASSERT_DEBUG(uvloco.has_value());
+      auto [uloc, vloc] = uvloco.value();
+      nodes_i_need.insert(uloc);
+      nodes_i_need.insert(vloc);
     });
     std::set<node_locator> nodes_alive =
       filtered_nodes.gather_values(nodes_i_need);
 
     // 3. Compute the set of edges that are incident on those nodes.
     priv_for_all_edges([&](local_edge_idx_type eid) {
-      auto uv_o = priv_local_get_edge_uv_labels(eid);
-      if (uv_o.has_value()) {
-        auto [u, v] = uv_o.value();
-        auto uo = priv_local_get_node_locator(u);
-        auto vo = priv_local_get_node_locator(v);
-        YGM_ASSERT_DEBUG(uo.has_value() && vo.has_value());
-        if (nodes_alive.contains(uo.value()) &&
-            nodes_alive.contains(vo.value())) {
-          to_return.second.push_back(eid);
-        }
+      auto uvloco = priv_local_get_edge_uv_locators(eid);
+      YGM_ASSERT_DEBUG(uvloco.has_value());
+      auto [uloc, vloc] = uvloco.value();
+      if (nodes_alive.contains(uloc) && nodes_alive.contains(vloc)) {
+        to_return.second.push_back(eid);
       }
     });
   } else if (where.is_edge_clause()) {
@@ -71,14 +60,11 @@ metall_graph::priv_where_subgraph(
     node_locator_set nodesalive(m_comm);
     priv_for_all_edges_ewhere(
       [&](local_edge_idx_type eid) {
-        auto uv_o = priv_local_get_edge_uv_labels(eid);
-        YGM_ASSERT_RELEASE(uv_o.has_value());
-        auto [u, v] = uv_o.value();
-        auto uo = priv_local_get_node_locator(u);
-        auto vo = priv_local_get_node_locator(v);
-        YGM_ASSERT_DEBUG(uo.has_value() && vo.has_value());
-        nodesalive.async_insert(uo.value());
-        nodesalive.async_insert(vo.value());
+        auto uvloco = priv_local_get_edge_uv_locators(eid);
+        YGM_ASSERT_DEBUG(uvloco.has_value());
+        auto [uloc, vloc] = uvloco.value();
+        nodesalive.async_insert(uloc);
+        nodesalive.async_insert(vloc);
       },
       where);
 
