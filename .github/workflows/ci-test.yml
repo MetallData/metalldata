@@ -24,12 +24,6 @@ jobs:
         run: sudo apt-get install openmpi-bin libopenmpi-dev
       - name: Build and test
         run: |
-          # pushd /dev/shm
-          # wget -q https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.bz2
-          # mkdir boost
-          # tar xf boost_1_87_0.tar.bz2 -C boost --strip-components 1
-          # export CPLUS_INCLUDE_PATH="${PWD}/boost"
-          # popd
           cd $GITHUB_WORKSPACE
           mkdir build
           cd build
@@ -41,4 +35,5 @@ jobs:
           cd $GITHUB_WORKSPACE/build
           python -m venv venv
           source venv/bin/activate
+          pip install -r requirements.txt -r requirements-dev.txt
           make pytest
