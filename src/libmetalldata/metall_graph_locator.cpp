@@ -14,10 +14,10 @@ metall_graph::local_node_idx_type metall_graph::local(
     detail::local(detail::generic_locator{std::to_underlying(nl)})};
 }
 
-metall_graph::node_locator metall_graph::init_node_locator(
+metall_graph::node_locator metall_graph::make_node_locator(
 
   detail::rank_type owner, metall_graph::local_node_idx_type nid) {
-  auto gl = detail::init_generic_locator(owner, std::to_underlying(nid));
+  auto gl = detail::make_generic_locator(owner, std::to_underlying(nid));
   return metall_graph::node_locator{std::to_underlying(gl)};
 }
 
@@ -31,9 +31,9 @@ metall_graph::local_edge_idx_type metall_graph::local(
     detail::local(detail::generic_locator{std::to_underlying(el)})};
 }
 
-metall_graph::edge_locator metall_graph::init_edge_locator(
+metall_graph::edge_locator metall_graph::make_edge_locator(
   detail::rank_type owner, metall_graph::local_edge_idx_type eid) {
-  auto gl = detail::init_generic_locator(owner, std::to_underlying(eid));
+  auto gl = detail::make_generic_locator(owner, std::to_underlying(eid));
   return metall_graph::edge_locator{std::to_underlying(gl)};
 }
 

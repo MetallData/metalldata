@@ -511,19 +511,7 @@ class metall_graph {
     std::string_view label) const;
 
   /**
-   * @brief Retrieves node locator from reverse index.
-   * If the locator is not found, that means the local data partition has no
-   * knowledge of the node label.
-   *
-   *
-   * @param nid locla node index
-   * @return node_locator
-   */
-  std::optional<node_locator> priv_local_get_node_locator(
-    local_node_idx_type nid) const;
-
-  /**
-   * @brief Check's the integrity of the indexes
+   * @brief Checks the integrity of the indexes
    *
    * @return result<>
    */
@@ -547,14 +535,14 @@ class metall_graph {
 
   static detail::rank_type   owner(node_locator nl);
   static local_node_idx_type local(node_locator nl);
-  static node_locator        init_node_locator(detail::rank_type   owner,
+  static node_locator        make_node_locator(detail::rank_type   owner,
                                                local_node_idx_type nid);
   static detail::rank_type   owner(edge_locator nl);
   static local_edge_idx_type local(edge_locator nl);
-  static edge_locator        init_edge_locator(detail::rank_type   owner,
+  static edge_locator        make_edge_locator(detail::rank_type   owner,
                                                local_edge_idx_type nid);
 
-  // Forward declared, see: impl/metall_graph_nod_locator_set.hpp
+  // Forward declared, see: impl/metall_graph_node_locator_set.hpp
   class node_locator_set;
 
   /// Forward declared friend for testing internal state

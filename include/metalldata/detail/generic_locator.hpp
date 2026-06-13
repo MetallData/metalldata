@@ -21,7 +21,7 @@ inline size_t local(generic_locator gl) {
   return std::to_underlying(gl) & (~size_t{0} >> RANK_BITS);
 }
 
-inline generic_locator init_generic_locator(rank_type owner, size_t local) {
+inline generic_locator make_generic_locator(rank_type owner, size_t local) {
   bool bowner =
     owner >= rank_type{0} && size_t(owner) < ((size_t{1} << RANK_BITS) - 1);
   bool blocal = local < ((size_t{1} << (64 - RANK_BITS)) - 1);

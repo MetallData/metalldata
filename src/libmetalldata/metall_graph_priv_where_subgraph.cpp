@@ -27,9 +27,8 @@ metall_graph::priv_where_subgraph(
     priv_for_all_nodes_nwhere(
       [&](local_node_idx_type nid) {
         to_return.first.push_back(nid);
-        auto uloco = priv_local_get_node_locator(nid);
-        YGM_ASSERT_DEBUG(uloco.has_value());
-        filtered_nodes.async_insert(uloco.value());
+        node_locator nloc = make_node_locator(m_comm.rank(), nid);
+        filtered_nodes.async_insert(nloc);
       },
       where);
 

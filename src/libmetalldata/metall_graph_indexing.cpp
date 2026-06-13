@@ -41,15 +41,6 @@ metall_graph::priv_local_get_node_locator(std::string_view label) const {
   return std::nullopt;
 }
 
-std::optional<metall_graph::node_locator>
-metall_graph::priv_local_get_node_locator(local_node_idx_type nid) const {
-  auto nlbo = priv_local_get_node_label(nid);
-  if (nlbo.has_value()) {
-    return priv_local_get_node_locator(nlbo.value());
-  }
-  return std::nullopt;
-}
-
 void metall_graph::priv_update_reverse_node_index() {
   // Setup for collective.
   static metall_graph* spthis = this;
@@ -60,7 +51,7 @@ void metall_graph::priv_update_reverse_node_index() {
     auto u_o = priv_local_get_node_label(nid);
     if (u_o.has_value()) {
       auto u_sa = compact_string::add_string(u_o.value(), *m_pstring_store);
-      auto nl = init_node_locator(m_comm.rank(), nid);
+      auto nl = make_node_locator(m_comm.rank(), nid);
       m_pnode_to_locator->insert_or_assign(u_sa, nl);
     }
   });
@@ -77,7 +68,7 @@ void metall_graph::priv_update_reverse_node_index() {
     auto request = [](int requester, const std::string& label) {
       auto nid_o = spthis->priv_local_get_node_id(label);
       YGM_ASSERT_RELEASE(nid_o.has_value());
-      auto nl = init_node_locator(spthis->m_comm.rank(), nid_o.value());
+      auto nl = make_node_locator(spthis->m_comm.rank(), nid_o.value());
 
       auto response = [nl](const std::string& label) {
         auto l_sa =
