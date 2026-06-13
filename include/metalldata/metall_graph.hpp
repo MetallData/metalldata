@@ -550,7 +550,7 @@ class metall_graph {
   static std::optional<edge_locator> init_edge_locator(int owner,
                                                        local_edge_idx_type nid);
 
-  // Forward declared, see: impl/metall_graph_nodeset.hpp
+  // Forward declared, see: impl/metall_graph_nod_locator_eset.hpp
   class node_locator_set;
 
   /// Forward declared friend for testing internal state
@@ -574,7 +574,7 @@ struct std::hash<metalldata::metall_graph::series_types> {
   }
 };
 
-#include <metalldata/impl/metall_graph_nodeset.hpp>
+#include <metalldata/impl/metall_graph_nod_locator_eset.hpp>
 #include <metalldata/impl/metall_graph_series_name.hpp>
 #include <metalldata/impl/metall_graph_where.hpp>
 #include <metalldata/impl/metall_graph_faker.ipp>
