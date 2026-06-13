@@ -36,4 +36,7 @@ jobs:
           python -m venv venv
           source venv/bin/activate
           pip install -r ../test/clippy/requirements.txt -r ../test/clippy/requirements-dev.txt
+          echo "inspecting"
+          which python
+          which python3
           make pytest
