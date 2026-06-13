@@ -21,7 +21,7 @@ inline size_t local(generic_locator gl) {
 
 inline std::optional<generic_locator> init_generic_locator(int    owner,
                                                            size_t local) {
-  bool bowner = size_t(owner) < ((size_t{1} << RANK_BITS) - 1);
+  bool bowner = owner > 0 && size_t(owner) < ((size_t{1} << RANK_BITS) - 1);
   bool blocal = local < ((size_t{1} << (64 - RANK_BITS)) - 1);
   if (bowner && blocal) {
     size_t to_return = owner;
