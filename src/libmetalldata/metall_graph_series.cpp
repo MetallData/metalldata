@@ -77,6 +77,20 @@ metall_graph::priv_local_get_edge_uv_labels(
   }
 }
 
+std::optional<std::pair<metall_graph::node_locator, metall_graph::node_locator>>
+metall_graph::priv_local_get_edge_uv_locators(
+  metall_graph::local_edge_idx_type eid) const {
+  auto uvlbo = priv_local_get_edge_uv_labels(eid);
+  if (uvlbo.has_value()) {
+    auto uloco = priv_local_get_node_locator(uvlbo.value().first);
+    auto vloco = priv_local_get_node_locator(uvlbo.value().second);
+    if (uloco.has_value() && vloco.has_value()) {
+      return std::make_pair(uloco.value(), vloco.value());
+    }
+  }
+  return std::nullopt;
+}
+
 std::optional<bool> metall_graph::priv_local_edge_is_directed(
   metall_graph::local_edge_idx_type eid) const {
   return priv_local_get_edge_field<bool>(m_dir_col_idx, eid);

@@ -263,6 +263,10 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
       }  // for loop
     });  // for_all
 
+  //
+  // Update the reverse indexes after every ingest
+  priv_update_reverse_node_index();
+
   m_comm.barrier();
   std::map<std::string, size_t> retdict{
     {"num_edges_ingested", ygm::sum(local_nedges, m_comm)},

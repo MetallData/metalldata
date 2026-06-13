@@ -16,10 +16,10 @@ template <typename T>
 result<> metall_graph::priv_set_column_by_idx(
   const metall_graph::series_name& col_name, const T& collection) {
   using record_id_type = metall_graph::record_store_type::record_id_type;
-  using val_type       = typename T::mapped_type;
+  using val_type = typename T::mapped_type;
 
   result<> to_return;
-  auto store = col_name.is_edge_series() ? m_pedges : m_pnodes;
+  auto     store = col_name.is_edge_series() ? m_pedges : m_pnodes;
   // create series
   auto col_idx = store->add_series<val_type>(col_name.unqualified());
 
@@ -47,7 +47,7 @@ metalldata::result<> metall_graph::set_node_column(
   result<> to_return;
 
   using record_id_type = record_store_type::record_id_type;
-  using val_type       = typename T::mapped_type;
+  using val_type = typename T::mapped_type;
 
   // create series
   size_t nodecol_idx;
@@ -56,7 +56,7 @@ metalldata::result<> metall_graph::set_node_column(
     nodecol_idx = m_pnodes->add_series<int64_t>(nodecol_name.unqualified());
 
     for (const auto& [node_name, value] : collection) {
-      auto nid_o = priv_local_node_find(node_name);
+      auto nid_o = priv_local_get_node_id(node_name);
       if (!nid_o.has_value()) {
         ++invalid_nodes;
         continue;
@@ -64,13 +64,14 @@ metalldata::result<> metall_graph::set_node_column(
       if (value > std::numeric_limits<int64_t>::max()) {
         return std::unexpected("Cannot process unsigned integer value > 2**63");
       }
-      m_pnodes->set(nodecol_idx, std::to_underlying(nid_o.value()), static_cast<int64_t>(value));
+      m_pnodes->set(nodecol_idx, std::to_underlying(nid_o.value()),
+                    static_cast<int64_t>(value));
     }
 
   } else {
     nodecol_idx = m_pnodes->add_series<val_type>(nodecol_name.unqualified());
     for (const auto& [node_name, value] : collection) {
-      auto nid_o = priv_local_node_find(node_name);
+      auto nid_o = priv_local_get_node_id(node_name);
       if (!nid_o.has_value()) {
         ++invalid_nodes;
         continue;

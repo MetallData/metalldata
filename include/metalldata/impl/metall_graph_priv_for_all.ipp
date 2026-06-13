@@ -1,5 +1,6 @@
 #pragma once
 #include <metalldata/metall_graph.hpp>
+#include <unordered_set>
 #include <ygm/utility/assert.hpp>
 
 namespace metalldata {
@@ -9,38 +10,34 @@ void metall_graph::priv_for_all_edges_nwhere(
   Fn func, const metall_graph::where_clause& where) const {
   YGM_ASSERT_RELEASE(where.is_node_clause());
   // 1. Compute the set of nodes that satisfy the node where clause.
-  ygm::container::set<std::string> nodeset(m_comm);
+  node_locator_set filtered_nodes(m_comm);
   priv_for_all_nodes_nwhere(
     [&](local_node_idx_type nid) {
-      auto u = priv_local_get_node_label(nid);
-      if (u.has_value()) {
-        nodeset.async_insert(std::string(u.value()));
-      }
+      node_locator nloc = make_node_locator(m_comm.rank(), nid);
+      filtered_nodes.async_insert(nloc);
     },
     where);
   m_comm.barrier();
 
   // 2. Gather list of nodes needed by rank local edges
-  std::set<std::string> nodes_i_need;
+  std::set<node_locator> nodes_i_need;
   priv_for_all_edges([&](local_edge_idx_type eid) {
-    auto uv_o = priv_local_get_edge_uv_labels(eid);
-    if (uv_o.has_value()) {
-      auto [u, v] = uv_o.value();
-      nodes_i_need.insert(std::string(u));
-      nodes_i_need.insert(std::string(v));
-    }
+    auto uvloco = priv_local_get_edge_uv_locators(eid);
+    YGM_ASSERT_DEBUG(uvloco.has_value());
+    auto [uloc, vloc] = uvloco.value();
+    nodes_i_need.insert(uloc);
+    nodes_i_need.insert(vloc);
   });
-  std::set<std::string> nodes_alive = nodeset.gather_values(nodes_i_need);
+  std::set<node_locator> nodes_alive =
+    filtered_nodes.gather_values(nodes_i_need);
 
   // 3. Compute the set of edges that are incident on those nodes.
   priv_for_all_edges([&](local_edge_idx_type eid) {
-    auto uv_o = priv_local_get_edge_uv_labels(eid);
-    if (uv_o.has_value()) {
-      auto [u, v] = uv_o.value();
-      if (nodes_alive.contains(std::string(u)) &&
-          nodes_alive.contains(std::string(v))) {
-        func(eid);
-      }
+    auto uvloco = priv_local_get_edge_uv_locators(eid);
+    YGM_ASSERT_DEBUG(uvloco.has_value());
+    auto [uloc, vloc] = uvloco.value();
+    if (nodes_alive.contains(uloc) && nodes_alive.contains(vloc)) {
+      func(eid);
     }
   });
 }
@@ -105,7 +102,7 @@ void metall_graph::priv_for_all_edges(
     priv_for_all_edges_nwhere(func, where);
   } else if (where.is_edge_clause()) {
     priv_for_all_edges_ewhere(func, where);
-  } else { //defaults to empty
+  } else {  // defaults to empty
     priv_for_all_edges(func);
   }
 };
@@ -156,23 +153,19 @@ void metall_graph::priv_for_all_nodes_ewhere(
 
   // 1. compute the set of edges that satisfy the edge where clause & save
   // vertex labels
-  ygm::container::set<std::string> nodeset(m_comm);
+  node_locator_set nodes_alive(m_comm);
   priv_for_all_edges_ewhere(
     [&](local_edge_idx_type eid) {
-      auto uv_o = priv_local_get_edge_uv_labels(eid);
-      YGM_ASSERT_RELEASE(uv_o.has_value());
-      auto [u, v] = uv_o.value();
-      nodeset.async_insert(std::string(u));
-      nodeset.async_insert(std::string(v));
+      auto uvloco = priv_local_get_edge_uv_locators(eid);
+      YGM_ASSERT_DEBUG(uvloco.has_value());
+      auto [uloc, vloc] = uvloco.value();
+      nodes_alive.async_insert(uloc);
+      nodes_alive.async_insert(vloc);
     },
     where);
 
   // 2. Compute node ids from vertex labels
-  for (const auto& node : nodeset) {
-    auto opsa = priv_local_node_find(node);
-    YGM_ASSERT_RELEASE(opsa.has_value());
-    func(local_node_idx_type{opsa.value()});
-  }
+  nodes_alive.for_all_local([&](local_node_idx_type nl) { func(nl); });
 }
 
 template <typename Fn>
@@ -189,7 +182,7 @@ void metall_graph::priv_for_all_nodes(
     priv_for_all_nodes_nwhere(func, where);
   } else if (where.is_edge_clause()) {
     priv_for_all_nodes_ewhere(func, where);
-  } else { // defaults to empty
+  } else {  // defaults to empty
     priv_for_all_nodes(func);
   }
 }

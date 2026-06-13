@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  std::string metall_path    = argv[1];
+  std::string metall_path = argv[1];
   std::string jsonlogic_file = (argc >= 3) ? argv[2] : "";
 
   world.cout0("Opening metall_graph at: ", metall_path);
@@ -47,8 +47,10 @@ int main(int argc, char** argv) {
     }
 
     world.cout0("Successfully opened metall_graph");
-    world.cout0("Total nodes: ", graph.num_nodes(metalldata::metall_graph::where_clause{}));
-    world.cout0("Total edges: ", graph.num_edges(metalldata::metall_graph::where_clause{}));
+    world.cout0("Total nodes: ",
+                graph.num_nodes(metalldata::metall_graph::where_clause{}));
+    world.cout0("Total edges: ",
+                graph.num_edges(metalldata::metall_graph::where_clause{}));
 
     // Remove the "edge.color" series if it exists
     series_name name("edge.color");
@@ -70,8 +72,8 @@ int main(int argc, char** argv) {
     world.cout0("Successfully added series: ", name.qualified());
 
     // Read JSONLogic rule from file (if provided)
-    metalldata::result<>                  res;
-    std::string                           color_value = "blue";
+    metalldata::result<> res;
+    std::string          color_value = "blue";
 
     if (!jsonlogic_file.empty()) {
       world.cout0("Reading JSONLogic rule from: ", jsonlogic_file);
@@ -83,17 +85,17 @@ int main(int argc, char** argv) {
       world.cout0("Assigning '", color_value, "' to '", name.qualified(),
                   "' where JSONLogic evaluates to true");
 
-      result = graph.assign(name, color_value, where);
+      res = graph.assign(name, color_value, where);
     } else {
       // No JSONLogic filter - assign to all edges
       world.cout0("Assigning '", color_value, "' to '", name.qualified(),
                   "' (all edges)");
 
-      result = graph.assign(name, color_value);
+      res = graph.assign(name, color_value);
     }
 
-    if (!result) {
-      world.cerr0("Error during assign: ", result.error());
+    if (!res) {
+      world.cerr0("Error during assign: ", res.error());
       return 1;
     }
 

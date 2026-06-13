@@ -22,13 +22,17 @@
 #include <metall/utility/metall_mpi_adaptor.hpp>
 #include <boost/json.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
+#include <boost/unordered/unordered_flat_map.hpp>
 #include <metall/container/unordered_map.hpp>
-#include <ygm/container/set.hpp>
 #include <expected>
 #include <optional>
 #include <ygm/utility/assert.hpp>
+#include <ygm/container/set.hpp>
 #include <ygm/container/counting_set.hpp>
 #include <metalldata/result.hpp>
+#include <string_table/string_accessor.hpp>
+#include <string_table/string_store.hpp>
+#include <metalldata/detail/generic_locator.hpp>
 
 namespace bjsn = boost::json;
 
@@ -59,14 +63,6 @@ class metall_graph {
   using string_store_type = record_store_type::string_store_type;
   using string_table_accessor = compact_string::string_accessor;
 
-  /// hash table to index local node's record ids
-  using local_vertex_map_type = metall::container::unordered_map<
-    string_table_accessor, record_id_type,
-    compact_string::string_accessor_hasher,
-    std::equal_to<compact_string::string_accessor>,
-    metall::manager::allocator_type<
-      std::pair<const compact_string::string_accessor, record_id_type>>>;
-
   enum class local_node_idx_type : std::size_t;
   enum class local_edge_idx_type : std::size_t;
   enum class node_series_idx_type : std::size_t;
@@ -76,6 +72,9 @@ class metall_graph {
   using series_types = multiseries::basic_record_store<>::series_type;
   using count_types =
     std::variant<std::monostate, bool, int64_t, double, std::string>;
+
+  enum class node_locator : std::size_t;
+  enum class edge_locator : std::size_t;
 
   /// Forward declared, see impl/metall_graph_series_name.hpp
   struct series_name;
@@ -237,6 +236,23 @@ class metall_graph {
     std::optional<uint64_t> optseed, const metall_graph::where_clause& where);
 
  private:
+  // TODO:  debug why we can't used string_accessor_fast_hash for these maps.
+  /// hash table from node string label to local id.  For local nodes only.
+  using map_local_node_to_local_id_type = boost::unordered::unordered_flat_map<
+    string_table_accessor, local_node_idx_type,
+    compact_string::string_accessor_hasher,
+    std::equal_to<compact_string::string_accessor>,
+    metall::manager::allocator_type<
+      std::pair<const compact_string::string_accessor, local_node_idx_type>>>;
+
+  /// hash table from node string label to global locator.  For tracking remote
+  /// nodes.
+  using map_node_to_locator_type = boost::unordered::unordered_flat_map<
+    string_table_accessor, node_locator, compact_string::string_accessor_hasher,
+    std::equal_to<compact_string::string_accessor>,
+    metall::manager::allocator_type<
+      std::pair<const compact_string::string_accessor, node_locator>>>;
+
   std::string m_metall_path;  ///< Path to underlying metall storage
   ygm::comm&  m_comm;         ///< YGM Comm
 
@@ -246,8 +262,10 @@ class metall_graph {
   record_store_type* m_pnodes = nullptr;
   /// Dataframe for directed edges
   record_store_type* m_pedges = nullptr;
-  /// Map from vertex string to local record index
-  local_vertex_map_type* m_pnode_to_idx = nullptr;
+  /// Map from vertex string to local node id
+  map_local_node_to_local_id_type* m_pnode_to_idx = nullptr;
+  /// Map from vertex string to node locator
+  map_node_to_locator_type* m_pnode_to_locator = nullptr;
   /// String store
   string_store_type* m_pstring_store = nullptr;
 
@@ -259,11 +277,23 @@ class metall_graph {
   /**
    * @brief Returns an edge's endpoints (u,v) as string_views
    *
+   * @todo remove optional and throw if not found, since this should only be
+   * called.
    * @param eid Edge ID
    * @return std::optional<std::pair<std::string_view, std::string_view>>
    */
   std::optional<std::pair<std::string_view, std::string_view>>
   priv_local_get_edge_uv_labels(local_edge_idx_type eid) const;
+
+  /**
+   * @brief Returns an edge's endpoints (u,v) as node_locators
+   * @todo remove optional and throw if not found, since this should only be
+   * called.
+   * @param eid Edge ID
+   * @return std::optional<std::pair<node_locator, node_locator>>
+   */
+  std::optional<std::pair<node_locator, node_locator>>
+  priv_local_get_edge_uv_locators(local_edge_idx_type eid) const;
 
   /**
    * @brief Returns an edge's directed field
@@ -443,44 +473,49 @@ class metall_graph {
                            const T&           collection);
 
   /**
-   * @brief Retrives or inserts node string label into reverse lookup.   Returns
+   * @brief Updates reverse node index after fresh edge ingestion.   Collective
+   * method.
+   *
+   */
+  void priv_update_reverse_node_index();
+
+  /**
+   * @brief Retrieves or inserts node string label into reverse lookup. Returns
    * local_node_idx
    *
    * @param label String node label
    * @return local_node_idx_type
    */
-  local_node_idx_type priv_local_node_find_or_insert(std::string_view label) {
-    YGM_ASSERT_RELEASE(m_partitioner.owner(label) == m_comm.rank());
-    auto v_in_ss = compact_string::add_string(label, *m_pstring_store);
-    if (!m_pnode_to_idx->contains(v_in_ss)) {
-      auto nid = local_node_idx_type{m_pnodes->add_record()};
-      // m_pnodes->set(m_node_col_idx, ridx, id);
-      // todo remove static_cast
-      priv_local_set_node_field(
-        node_series_idx_type{static_cast<uint32_t>(m_node_col_idx)}, nid,
-        label);
-      m_pnode_to_idx->insert_or_assign(v_in_ss, std::to_underlying(nid));
-      return nid;
-    }
-    return local_node_idx_type{m_pnode_to_idx->at(v_in_ss)};
-  }
+  local_node_idx_type priv_local_node_find_or_insert(std::string_view label);
 
   /**
-   * @brief Retrives without inserting node string label into reverse lookup.
+   * @brief Retrieves without inserting node string label into reverse lookup.
    * Returns local_node_idx
    *
    * @param label String node label
    * @return local_node_idx_type
    */
-  std::optional<local_node_idx_type> priv_local_node_find(
-    std::string_view id) const {
-    YGM_ASSERT_RELEASE(m_partitioner.owner(id) == m_comm.rank());
-    auto ret = compact_string::find_string(id, *m_pstring_store);
-    if (ret) {
-      return local_node_idx_type{m_pnode_to_idx->at(ret.value())};
-    }
-    return std::nullopt;
-  }
+  std::optional<local_node_idx_type> priv_local_get_node_id(
+    std::string_view label) const;
+
+  /**
+   * @brief Retrieves node locator from reverse index.
+   * If the locator is not found, that means the local data partition has no
+   * knowledge of the node label.
+   *
+   *
+   * @param label String node label
+   * @return node_locator
+   */
+  std::optional<node_locator> priv_local_get_node_locator(
+    std::string_view label) const;
+
+  /**
+   * @brief Checks the integrity of the indexes
+   *
+   * @return result<>
+   */
+  result<> priv_check_index_integrity() const;
 
   std::unordered_set<record_id_type> priv_random_idx(
     const std::unordered_set<record_id_type>& filtered_ids_set, size_t k,
@@ -497,6 +532,21 @@ class metall_graph {
 
   static count_types priv_series_to_count_type(
     const record_store_type::series_type& sv);
+
+  static detail::rank_type   owner(node_locator nl);
+  static local_node_idx_type local(node_locator nl);
+  static node_locator        make_node_locator(detail::rank_type   owner,
+                                               local_node_idx_type nid);
+  static detail::rank_type   owner(edge_locator nl);
+  static local_edge_idx_type local(edge_locator nl);
+  static edge_locator        make_edge_locator(detail::rank_type   owner,
+                                               local_edge_idx_type nid);
+
+  // Forward declared, see: impl/metall_graph_node_locator_set.hpp
+  class node_locator_set;
+
+  /// Forward declared friend for testing internal state
+  friend class metall_graph_test;
 
 };  // class metall_graph
 
@@ -516,6 +566,7 @@ struct std::hash<metalldata::metall_graph::series_types> {
   }
 };
 
+#include <metalldata/impl/metall_graph_node_locator_set.hpp>
 #include <metalldata/impl/metall_graph_series_name.hpp>
 #include <metalldata/impl/metall_graph_where.hpp>
 #include <metalldata/impl/metall_graph_faker.ipp>

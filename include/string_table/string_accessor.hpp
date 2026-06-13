@@ -11,6 +11,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <numeric>
 #include <boost/container_hash/hash.hpp>
 
 namespace compact_string {
@@ -23,7 +24,7 @@ class string_accessor {
  public:
   using size_type = std::size_t;
   using char_type = char;
-  using offset_t  = std::ptrdiff_t;
+  using offset_t = std::ptrdiff_t;
 
  private:
   using self_type = string_accessor;
@@ -46,7 +47,7 @@ class string_accessor {
 
   string_accessor(const string_accessor &other) {
     if (other.is_short()) {
-      m_entier_block = other.m_entier_block;
+      m_entire_block = other.m_entire_block;
     } else {
       // Memo: we cannot copy the pointer directly
       // as offset must be recalculated.
@@ -56,13 +57,13 @@ class string_accessor {
 
   string_accessor(string_accessor &&other) {
     if (other.is_short()) {
-      m_entier_block = other.m_entier_block;
+      m_entire_block = other.m_entire_block;
     } else {
       // Memo: we cannot copy the pointer directly
       // as offset must be recalculated.
       priv_set_long_str_pointer(other.priv_to_long_str_pointer());
     }
-    other.m_entier_block = 0;  // clear the data
+    other.m_entire_block = 0;  // clear the data
   }
 
   string_accessor &operator=(const string_accessor &other) {
@@ -70,7 +71,7 @@ class string_accessor {
       return *this;
     }
     if (other.is_short()) {
-      m_entier_block = other.m_entier_block;
+      m_entire_block = other.m_entire_block;
     } else {
       priv_set_long_str_pointer(other.priv_to_long_str_pointer());
     }
@@ -79,11 +80,11 @@ class string_accessor {
 
   string_accessor &operator=(string_accessor &&other) noexcept {
     if (other.is_short()) {
-      m_entier_block = other.m_entier_block;
+      m_entire_block = other.m_entire_block;
     } else {
       priv_set_long_str_pointer(other.priv_to_long_str_pointer());
     }
-    other.m_entier_block = 0;  // clear the data
+    other.m_entire_block = 0;  // clear the data
     return *this;
   }
 
@@ -116,6 +117,8 @@ class string_accessor {
   std::string_view to_view() const {
     return std::string_view{c_str(), length()};
   }
+
+  size_t fast_hash() const { return m_entire_block; }
 
   void assign(const char_type *data) {
     assign(data, std::char_traits<char_type>::length(data));
@@ -155,7 +158,7 @@ class string_accessor {
 
     bool is_negative = false;
     if (off < 0) {
-      off         = -off;
+      off = -off;
       is_negative = true;
     }
     if (uint64_t(off) > (1ULL << 55)) {
@@ -198,7 +201,7 @@ class string_accessor {
 
   void priv_set_short_str(const char_type *const str, size_type length) {
     assert(length <= k_short_str_max_length);
-    m_entier_block = 0;
+    m_entire_block = 0;
 
     for (int i = 0; i < int(length); ++i) {
       m_str[i] = str[i];
@@ -229,7 +232,7 @@ class string_accessor {
                   "sizeof uint8_t must be equal to sizeof char");
     uint8_t  m_blocks[sizeof(offset_t)] = {0};
     char     m_str[sizeof(offset_t)];
-    uint64_t m_entier_block;
+    uint64_t m_entire_block;
     static_assert(sizeof(offset_t) == sizeof(uint64_t),
                   "sizeof(offset_ptr_t) != sizeof(uint64_t)");
   };
@@ -238,6 +241,12 @@ class string_accessor {
 struct string_accessor_hasher {
   std::size_t operator()(const string_accessor &str) const {
     return boost::hash_range(str.c_str(), str.c_str() + str.length());
+  }
+};
+
+struct string_accessor_fast_hash {
+  std::size_t operator()(const string_accessor &str) const {
+    return str.fast_hash();
   }
 };
 
