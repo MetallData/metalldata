@@ -3,12 +3,13 @@
 
 namespace metalldata {
 /**
- * @brief nodeset is specialized for node_locators by deriving from
+ * @brief node_locator_set is specialized for node_locators by deriving from
  * ygm::container::set Provides for_all_local that paritions locators by their
  * owner before executing user Fn.
  *
  */
-class metall_graph::nodeset : public ygm::container::set<node_locator> {
+class metall_graph::node_locator_set
+    : public ygm::container::set<node_locator> {
  private:
   using base = ygm::container::set<node_locator>;
 

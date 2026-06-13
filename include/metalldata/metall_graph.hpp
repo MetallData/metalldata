@@ -32,6 +32,7 @@
 #include <metalldata/result.hpp>
 #include <string_table/string_accessor.hpp>
 #include <string_table/string_store.hpp>
+#include <metalldata/detail/generic_locator.hpp>
 
 namespace bjsn = boost::json;
 
@@ -261,7 +262,7 @@ class metall_graph {
   record_store_type* m_pnodes = nullptr;
   /// Dataframe for directed edges
   record_store_type* m_pedges = nullptr;
-  /// Map from vertex string to local nide id
+  /// Map from vertex string to local node id
   map_local_node_to_local_id_type* m_pnode_to_idx = nullptr;
   /// Map from vertex string to node locator
   map_node_to_locator_type* m_pnode_to_locator = nullptr;
@@ -276,11 +277,23 @@ class metall_graph {
   /**
    * @brief Returns an edge's endpoints (u,v) as string_views
    *
+   * @todo remove optional and throw if not found, since this should only be
+   * called.
    * @param eid Edge ID
    * @return std::optional<std::pair<std::string_view, std::string_view>>
    */
   std::optional<std::pair<std::string_view, std::string_view>>
   priv_local_get_edge_uv_labels(local_edge_idx_type eid) const;
+
+  /**
+   * @brief Returns an edge's endpoints (u,v) as node_locators
+   * @todo remove optional and throw if not found, since this should only be
+   * called.
+   * @param eid Edge ID
+   * @return std::optional<std::pair<node_locator, node_locator>>
+   */
+  std::optional<std::pair<node_locator, node_locator>>
+  priv_local_get_edge_uv_locators(local_edge_idx_type eid) const;
 
   /**
    * @brief Returns an edge's directed field
@@ -460,14 +473,14 @@ class metall_graph {
                            const T&           collection);
 
   /**
-   * @brief Updates reverse node index after fresh edge ingestion.   Colelctive
+   * @brief Updates reverse node index after fresh edge ingestion.   Collective
    * method.
    *
    */
   void priv_update_reverse_node_index();
 
   /**
-   * @brief Retrives or inserts node string label into reverse lookup.   Returns
+   * @brief Retrieves or inserts node string label into reverse lookup. Returns
    * local_node_idx
    *
    * @param label String node label
@@ -476,7 +489,7 @@ class metall_graph {
   local_node_idx_type priv_local_node_find_or_insert(std::string_view label);
 
   /**
-   * @brief Retrives without inserting node string label into reverse lookup.
+   * @brief Retrieves without inserting node string label into reverse lookup.
    * Returns local_node_idx
    *
    * @param label String node label
@@ -486,7 +499,7 @@ class metall_graph {
     std::string_view label) const;
 
   /**
-   * @brief Retrives node locator from reverse index.
+   * @brief Retrieves node locator from reverse index.
    * If the locator is not found, that means the local data partition has no
    * knowledge of the node label.
    *
@@ -498,7 +511,7 @@ class metall_graph {
     std::string_view label) const;
 
   /**
-   * @brief Check's the integrity of the indexes
+   * @brief Checks the integrity of the indexes
    *
    * @return result<>
    */
@@ -520,17 +533,17 @@ class metall_graph {
   static count_types priv_series_to_count_type(
     const record_store_type::series_type& sv);
 
-  static int                         owner(node_locator nl);
-  static local_node_idx_type         local(node_locator nl);
-  static std::optional<node_locator> init_node_locator(int owner,
-                                                       local_node_idx_type nid);
-  static int                         owner(edge_locator nl);
-  static local_edge_idx_type         local(edge_locator nl);
-  static std::optional<edge_locator> init_edge_locator(int owner,
-                                                       local_edge_idx_type nid);
+  static detail::rank_type   owner(node_locator nl);
+  static local_node_idx_type local(node_locator nl);
+  static node_locator        make_node_locator(detail::rank_type   owner,
+                                               local_node_idx_type nid);
+  static detail::rank_type   owner(edge_locator nl);
+  static local_edge_idx_type local(edge_locator nl);
+  static edge_locator        make_edge_locator(detail::rank_type   owner,
+                                               local_edge_idx_type nid);
 
-  // Forward declared, see: impl/metall_graph_nodeset.hpp
-  class nodeset;
+  // Forward declared, see: impl/metall_graph_node_locator_set.hpp
+  class node_locator_set;
 
   /// Forward declared friend for testing internal state
   friend class metall_graph_test;
@@ -553,7 +566,7 @@ struct std::hash<metalldata::metall_graph::series_types> {
   }
 };
 
-#include <metalldata/impl/metall_graph_nodeset.hpp>
+#include <metalldata/impl/metall_graph_node_locator_set.hpp>
 #include <metalldata/impl/metall_graph_series_name.hpp>
 #include <metalldata/impl/metall_graph_where.hpp>
 #include <metalldata/impl/metall_graph_faker.ipp>
