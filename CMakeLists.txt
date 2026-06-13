@@ -8,6 +8,8 @@ project(MetallData
 
 set(CMAKE_CXX_STANDARD 23)
 
+set(Python3_FIND_VIRTUALENV FIRST)
+
 include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
 
