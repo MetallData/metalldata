@@ -277,6 +277,8 @@ class metall_graph {
   /**
    * @brief Returns an edge's endpoints (u,v) as string_views
    *
+   * @todo remove optional and throw if not found, since this should only be
+   * called.
    * @param eid Edge ID
    * @return std::optional<std::pair<std::string_view, std::string_view>>
    */
@@ -285,7 +287,8 @@ class metall_graph {
 
   /**
    * @brief Returns an edge's endpoints (u,v) as node_locators
-   *
+   * @todo remove optional and throw if not found, since this should only be
+   * called.
    * @param eid Edge ID
    * @return std::optional<std::pair<node_locator, node_locator>>
    */
@@ -470,14 +473,14 @@ class metall_graph {
                            const T&           collection);
 
   /**
-   * @brief Updates reverse node index after fresh edge ingestion.   Colelctive
+   * @brief Updates reverse node index after fresh edge ingestion.   Collective
    * method.
    *
    */
   void priv_update_reverse_node_index();
 
   /**
-   * @brief Retrives or inserts node string label into reverse lookup.   Returns
+   * @brief Retrieves or inserts node string label into reverse lookup. Returns
    * local_node_idx
    *
    * @param label String node label
@@ -486,7 +489,7 @@ class metall_graph {
   local_node_idx_type priv_local_node_find_or_insert(std::string_view label);
 
   /**
-   * @brief Retrives without inserting node string label into reverse lookup.
+   * @brief Retrieves without inserting node string label into reverse lookup.
    * Returns local_node_idx
    *
    * @param label String node label
@@ -496,7 +499,7 @@ class metall_graph {
     std::string_view label) const;
 
   /**
-   * @brief Retrives node locator from reverse index.
+   * @brief Retrieves node locator from reverse index.
    * If the locator is not found, that means the local data partition has no
    * knowledge of the node label.
    *
@@ -508,7 +511,7 @@ class metall_graph {
     std::string_view label) const;
 
   /**
-   * @brief Retrives node locator from reverse index.
+   * @brief Retrieves node locator from reverse index.
    * If the locator is not found, that means the local data partition has no
    * knowledge of the node label.
    *

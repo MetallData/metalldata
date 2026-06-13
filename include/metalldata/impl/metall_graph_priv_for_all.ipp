@@ -13,8 +13,8 @@ void metall_graph::priv_for_all_edges_nwhere(
   node_locator_set filtered_nodes(m_comm);
   priv_for_all_nodes_nwhere(
     [&](local_node_idx_type nid) {
-      node_locator uloc = init_node_locator(m_comm.rank(), nid);
-      filtered_nodes.async_insert(uloc);
+      node_locator nloc = init_node_locator(m_comm.rank(), nid);
+      filtered_nodes.async_insert(nloc);
     },
     where);
   m_comm.barrier();
