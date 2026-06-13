@@ -180,7 +180,7 @@ void metall_graph::priv_for_all_nodes_ewhere(
     where);
 
   // 2. Compute node ids from vertex labels
-  nodesalive.for_all([&](node_locator nl) { func(local(nl)); });
+  nodesalive.for_all_local([&](local_node_idx_type nl) { func(nl); });
 }
 
 template <typename Fn>
