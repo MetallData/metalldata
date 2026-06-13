@@ -8,6 +8,9 @@ project(MetallData
 
 set(CMAKE_CXX_STANDARD 23)
 
+# Prioritizes venvs if cmake is being run inside of one.
+set(Python3_FIND_VIRTUALENV FIRST)
+
 include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
 

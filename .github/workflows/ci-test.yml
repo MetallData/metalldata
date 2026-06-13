@@ -1,6 +1,3 @@
-# This version contains a workaround for the Boost.Unordered file missing issue.
-# Specifically, we download boost manually and include the path to $CMAKE_PREFIX_PATH
-# so that cmake can find Boost.Unordered header files.
 name: CI Test
 
 on:
@@ -26,29 +23,20 @@ jobs:
         run: sudo apt-get install openmpi-bin libopenmpi-dev
       - name: Build and test
         run: |
-          pushd /dev/shm
-          wget -q https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.bz2
-          mkdir boost
-          tar xf boost_1_87_0.tar.bz2 -C boost --strip-components 1
-          export CPLUS_INCLUDE_PATH="${PWD}/boost"
-          popd
           cd $GITHUB_WORKSPACE
           mkdir build
           cd build
-          cmake ../ -DMETALLDATA_BUILD_TESTS=ON
+          cmake ../ -DMETALLDATA_BUILD_TESTS=ON BOOST_FETCH_URL=https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.bz2
           make -j6
           make test
-          # removed 20250814 sbromberger
-          #cd ../tests
-          # export OMPI_MCA_rmaps_base_oversubscribe=1
-          # bash run_test.sh
       - name: end-to-end testing
         run: |
           cd $GITHUB_WORKSPACE/build
-          python -m venv venv
-          source venv/bin/activate
-          cd $GITHUB_WORKSPACE/test/clippy
-          pip install -r requirements.txt -r requirements-dev.txt
-          CLIPPY_BACKEND_PATH=$GITHUB_WORKSPACE/build/src/clippy pytest tests/
-          # repeat test with MPI
-          CLIPPY_BACKEND_PATH=$GITHUB_WORKSPACE/build/src/clippy CLIPPY_CMD_PREFIX="mpirun --oversubscribe -np 4" pytest tests/
+          # Cmake isn't finding the venv for some reason...
+          # python3 -m venv venv
+          # source venv/bin/activate
+          python3 -m pip install -r ../test/clippy/requirements.txt -r ../test/clippy/requirements-dev.txt
+          echo "inspecting"
+          which python
+          which python3
+          make pytest
