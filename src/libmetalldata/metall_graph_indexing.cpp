@@ -99,26 +99,28 @@ result<> metall_graph::priv_check_index_integrity() const {
   //
   // Loop over local nodes and check m_pnode_to_idx
   priv_for_all_nodes([&](local_node_idx_type nid) {
-    auto u_o = priv_local_get_node_label(nid);
-    if (!u_o.has_value()) {
+    auto nlbo = priv_local_get_node_label(nid);
+    if (!nlbo.has_value()) {
       to_return.add_warning();
       return;
     }
-    auto u_id_o = priv_local_get_node_id(u_o.value());
-    if (!u_id_o.has_value()) {
+    auto nido = priv_local_get_node_id(nlbo.value());
+    if (!nido.has_value()) {
       to_return.add_warning();
       return;
     }
-    if (u_id_o.value() != nid) {
+    if (nido.value() != nid) {
       to_return.add_warning();
     }
   });
 
   //
-  // Loop over low edges and check m_pnode_to_locator by sending message to node
-  // owner
-  static const metall_graph* spthis = this;
-  static result<>*           spto_return = &to_return;
+  // Loop over local edges and check m_pnode_to_locator by sending message to
+  // node owner
+  static const metall_graph* spthis = nullptr;
+  spthis = this;
+  static result<>* spto_return = nullptr;
+  spto_return = &to_return;
   m_comm.barrier();
   priv_for_all_edges([&](local_edge_idx_type eid) {
     auto uv_o = priv_local_get_edge_uv_labels(eid);

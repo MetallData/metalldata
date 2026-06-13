@@ -10,7 +10,8 @@
 
 using series_name = metalldata::metall_graph::series_name;
 
-std::filesystem::path data_path = DATA_PATH;
+// Get the path to the data directory from CMake
+std::filesystem::path data_path = CMAKE_DATA_PATH;
 
 namespace metalldata {
 class metall_graph_test {
@@ -47,10 +48,6 @@ class metall_graph_test {
 
 int main(int argc, char** argv) {
   ygm::comm world(&argc, &argv);
-
-  std::filesystem::path cwd = std::filesystem::current_path();
-
-  std::cout << "Current working directory: " << cwd.string() << '\n';
 
   metalldata::metall_graph_test mgt;
 
