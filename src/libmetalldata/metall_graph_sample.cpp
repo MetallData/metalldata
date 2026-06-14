@@ -61,23 +61,22 @@ bjsn::array metall_graph::select_sample_edges(
     unqual_metadata.push_back(std::string(sn.unqualified()));
   }
 
-  std::unordered_map<series_index_type, series_name> idx_to_name;
+  std::unordered_map<edge_series_idx_type, series_name> idx_to_name;
   for (const auto& sname : metadata) {
-    auto idx_o = m_pedges->find_series(sname.unqualified());
-    if (!idx_o.has_value()) {
+    auto eidx_o = pl_find_edge_series(sname.unqualified());
+    if (!eidx_o.has_value()) {
       return {};
     }
-    auto idx = idx_o.value();
-    idx_to_name[idx] = sname;
+    auto eidx = eidx_o.value();
+    idx_to_name[eidx] = sname;
   }
 
   bjsn::array rows;
 
   for (const auto& eid : local_data) {
     bjsn::object row;
-    for (const auto& [idx, sname] : idx_to_name) {
-      auto val_o = m_pedges->get_dynamic(idx, std::to_underlying(eid));
-
+    for (const auto& [eidx, sname] : idx_to_name) {
+      auto val_o = pl_get_edge_field(eidx, eid);
       if (!val_o.has_value()) {
         continue;
       }
@@ -187,23 +186,22 @@ bjsn::array metall_graph::select_sample_nodes(
     unqual_metadata.push_back(std::string(sn.unqualified()));
   }
 
-  std::unordered_map<series_index_type, series_name> idx_to_name;
+  std::unordered_map<node_series_idx_type, series_name> idx_to_name;
   for (const auto& sname : metadata) {
-    auto idx_o = m_pnodes->find_series(sname.unqualified());
-    if (!idx_o.has_value()) {
+    auto nidx_o = pl_find_node_series(sname.unqualified());
+    if (!nidx_o.has_value()) {
       return {};
     }
-    auto idx = idx_o.value();
-    idx_to_name[idx] = sname;
+    auto nidx = nidx_o.value();
+    idx_to_name[nidx] = sname;
   }
 
   bjsn::array rows;
 
   for (const auto& nid : local_data) {
     bjsn::object row;
-    for (const auto& [idx, sname] : idx_to_name) {
-      auto val_o = m_pnodes->get_dynamic(idx, std::to_underlying(nid));
-
+    for (const auto& [nidx, sname] : idx_to_name) {
+      auto val_o = pl_get_node_field(nidx, nid);
       if (!val_o.has_value()) {
         continue;
       }
