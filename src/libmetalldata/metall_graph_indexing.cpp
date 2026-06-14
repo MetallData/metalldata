@@ -5,27 +5,23 @@
 
 namespace metalldata {
 
-metall_graph::local_node_idx_type metall_graph::pl_node_find_or_insert(
-  std::string_view label) {
+void metall_graph::pl_insert_local_node(std::string_view label) {
   YGM_ASSERT_RELEASE(m_partitioner.owner(label) == m_comm.rank());
   auto label_sa = compact_string::add_string(label, *m_pstring_store);
-  if (!m_pnode_to_idx->contains(label_sa)) {
+  if (!m_pnode_to_locator->contains(label_sa)) {
     auto nid = local_node_idx_type{m_pnodes->add_record()};
     pl_set_node_field(m_node_col_idx, nid, label);
-    m_pnode_to_idx->insert_or_assign(label_sa, nid);
-    return nid;
+    m_pnode_to_locator->insert_or_assign(label_sa,
+                                         make_node_locator(m_comm.rank(), nid));
   }
-  return m_pnode_to_idx->at(label_sa);
 }
 
-// TODO unify with pl_get_node_locator
 std::optional<metall_graph::local_node_idx_type> metall_graph::pl_get_node_id(
   std::string_view label) const {
-  YGM_ASSERT_RELEASE(m_partitioner.owner(label) == m_comm.rank());
-  auto label_osa = compact_string::find_string(label, *m_pstring_store);
-  if (label_osa.has_value()) {
-    if (m_pnode_to_idx->contains(label_osa.value())) {
-      return m_pnode_to_idx->at(label_osa.value());
+  auto nloco = pl_get_node_locator(label);
+  if (nloco.has_value()) {
+    if (is_local(nloco.value())) {
+      return local(nloco.value());
     }
   }
   return std::nullopt;
