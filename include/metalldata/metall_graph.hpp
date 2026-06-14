@@ -236,15 +236,6 @@ class metall_graph {
     std::optional<uint64_t> optseed, const metall_graph::where_clause& where);
 
  private:
-  // TODO:  debug why we can't used string_accessor_fast_hash for these maps.
-  /// hash table from node string label to local id.  For local nodes only.
-  using map_local_node_to_local_id_type = boost::unordered::unordered_flat_map<
-    string_table_accessor, local_node_idx_type,
-    compact_string::string_accessor_hasher,
-    std::equal_to<compact_string::string_accessor>,
-    metall::manager::allocator_type<
-      std::pair<const compact_string::string_accessor, local_node_idx_type>>>;
-
   /// hash table from node string label to global locator.  For tracking remote
   /// nodes.
   using map_node_to_locator_type = boost::unordered::unordered_flat_map<
@@ -262,8 +253,6 @@ class metall_graph {
   record_store_type* m_pnodes = nullptr;
   /// Dataframe for directed edges
   record_store_type* m_pedges = nullptr;
-  /// Map from vertex string to local node id
-  map_local_node_to_local_id_type* m_pnode_to_idx = nullptr;
   /// Map from vertex string to node locator
   map_node_to_locator_type* m_pnode_to_locator = nullptr;
   /// String store
@@ -292,8 +281,8 @@ class metall_graph {
    * @param eid Edge ID
    * @return std::optional<std::pair<node_locator, node_locator>>
    */
-  std::optional<std::pair<node_locator, node_locator>>
-  pl_get_edge_uv_locators(local_edge_idx_type eid) const;
+  std::optional<std::pair<node_locator, node_locator>> pl_get_edge_uv_locators(
+    local_edge_idx_type eid) const;
 
   /**
    * @brief Returns an edge's directed field
@@ -301,8 +290,7 @@ class metall_graph {
    * @param eid Edge Id
    * @return std::optional<bool>
    */
-  std::optional<bool> pl_edge_is_directed(
-    local_edge_idx_type eid) const;
+  std::optional<bool> pl_edge_is_directed(local_edge_idx_type eid) const;
 
   /**
    * @brief Retuns a node's string label
@@ -320,8 +308,8 @@ class metall_graph {
    * @param nid Node id
    * @return std::optional<series_types>
    */
-  std::optional<series_types> pl_get_node_field(
-    node_series_idx_type sid, local_node_idx_type nid) const;
+  std::optional<series_types> pl_get_node_field(node_series_idx_type sid,
+                                                local_node_idx_type  nid) const;
 
   /**
    * @brief Returns an individual node field as a concrete type
@@ -333,7 +321,7 @@ class metall_graph {
    */
   template <typename T>
   std::optional<T> pl_get_node_field(node_series_idx_type sid,
-                                             local_node_idx_type  nid) const;
+                                     local_node_idx_type  nid) const;
 
   std::vector<std::optional<series_types>> pl_get_node_fields(
     std::vector<node_series_idx_type> sids, local_node_idx_type eid) const {
@@ -345,14 +333,14 @@ class metall_graph {
     return fields;
   }
 
-  std::optional<series_types> pl_get_edge_field(
-    edge_series_idx_type sid, local_edge_idx_type eid) const {
+  std::optional<series_types> pl_get_edge_field(edge_series_idx_type sid,
+                                                local_edge_idx_type eid) const {
     return m_pedges->get_dynamic(std::to_underlying(sid),
                                  std::to_underlying(eid));
   }
   template <typename T>
   std::optional<T> pl_get_edge_field(edge_series_idx_type sid,
-                                             local_edge_idx_type  eid) const {
+                                     local_edge_idx_type  eid) const {
     auto f = pl_get_edge_field(sid, eid);
     if (f.has_value()) {
       if (std::holds_alternative<T>(f.value())) {
@@ -373,14 +361,14 @@ class metall_graph {
   }
 
   template <typename T>
-  void pl_set_node_field(node_series_idx_type sid,
-                                 local_node_idx_type nid, const T& val) {
+  void pl_set_node_field(node_series_idx_type sid, local_node_idx_type nid,
+                         const T& val) {
     m_pnodes->set(std::to_underlying(sid), std::to_underlying(nid), val);
   }
 
   template <typename T>
-  void pl_set_edge_field(edge_series_idx_type sid,
-                                 local_edge_idx_type eid, const T& val) {
+  void pl_set_edge_field(edge_series_idx_type sid, local_edge_idx_type eid,
+                         const T& val) {
     m_pedges->set(std::to_underlying(sid), std::to_underlying(eid), val);
   }
 
@@ -480,15 +468,6 @@ class metall_graph {
   void priv_update_reverse_node_index();
 
   /**
-   * @brief Retrieves or inserts node string label into reverse lookup. Returns
-   * local_node_idx
-   *
-   * @param label String node label
-   * @return local_node_idx_type
-   */
-  local_node_idx_type pl_node_find_or_insert(std::string_view label);
-
-  /**
    * @brief Retrieves without inserting node string label into reverse lookup.
    * Returns local_node_idx
    *
@@ -499,6 +478,15 @@ class metall_graph {
     std::string_view label) const;
 
   /**
+   * @brief Retrieves or inserts node string label into reverse lookup. Returns
+   * local_node_idx
+   *
+   * @param label String node label
+   * @return local_node_idx_type
+   */
+  void pl_insert_local_node(std::string_view label);
+
+  /**
    * @brief Retrieves node locator from reverse index.
    * If the locator is not found, that means the local data partition has no
    * knowledge of the node label.
@@ -507,8 +495,7 @@ class metall_graph {
    * @param label String node label
    * @return node_locator
    */
-  std::optional<node_locator> pl_get_node_locator(
-    std::string_view label) const;
+  std::optional<node_locator> pl_get_node_locator(std::string_view label) const;
 
   /**
    * @brief Checks the integrity of the indexes
@@ -535,10 +522,12 @@ class metall_graph {
 
   static detail::rank_type   owner(node_locator nl);
   static local_node_idx_type local(node_locator nl);
+  bool                       is_local(node_locator nl) const;
   static node_locator        make_node_locator(detail::rank_type   owner,
                                                local_node_idx_type nid);
   static detail::rank_type   owner(edge_locator nl);
   static local_edge_idx_type local(edge_locator nl);
+  bool                       is_local(edge_locator nl) const;
   static edge_locator        make_edge_locator(detail::rank_type   owner,
                                                local_edge_idx_type nid);
 

@@ -14,6 +14,10 @@ metall_graph::local_node_idx_type metall_graph::local(
     detail::local(detail::generic_locator{std::to_underlying(nl)})};
 }
 
+bool metall_graph::is_local(metall_graph::node_locator nl) const {
+  return owner(nl) == m_comm.rank();
+}
+
 metall_graph::node_locator metall_graph::make_node_locator(
 
   detail::rank_type owner, metall_graph::local_node_idx_type nid) {
@@ -29,6 +33,10 @@ metall_graph::local_edge_idx_type metall_graph::local(
   metall_graph::edge_locator el) {
   return metall_graph::local_edge_idx_type{
     detail::local(detail::generic_locator{std::to_underlying(el)})};
+}
+
+bool metall_graph::is_local(metall_graph::edge_locator el) const {
+  return owner(el) == m_comm.rank();
 }
 
 metall_graph::edge_locator metall_graph::make_edge_locator(
