@@ -1,5 +1,6 @@
 #include <metalldata/metall_graph.hpp>
 #include <utility>
+#include "ygm/utility/assert.hpp"
 #define BOOST_JSON_SRC_HPP  // This is a temp hack until YGM removes the src.hpp
                             // inclusion
 #include <ygm/utility/boost_json.hpp>
@@ -17,13 +18,7 @@ result<> metall_graph::sample_edges(
       std::format("series {} already exists", series_name.qualified()));
   }
 
-  uint64_t seed;
-  if (optseed.has_value()) {
-    seed = optseed.value();
-  } else {
-    std::random_device rd;
-    seed = rd();
-  }
+  uint64_t seed = optseed.value_or(0);
 
   std::vector<local_edge_idx_type> filtered_ids;
   priv_for_all_edges(
@@ -43,13 +38,7 @@ result<> metall_graph::sample_edges(
 bjsn::array metall_graph::select_sample_edges(
   size_t k, const std::vector<metall_graph::series_name>& metadata,
   std::optional<uint64_t> optseed, const metall_graph::where_clause& where) {
-  uint64_t seed;
-  if (optseed.has_value()) {
-    seed = optseed.value();
-  } else {
-    std::random_device rd;
-    seed = rd();
-  }
+  uint64_t seed = optseed.value_or(0);
 
   std::vector<local_edge_idx_type> filtered_ids;
   priv_for_all_edges(
@@ -141,13 +130,7 @@ result<> metall_graph::sample_nodes(
       std::format("Series {} already exists", series_name.qualified()));
   }
 
-  uint64_t seed;
-  if (optseed.has_value()) {
-    seed = optseed.value();
-  } else {
-    std::random_device rd;
-    seed = rd();
-  }
+  uint64_t seed = optseed.value_or(0);
 
   std::vector<local_node_idx_type> filtered_ids;
   priv_for_all_nodes(
@@ -167,13 +150,7 @@ result<> metall_graph::sample_nodes(
 bjsn::array metall_graph::select_sample_nodes(
   size_t k, const std::vector<metall_graph::series_name>& metadata,
   std::optional<uint64_t> optseed, const metall_graph::where_clause& where) {
-  uint64_t seed;
-  if (optseed.has_value()) {
-    seed = optseed.value();
-  } else {
-    std::random_device rd;
-    seed = rd();
-  }
+  uint64_t seed = optseed.value_or(0);
 
   std::vector<local_node_idx_type> filtered_ids;
   priv_for_all_nodes(
