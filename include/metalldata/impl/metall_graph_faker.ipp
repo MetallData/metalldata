@@ -26,7 +26,7 @@ result<> metall_graph::add_faker_series(const metall_graph::series_name& name,
     priv_for_all_edges(
       [&](local_edge_idx_type eid) {
         T val = T(faker_func());
-        priv_local_set_edge_field(ser_ind, eid, val);
+        pl_set_edge_field(ser_ind, eid, val);
       },
       where);
   } else if (name.is_node_series()) {
@@ -39,7 +39,7 @@ result<> metall_graph::add_faker_series(const metall_graph::series_name& name,
     priv_for_all_nodes(
       [&](local_node_idx_type nid) {
         T val = T(faker_func());
-        priv_local_set_node_field(ser_ind, nid, val);
+        pl_set_node_field(ser_ind, nid, val);
       },
       where);
   }

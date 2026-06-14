@@ -35,7 +35,7 @@ metall_graph::priv_where_subgraph(
     // 2. Gather list of nodes needed by rank local edges
     std::set<node_locator> nodes_i_need;
     priv_for_all_edges([&](local_edge_idx_type eid) {
-      auto uvloco = priv_local_get_edge_uv_locators(eid);
+      auto uvloco = pl_get_edge_uv_locators(eid);
       YGM_ASSERT_DEBUG(uvloco.has_value());
       auto [uloc, vloc] = uvloco.value();
       nodes_i_need.insert(uloc);
@@ -46,7 +46,7 @@ metall_graph::priv_where_subgraph(
 
     // 3. Compute the set of edges that are incident on those nodes.
     priv_for_all_edges([&](local_edge_idx_type eid) {
-      auto uvloco = priv_local_get_edge_uv_locators(eid);
+      auto uvloco = pl_get_edge_uv_locators(eid);
       YGM_ASSERT_DEBUG(uvloco.has_value());
       auto [uloc, vloc] = uvloco.value();
       if (nodes_alive.contains(uloc) && nodes_alive.contains(vloc)) {
@@ -59,7 +59,7 @@ metall_graph::priv_where_subgraph(
     node_locator_set nodesalive(m_comm);
     priv_for_all_edges_ewhere(
       [&](local_edge_idx_type eid) {
-        auto uvloco = priv_local_get_edge_uv_locators(eid);
+        auto uvloco = pl_get_edge_uv_locators(eid);
         YGM_ASSERT_DEBUG(uvloco.has_value());
         auto [uloc, vloc] = uvloco.value();
         nodesalive.async_insert(uloc);

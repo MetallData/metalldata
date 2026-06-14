@@ -27,7 +27,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
   // map the series names to indices
   std::vector<edge_series_idx_type> sids;
   for (const auto &sname : series_names) {
-    auto sid_o = priv_local_find_edge_series(sname.unqualified());
+    auto sid_o = pl_find_edge_series(sname.unqualified());
     if (!sid_o.has_value()) {
       continue;
     }
@@ -35,7 +35,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
     if (priv_is_edge_series_type<std::string_view>(sid)) {
       ygm::container::set<std::string> distinct(m_comm);
       for (auto eid : eids) {
-        auto val_o = priv_local_get_edge_field<std::string_view>(sid, eid);
+        auto val_o = pl_get_edge_field<std::string_view>(sid, eid);
         if (val_o.has_value()) {
           distinct.async_insert(std::string(val_o.value()));
         }
@@ -48,7 +48,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
     } else if (priv_is_edge_series_type<int64_t>(sid)) {
       ygm::container::set<int64_t> distinct(m_comm);
       for (auto eid : eids) {
-        auto val_o = priv_local_get_edge_field<int64_t>(sid, eid);
+        auto val_o = pl_get_edge_field<int64_t>(sid, eid);
         if (val_o.has_value()) {
           distinct.async_insert(val_o.value());
         }
@@ -64,7 +64,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
       // here.
       ygm::container::set<bool> distinct(m_comm);
       for (auto eid : eids) {
-        auto val_o = priv_local_get_edge_field<bool>(sid, eid);
+        auto val_o = pl_get_edge_field<bool>(sid, eid);
         if (val_o.has_value()) {
           if (val_o.value()) {
             has_true = true;
@@ -86,7 +86,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
     } else if (priv_is_edge_series_type<double>(sid)) {
       ygm::container::set<double> distinct(m_comm);
       for (auto eid : eids) {
-        auto val_o = priv_local_get_edge_field<double>(sid, eid);
+        auto val_o = pl_get_edge_field<double>(sid, eid);
         if (val_o.has_value()) {
           distinct.async_insert(val_o.value());
         }
@@ -114,7 +114,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
   // map the series names to indices
   std::vector<series_index_type> sids;
   for (const auto &sname : series_names) {
-    auto sid_o = priv_local_find_node_series(sname.unqualified());
+    auto sid_o = pl_find_node_series(sname.unqualified());
     if (!sid_o.has_value()) {
       continue;
     }
@@ -122,7 +122,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
     if (priv_is_node_series_type<std::string_view>(sid)) {
       ygm::container::set<std::string> distinct(m_comm);
       for (auto nid : nids) {
-        auto val_o = priv_local_get_node_field<std::string_view>(sid, nid);
+        auto val_o = pl_get_node_field<std::string_view>(sid, nid);
         if (val_o.has_value()) {
           distinct.async_insert(std::string(val_o.value()));
         }
@@ -135,7 +135,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
     } else if (priv_is_node_series_type<int64_t>(sid)) {
       ygm::container::set<int64_t> distinct(m_comm);
       for (auto nid : nids) {
-        auto val_o = priv_local_get_node_field<int64_t>(sid, nid);
+        auto val_o = pl_get_node_field<int64_t>(sid, nid);
         if (val_o.has_value()) {
           distinct.async_insert(val_o.value());
         }
@@ -151,7 +151,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
       // here.
       ygm::container::set<bool> distinct(m_comm);
       for (auto nid : nids) {
-        auto val_o = priv_local_get_node_field<bool>(sid, nid);
+        auto val_o = pl_get_node_field<bool>(sid, nid);
         if (val_o.has_value()) {
           if (val_o.value()) {
             has_true = true;
@@ -173,7 +173,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
     } else if (priv_is_node_series_type<double>(sid)) {
       ygm::container::set<double> distinct(m_comm);
       for (auto nid : nids) {
-        auto val_o = priv_local_get_node_field<double>(sid, nid);
+        auto val_o = pl_get_node_field<double>(sid, nid);
         if (val_o.has_value()) {
           distinct.async_insert(val_o.value());
         }

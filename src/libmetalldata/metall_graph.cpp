@@ -199,7 +199,7 @@ metall_graph::count_types metall_graph::priv_series_to_count_type(
 }
 
 size_t metall_graph::num_edges(const metall_graph::where_clause& where) const {
-  size_t local_size = priv_local_num_edges();
+  size_t local_size = pl_num_edges();
   if (!where.empty()) {
     local_size = 0;
     priv_for_all_edges([&](auto) { ++local_size; }, where);
@@ -208,7 +208,7 @@ size_t metall_graph::num_edges(const metall_graph::where_clause& where) const {
 }
 
 size_t metall_graph::num_nodes(const metall_graph::where_clause& where) const {
-  size_t local_size = priv_local_num_nodes();
+  size_t local_size = pl_num_nodes();
   if (!where.empty()) {
     local_size = 0;
     priv_for_all_nodes([&](auto) { ++local_size; }, where);

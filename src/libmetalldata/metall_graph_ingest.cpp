@@ -174,8 +174,7 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
 
       auto rec = m_pedges->add_record();
       // first, set the directedness.
-      priv_local_set_edge_field(m_dir_col_idx, local_edge_idx_type{rec},
-                                directed);
+      pl_set_edge_field(m_dir_col_idx, local_edge_idx_type{rec}, directed);
       for (size_t i = 0; i < parquet_cols.size(); ++i) {
         auto parquet_ser = parquet_cols[i];
 
@@ -229,7 +228,7 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
                 m_comm.async(
                   owner,
                   [](const std::string& s) {
-                    sthis->priv_local_node_find_or_insert(s);
+                    sthis->pl_node_find_or_insert(s);
                   },
                   stringified_val);
                 // finally, increase local_n_edges

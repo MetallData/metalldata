@@ -48,7 +48,7 @@ metall_graph::topk(size_t k, const series_name& ser_name,
   std::vector<edge_series_idx_type> edge_idxs{};
 
   if (is_edge) {
-    for (const auto& idx : priv_local_find_edge_series(ser_inc_unq)) {
+    for (const auto& idx : pl_find_edge_series(ser_inc_unq)) {
       if (!idx.has_value()) {
         to_return.add_warning("found invalid edge series index; skipping");
       } else {
@@ -56,7 +56,7 @@ metall_graph::topk(size_t k, const series_name& ser_name,
       }
     }
   } else {
-    for (const auto& idx : priv_local_find_node_series(ser_inc_unq)) {
+    for (const auto& idx : pl_find_node_series(ser_inc_unq)) {
       if (!idx.has_value()) {
         to_return.add_warning("found invalid node series index; skipping");
       } else {
@@ -93,12 +93,12 @@ metall_graph::topk(size_t k, const series_name& ser_name,
     if constexpr (std::is_same_v<R, local_edge_idx_type>) {
       for (const auto& el : edge_idxs) {
         source_row.emplace_back(
-          priv_local_get_edge_field(el, rid).value_or(std::monostate{}));
+          pl_get_edge_field(el, rid).value_or(std::monostate{}));
       }
     } else if constexpr (std::is_same_v<R, local_node_idx_type>) {
       for (const auto& el : node_idxs) {
         source_row.emplace_back(
-          priv_local_get_node_field(el, rid).value_or(std::monostate()));
+          pl_get_node_field(el, rid).value_or(std::monostate()));
       }
     } else {
       static_assert(std::is_same_v<R, void>, "Fatal: unknown row index type");

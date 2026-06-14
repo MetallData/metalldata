@@ -38,7 +38,7 @@ result<> metall_graph::assign(series_name                       name,
       return std::unexpected("invalid type for value");
     }
 
-    auto name_idx_o = priv_local_find_edge_series(name.unqualified());
+    auto name_idx_o = pl_find_edge_series(name.unqualified());
     if (!name_idx_o.has_value()) {
       return std::unexpected(
         std::format("series {} not found", name.qualified()));
@@ -52,7 +52,7 @@ result<> metall_graph::assign(series_name                       name,
           if constexpr (std::is_same_v<T, std::monostate>) {
             // do nothing
           } else {
-            priv_local_set_edge_field(name_idx, eid, v);
+            pl_set_edge_field(name_idx, eid, v);
           }
         },
         val);
@@ -81,7 +81,7 @@ result<> metall_graph::assign(series_name                       name,
     if (!assigned_ok) {
       return std::unexpected("invalid type for value; aborting");
     }
-    auto name_idx_o = priv_local_find_node_series(name.unqualified());
+    auto name_idx_o = pl_find_node_series(name.unqualified());
     if (!name_idx_o.has_value()) {
       return std::unexpected(
         std::format("series {} not found", name.qualified()));
@@ -95,8 +95,7 @@ result<> metall_graph::assign(series_name                       name,
           if constexpr (std::is_same_v<T, std::monostate>) {
             // Skip monostate
           } else {
-            priv_local_set_node_field(name_idx, nid, v);
-            
+            pl_set_node_field(name_idx, nid, v);
           }
         },
         val);

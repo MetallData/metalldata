@@ -283,7 +283,7 @@ class metall_graph {
    * @return std::optional<std::pair<std::string_view, std::string_view>>
    */
   std::optional<std::pair<std::string_view, std::string_view>>
-  priv_local_get_edge_uv_labels(local_edge_idx_type eid) const;
+  pl_get_edge_uv_labels(local_edge_idx_type eid) const;
 
   /**
    * @brief Returns an edge's endpoints (u,v) as node_locators
@@ -293,7 +293,7 @@ class metall_graph {
    * @return std::optional<std::pair<node_locator, node_locator>>
    */
   std::optional<std::pair<node_locator, node_locator>>
-  priv_local_get_edge_uv_locators(local_edge_idx_type eid) const;
+  pl_get_edge_uv_locators(local_edge_idx_type eid) const;
 
   /**
    * @brief Returns an edge's directed field
@@ -301,7 +301,7 @@ class metall_graph {
    * @param eid Edge Id
    * @return std::optional<bool>
    */
-  std::optional<bool> priv_local_edge_is_directed(
+  std::optional<bool> pl_edge_is_directed(
     local_edge_idx_type eid) const;
 
   /**
@@ -310,7 +310,7 @@ class metall_graph {
    * @param nid Node id
    * @return std::optional<std::string_view>
    */
-  std::optional<std::string_view> priv_local_get_node_label(
+  std::optional<std::string_view> pl_get_node_label(
     local_node_idx_type nid) const;
 
   /**
@@ -320,7 +320,7 @@ class metall_graph {
    * @param nid Node id
    * @return std::optional<series_types>
    */
-  std::optional<series_types> priv_local_get_node_field(
+  std::optional<series_types> pl_get_node_field(
     node_series_idx_type sid, local_node_idx_type nid) const;
 
   /**
@@ -332,28 +332,28 @@ class metall_graph {
    * @return std::optional<T>
    */
   template <typename T>
-  std::optional<T> priv_local_get_node_field(node_series_idx_type sid,
+  std::optional<T> pl_get_node_field(node_series_idx_type sid,
                                              local_node_idx_type  nid) const;
 
-  std::vector<std::optional<series_types>> priv_local_get_node_fields(
+  std::vector<std::optional<series_types>> pl_get_node_fields(
     std::vector<node_series_idx_type> sids, local_node_idx_type eid) const {
     std::vector<std::optional<series_types>> fields;
     fields.reserve(sids.size());
     for (const auto& s : sids) {
-      fields.emplace_back(priv_local_get_node_field(s, eid));
+      fields.emplace_back(pl_get_node_field(s, eid));
     }
     return fields;
   }
 
-  std::optional<series_types> priv_local_get_edge_field(
+  std::optional<series_types> pl_get_edge_field(
     edge_series_idx_type sid, local_edge_idx_type eid) const {
     return m_pedges->get_dynamic(std::to_underlying(sid),
                                  std::to_underlying(eid));
   }
   template <typename T>
-  std::optional<T> priv_local_get_edge_field(edge_series_idx_type sid,
+  std::optional<T> pl_get_edge_field(edge_series_idx_type sid,
                                              local_edge_idx_type  eid) const {
-    auto f = priv_local_get_edge_field(sid, eid);
+    auto f = pl_get_edge_field(sid, eid);
     if (f.has_value()) {
       if (std::holds_alternative<T>(f.value())) {
         return std::get<T>(f.value());
@@ -362,29 +362,29 @@ class metall_graph {
     return std::nullopt;
   }
 
-  std::vector<std::optional<series_types>> priv_local_get_edge_fields(
+  std::vector<std::optional<series_types>> pl_get_edge_fields(
     std::vector<edge_series_idx_type> sids, local_edge_idx_type eid) const {
     std::vector<std::optional<series_types>> fields;
     fields.reserve(sids.size());
     for (const auto& s : sids) {
-      fields.emplace_back(priv_local_get_edge_field(s, eid));
+      fields.emplace_back(pl_get_edge_field(s, eid));
     }
     return fields;
   }
 
   template <typename T>
-  void priv_local_set_node_field(node_series_idx_type sid,
+  void pl_set_node_field(node_series_idx_type sid,
                                  local_node_idx_type nid, const T& val) {
     m_pnodes->set(std::to_underlying(sid), std::to_underlying(nid), val);
   }
 
   template <typename T>
-  void priv_local_set_edge_field(edge_series_idx_type sid,
+  void pl_set_edge_field(edge_series_idx_type sid,
                                  local_edge_idx_type eid, const T& val) {
     m_pedges->set(std::to_underlying(sid), std::to_underlying(eid), val);
   }
 
-  std::optional<node_series_idx_type> priv_local_find_node_series(
+  std::optional<node_series_idx_type> pl_find_node_series(
     std::string_view name) const {
     auto ret = m_pnodes->find_series(name);
     if (ret.has_value()) {
@@ -394,14 +394,14 @@ class metall_graph {
     return std::nullopt;
   }
 
-  std::vector<std::optional<node_series_idx_type>> priv_local_find_node_series(
+  std::vector<std::optional<node_series_idx_type>> pl_find_node_series(
     std::vector<series_name> names) const;
 
   // TODO: this should probably take a series_name as an argument.
-  std::optional<edge_series_idx_type> priv_local_find_edge_series(
+  std::optional<edge_series_idx_type> pl_find_edge_series(
     std::string_view name) const;
 
-  std::vector<std::optional<edge_series_idx_type>> priv_local_find_edge_series(
+  std::vector<std::optional<edge_series_idx_type>> pl_find_edge_series(
     const std::vector<series_name>& names) const;
 
   template <typename T>
@@ -424,8 +424,8 @@ class metall_graph {
     return m_pedges->is_series_type<T>(std::to_underlying(es));
   }
 
-  size_t priv_local_num_nodes() const { return m_pnodes->num_records(); };
-  size_t priv_local_num_edges() const { return m_pedges->num_records(); };
+  size_t pl_num_nodes() const { return m_pnodes->num_records(); };
+  size_t pl_num_edges() const { return m_pedges->num_records(); };
 
   result<> priv_in_out_degree(series_name name, const where_clause& where,
                               bool outdeg);
@@ -486,7 +486,7 @@ class metall_graph {
    * @param label String node label
    * @return local_node_idx_type
    */
-  local_node_idx_type priv_local_node_find_or_insert(std::string_view label);
+  local_node_idx_type pl_node_find_or_insert(std::string_view label);
 
   /**
    * @brief Retrieves without inserting node string label into reverse lookup.
@@ -495,7 +495,7 @@ class metall_graph {
    * @param label String node label
    * @return local_node_idx_type
    */
-  std::optional<local_node_idx_type> priv_local_get_node_id(
+  std::optional<local_node_idx_type> pl_get_node_id(
     std::string_view label) const;
 
   /**
@@ -507,7 +507,7 @@ class metall_graph {
    * @param label String node label
    * @return node_locator
    */
-  std::optional<node_locator> priv_local_get_node_locator(
+  std::optional<node_locator> pl_get_node_locator(
     std::string_view label) const;
 
   /**
