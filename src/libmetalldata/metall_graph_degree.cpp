@@ -273,13 +273,13 @@ result<> metall_graph::degrees2(series_name in_name, series_name out_name,
   // explicit here.
   m_comm.barrier();
 
-  std::map<std::string, int64_t> indeg_i64 = {indegrees.begin(),
-                                              indegrees.end()};
-  std::map<std::string, int64_t> outdeg_i64 = {indegrees.begin(),
-                                               indegrees.end()};
-  auto to_return = set_node_column(in_name, indeg_i64);
+  std::map<std::string, int64_t> local_indeg_i64 = {indegrees.begin(),
+                                                    indegrees.end()};
+  std::map<std::string, int64_t> local_outdeg_i64 = {indegrees.begin(),
+                                                     indegrees.end()};
+  auto to_return = set_node_column(in_name, local_indeg_i64);
 
-  auto to_return2 = set_node_column(out_name, outdeg_i64);
+  auto to_return2 = set_node_column(out_name, local_outdeg_i64);
 
   to_return.merge_warnings(to_return2);
 
