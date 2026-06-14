@@ -226,11 +226,8 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
                 // next, add to the distributed nodeset.
                 // TODO:  could save communication if this was query response to
                 // incremental ingest, but for now this is simplest.
-                int owner = m_partitioner.owner(stringified_val);
-                m_comm.async(
-                  owner,
-                  [](const std::string& s) { sthis->pl_insert_local_node(s); },
-                  stringified_val);
+                pasync_insert_node(stringified_val);
+
                 // finally, increase local_n_edges
                 ++local_nedges;
               } catch (const std::exception) {
@@ -261,10 +258,6 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
         std::visit(add_val, parquet_val);
       }  // for loop
     });  // for_all
-
-  //
-  // Update the reverse indexes after every ingest
-  priv_update_reverse_node_index();
 
   m_comm.barrier();
   std::map<std::string, size_t> retdict{

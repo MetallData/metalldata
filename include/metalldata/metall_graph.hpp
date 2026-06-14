@@ -18,6 +18,7 @@
 #include <metall/metall.hpp>
 #include <multiseries/multiseries_record.hpp>
 #include <ygm/comm.hpp>
+#include <ygm/detail/ygm_ptr.hpp>
 #include <ygm/container/detail/hash_partitioner.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
 #include <boost/json.hpp>
@@ -62,6 +63,8 @@ class metall_graph {
   /// string table deduplicates strings
   using string_store_type = record_store_type::string_store_type;
   using string_table_accessor = compact_string::string_accessor;
+
+  using ygm_ptr_type = ygm::ygm_ptr<metall_graph>;
 
   enum class local_node_idx_type : std::size_t;
   enum class local_edge_idx_type : std::size_t;
@@ -257,6 +260,8 @@ class metall_graph {
   map_node_to_locator_type* m_pnode_to_locator = nullptr;
   /// String store
   string_store_type* m_pstring_store = nullptr;
+  /// YGM pointer to self, used for async callbacks. Initialized in constructor.
+  typename ygm::ygm_ptr<metall_graph> pthis = nullptr;
 
   edge_series_idx_type m_u_col_idx;
   edge_series_idx_type m_v_col_idx;
@@ -461,13 +466,6 @@ class metall_graph {
                            const T&           collection);
 
   /**
-   * @brief Updates reverse node index after fresh edge ingestion.   Collective
-   * method.
-   *
-   */
-  void priv_update_reverse_node_index();
-
-  /**
    * @brief Retrieves without inserting node string label into reverse lookup.
    * Returns local_node_idx
    *
@@ -478,13 +476,12 @@ class metall_graph {
     std::string_view label) const;
 
   /**
-   * @brief Retrieves or inserts node string label into reverse lookup. Returns
-   * local_node_idx
+   * @brief Asynchronously inserts a node label into the reverse index & node
+   * table.
    *
-   * @param label String node label
-   * @return local_node_idx_type
+   * @param label
    */
-  void pl_insert_local_node(std::string_view label);
+  void pasync_insert_node(std::string_view label);
 
   /**
    * @brief Retrieves node locator from reverse index.

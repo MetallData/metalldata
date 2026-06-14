@@ -32,7 +32,7 @@ namespace metalldata {
 
 metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
                            bool overwrite)
-    : m_comm(comm), m_metall_path(path), m_partitioner(m_comm) {
+    : m_comm(comm), m_metall_path(path), m_partitioner(m_comm), pthis(this) {
   //
   // Check if metall store already exists and overwrite if requested
   // There are three states:
