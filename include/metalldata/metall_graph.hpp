@@ -501,18 +501,20 @@ class metall_graph {
    */
   result<> priv_check_index_integrity() const;
 
-  std::unordered_set<record_id_type> priv_random_idx(
-    const std::unordered_set<record_id_type>& filtered_ids_set, size_t k,
-    uint64_t seed);
-
   // Using YGM's default partitioner to assign node owner
   ygm::container::detail::hash_partitioner<
     ygm::container::detail::hash<std::string_view>>
     m_partitioner;
 
   template <typename T>
-  result<> priv_set_column_by_idx(const series_name& col_name,
-                                  const T&           collection);
+  result<> priv_set_edge_column_by_idx(const series_name& col_name,
+                                       const T&           collection)
+    requires std::is_same_v<typename T::key_type, local_edge_idx_type>;
+
+  template <typename T>
+  result<> priv_set_node_column_by_idx(const series_name& col_name,
+                                       const T&           collection)
+    requires std::is_same_v<typename T::key_type, local_node_idx_type>;
 
   static count_types priv_series_to_count_type(
     const record_store_type::series_type& sv);
