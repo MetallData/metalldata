@@ -29,7 +29,7 @@ result<> metall_graph::sample_edges(
   priv_for_all_edges(
     [&](local_edge_idx_type eid) { filtered_ids.emplace_back(eid); }, where);
 
-  auto local_data = random_sample(m_comm, filtered_ids, k, seed);
+  auto local_data = random_sample(filtered_ids, k, seed, m_comm);
   std::unordered_map<local_edge_idx_type, bool> local_map{};
 
   for (const auto id : local_data) {
@@ -54,7 +54,7 @@ bjsn::array metall_graph::select_sample_edges(
   std::vector<local_edge_idx_type> filtered_ids;
   priv_for_all_edges(
     [&](local_edge_idx_type eid) { filtered_ids.emplace_back(eid); }, where);
-  auto local_data = random_sample(m_comm, filtered_ids, k, seed);
+  auto local_data = random_sample(filtered_ids, k, seed, m_comm);
 
   std::vector<std::string> unqual_metadata;
   for (const auto& sn : metadata) {
@@ -154,7 +154,7 @@ result<> metall_graph::sample_nodes(
   priv_for_all_nodes(
     [&](local_node_idx_type nid) { filtered_ids.emplace_back(nid); }, where);
 
-  auto local_data = random_sample(m_comm, filtered_ids, k, seed);
+  auto local_data = random_sample(filtered_ids, k, seed, m_comm);
   std::unordered_map<local_node_idx_type, bool> local_map{};
 
   for (const auto rid : local_data) {
@@ -180,7 +180,7 @@ bjsn::array metall_graph::select_sample_nodes(
   priv_for_all_nodes(
     [&](local_node_idx_type nid) { filtered_ids.emplace_back(nid); }, where);
 
-  auto local_data = random_sample(m_comm, filtered_ids, k, seed);
+  auto local_data = random_sample(filtered_ids, k, seed, m_comm);
 
   std::vector<std::string> unqual_metadata;
   for (const auto& sn : metadata) {

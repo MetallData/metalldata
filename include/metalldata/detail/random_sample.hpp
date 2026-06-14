@@ -37,44 +37,31 @@ namespace metalldata {
  *       `ygm::prefix_sum`, `ygm::bcast`).
  */
 template <typename T>
-std::unordered_set<T> random_sample(ygm::comm&            comm,
-                                    const std::vector<T>& filtered_ids,
-                                    const size_t k, uint64_t seed) {
+std::unordered_set<T> random_sample(const std::vector<T>& filtered_ids,
+                                    const size_t k, uint64_t seed,
+                                    ygm::comm& comm) {
   size_t local_count = filtered_ids.size();
   size_t global_count = ygm::sum(local_count, comm);
   size_t sample_size = std::min(global_count, k);
   size_t lower_bound = ygm::prefix_sum(local_count, comm);
 
-  comm.barrier();
+  std::unordered_set<size_t>            selected_indices;
+  std::mt19937                          gen(seed);
+  std::uniform_int_distribution<size_t> dist(0, global_count - 1);
 
-  std::vector<size_t> selected_indices;
-  selected_indices.reserve(sample_size);
-
-  if (comm.rank0()) {
-    std::unordered_set<size_t>            selection;
-    std::mt19937                          gen(seed);
-    std::uniform_int_distribution<size_t> dist(0, global_count - 1);
-
-    while (selection.size() < sample_size) {
-      selection.insert(dist(gen));
-    }
-
-    selected_indices.assign(selection.begin(), selection.end());
+  while (selected_indices.size() < sample_size) {
+    selected_indices.insert(dist(gen));
   }
-
-  ygm::bcast(selected_indices, 0, comm);
-
-  std::unordered_set<T> local_data;
+  std::unordered_set<T> to_return;
 
   for (const auto idx : selected_indices) {
     if ((idx >= lower_bound) && (idx < lower_bound + local_count)) {
       // local idx is guaranteed to be >= 0
       T id = filtered_ids.at(idx - lower_bound);
-      YGM_ASSERT_RELEASE(!local_data.contains(id));
-      local_data.insert(id);
+      to_return.insert(id);
     }
   }
 
-  return local_data;
+  return to_return;
 }
 }  // namespace metalldata
