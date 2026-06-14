@@ -14,23 +14,23 @@ namespace metalldata {
  *        globally distributed collection.
  *
  * Rank 0 selects `min(global_count, k)` unique global indices using a seeded
- * Mersenne Twister, broadcasts the selection to all ranks, and each rank
- * returns the subset of elements whose global indices fall within its local
- * partition. The returned set on each rank contains only that rank's portion
- * of the sample.
+ * Mersenne Twister and broadcasts them to all ranks. Each rank then maps the
+ * selected indices that fall within its local partition back to element values
+ * using `filtered_ids` and returns those elements.
  *
- * @tparam T Element type. Must be hashable (usable as `std::unordered_set`
+ * @tparam T Element type. Must be hashable (usable as an `std::unordered_set`
  *           key) and copyable.
  *
- * @param comm          YGM communicator spanning all participating ranks.
- * @param filtered_ids.   Local partition of candidate elements on this rank.
- * @param k               Maximum number of elements to sample globally.
- * @param seed            RNG seed for reproducible sampling (used only on
- *                        rank 0).
+ * @param comm         YGM communicator spanning all participating ranks.
+ * @param filtered_ids Local partition of candidate elements on this rank.
+ *                     Elements are treated as a contiguous segment of a
+ *                     virtual global array ordered by rank.
+ * @param k            Maximum number of elements to sample globally.
+ * @param seed         RNG seed for reproducible sampling (used only on rank 0).
  *
  * @return An `std::unordered_set<T>` containing this rank's share of the
- *         sampled elements. The set is empty on ranks that own none of the
- *         selected global indices.
+ *         sampled elements. Empty on ranks that own none of the selected
+ *         global indices.
  *
  * @note All ranks must call this function collectively; it contains an
  *       internal barrier and collective operations (`ygm::sum`,
