@@ -473,7 +473,7 @@ class metall_graph {
                            const T&           collection);
 
   /**
-   * @brief Updates reverse node index after fresh edge ingestion.   Collective
+   * @brief Updates reverse node index after fresh edge ingestion. Collective
    * method.
    *
    */
@@ -524,11 +524,13 @@ class metall_graph {
 
   template <typename T>
   result<> priv_set_edge_column_by_idx(const series_name& col_name,
-                                       const T&           collection);
+                                       const T&           collection)
+    requires std::is_same_v<typename T::key_type, local_edge_idx_type>;
 
   template <typename T>
   result<> priv_set_node_column_by_idx(const series_name& col_name,
-                                       const T&           collection);
+                                       const T&           collection)
+    requires std::is_same_v<typename T::key_type, local_node_idx_type>;
 
   static count_types priv_series_to_count_type(
     const record_store_type::series_type& sv);
