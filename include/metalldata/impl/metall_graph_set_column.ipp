@@ -56,7 +56,7 @@ metalldata::result<> metall_graph::set_node_column(
     nodecol_idx = m_pnodes->add_series<int64_t>(nodecol_name.unqualified());
 
     for (const auto& [node_name, value] : collection) {
-      auto nid_o = priv_local_get_node_id(node_name);
+      auto nid_o = pl_get_node_id(node_name);
       if (!nid_o.has_value()) {
         ++invalid_nodes;
         continue;
@@ -71,7 +71,7 @@ metalldata::result<> metall_graph::set_node_column(
   } else {
     nodecol_idx = m_pnodes->add_series<val_type>(nodecol_name.unqualified());
     for (const auto& [node_name, value] : collection) {
-      auto nid_o = priv_local_get_node_id(node_name);
+      auto nid_o = pl_get_node_id(node_name);
       if (!nid_o.has_value()) {
         ++invalid_nodes;
         continue;

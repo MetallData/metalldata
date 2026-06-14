@@ -4,10 +4,10 @@
 namespace metalldata {
 
 template <typename T>
-std::optional<T> metall_graph::priv_local_get_node_field(
+std::optional<T> metall_graph::pl_get_node_field(
   metall_graph::node_series_idx_type sid,
   metall_graph::local_node_idx_type  nid) const {
-  auto f = priv_local_get_node_field(sid, nid);
+  auto f = pl_get_node_field(sid, nid);
   if (f.has_value()) {
     if (std::holds_alternative<T>(f.value())) {
       return std::get<T>(f.value());

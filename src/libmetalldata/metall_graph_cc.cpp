@@ -50,11 +50,11 @@ result<> metall_graph::connected_components(const series_name&  out_name,
 
   priv_for_all_edges(
     [&](local_edge_idx_type eid) {
-      auto uv_o = priv_local_get_edge_uv_labels(eid);
+      auto uv_o = pl_get_edge_uv_labels(eid);
       YGM_ASSERT_RELEASE(uv_o.has_value());
       std::string u(uv_o.value().first);
       std::string v(uv_o.value().second);
-      bool is_directed = priv_local_edge_is_directed(eid).value_or(false);
+      bool        is_directed = pl_edge_is_directed(eid).value_or(false);
       auto        adj_inserter =
         [](const std::string&                                ccid,
            std::pair<std::string, std::vector<std::string>>& adj,
@@ -73,7 +73,7 @@ result<> metall_graph::connected_components(const series_name&  out_name,
     priv_for_all_nodes_nwhere(
       [&](local_node_idx_type nid) {
         // Do something with each node
-        auto v_o = priv_local_get_node_label(nid);
+        auto v_o = pl_get_node_label(nid);
         YGM_ASSERT_RELEASE(v_o.has_value());
         std::string v(v_o.value());
         adj_list.async_visit(

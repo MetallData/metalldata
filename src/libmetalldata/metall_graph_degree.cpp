@@ -83,7 +83,7 @@ result<> metall_graph::priv_in_out_degree(
   std::vector<std::string> nodes;
   priv_for_all_nodes(
     [&](local_node_idx_type nid) {
-      auto node_name_o = priv_local_get_node_label(nid);
+      auto node_name_o = pl_get_node_label(nid);
       YGM_ASSERT_RELEASE(node_name_o.has_value());
       std::string_view node_name = node_name_o.value();
 
@@ -97,17 +97,16 @@ result<> metall_graph::priv_in_out_degree(
     [&](local_edge_idx_type eid) {
       // Note: clangd may report a false positive error on the next line
       // The code compiles and runs correctly
-      auto edge_name_o =
-        priv_local_get_edge_field<std::string_view>(degcol, eid);
+      auto edge_name_o = pl_get_edge_field<std::string_view>(degcol, eid);
       YGM_ASSERT_RELEASE(edge_name_o.has_value());
       std::string_view edge_name = edge_name_o.value();
       degrees.async_visit(std::string(edge_name),
                           [](const auto& key, auto& val) { val++; });
       // for undirected edges, add the reverse.
-      bool is_directed = priv_local_edge_is_directed(eid).value_or(false);
+      bool is_directed = pl_edge_is_directed(eid).value_or(false);
       if (!is_directed) {
         auto reverseedge_name_o =
-          priv_local_get_edge_field<std::string_view>(otherdegcol, eid);
+          pl_get_edge_field<std::string_view>(otherdegcol, eid);
         YGM_ASSERT_RELEASE(reverseedge_name_o.has_value());
         degrees.async_visit(std::string(reverseedge_name_o.value()),
                             [](const auto& key, auto& val) { val++; });
@@ -156,7 +155,7 @@ result<> metall_graph::degrees(series_name in_name, series_name out_name,
 
   priv_for_all_nodes(
     [&](local_node_idx_type nid) {
-      auto node_name_o = priv_local_get_node_label(nid);
+      auto node_name_o = pl_get_node_label(nid);
       YGM_ASSERT_RELEASE(node_name_o.has_value());
       std::string_view node_name = node_name_o.value();
       indegrees.async_insert(std::string(node_name), 0);
@@ -170,7 +169,7 @@ result<> metall_graph::degrees(series_name in_name, series_name out_name,
     [&](local_edge_idx_type eid) {
       // Note: clangd may report a false positive error on the next line
       // The code compiles and runs correctly
-      auto uv_o = priv_local_get_edge_uv_labels(eid);
+      auto uv_o = pl_get_edge_uv_labels(eid);
       YGM_ASSERT_RELEASE(uv_o.has_value());
       std::string in_edge_name(uv_o.value().first);
       std::string out_edge_name(uv_o.value().first);
@@ -180,7 +179,7 @@ result<> metall_graph::degrees(series_name in_name, series_name out_name,
       outdegrees.async_visit(out_edge_name,
                              [&](const auto& key, auto& val) { val++; });
 
-      bool is_directed = priv_local_edge_is_directed(eid).value_or(false);
+      bool is_directed = pl_edge_is_directed(eid).value_or(false);
       if (!is_directed) {
         indegrees.async_visit(out_edge_name,
                               [&](const auto& key, auto& val) { val++; });
@@ -202,7 +201,7 @@ result<> metall_graph::degrees(series_name in_name, series_name out_name,
   // create a node_local map of record id to node value.
   std::map<std::string, local_node_idx_type> node_to_id{};
   priv_for_all_nodes([&](local_node_idx_type nid) {
-    auto node_o = priv_local_get_node_label(nid);
+    auto node_o = pl_get_node_label(nid);
     YGM_ASSERT_RELEASE(node_o.has_value());
     std::string_view node = node_o.value();
     node_to_id[std::string(node)] = nid;
@@ -253,14 +252,14 @@ result<> metall_graph::degrees2(series_name in_name, series_name out_name,
 
   priv_for_all_edges(
     [&](local_edge_idx_type eid) {
-      auto uv_o = priv_local_get_edge_uv_labels(eid);
+      auto uv_o = pl_get_edge_uv_labels(eid);
       YGM_ASSERT_RELEASE(uv_o.has_value());
       std::string in_edge_name(uv_o.value().first);
       std::string out_edge_name(uv_o.value().second);
       indegrees.async_insert(in_edge_name);
       outdegrees.async_insert(out_edge_name);
 
-      auto is_directed = priv_local_edge_is_directed(eid).value_or(false);
+      auto is_directed = pl_edge_is_directed(eid).value_or(false);
 
       if (!is_directed) {
         indegrees.async_insert(out_edge_name);

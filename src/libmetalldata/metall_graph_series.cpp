@@ -66,10 +66,10 @@ std::map<std::string, std::string> metall_graph::get_selector_info() {
 }
 
 std::optional<std::pair<std::string_view, std::string_view>>
-metall_graph::priv_local_get_edge_uv_labels(
+metall_graph::pl_get_edge_uv_labels(
   metall_graph::local_edge_idx_type eid) const {
-  auto u = priv_local_get_edge_field<std::string_view>(m_u_col_idx, eid);
-  auto v = priv_local_get_edge_field<std::string_view>(m_v_col_idx, eid);
+  auto u = pl_get_edge_field<std::string_view>(m_u_col_idx, eid);
+  auto v = pl_get_edge_field<std::string_view>(m_v_col_idx, eid);
   if (u.has_value() && v.has_value()) {
     return std::make_pair(u.value(), v.value());
   } else {
@@ -78,12 +78,12 @@ metall_graph::priv_local_get_edge_uv_labels(
 }
 
 std::optional<std::pair<metall_graph::node_locator, metall_graph::node_locator>>
-metall_graph::priv_local_get_edge_uv_locators(
+metall_graph::pl_get_edge_uv_locators(
   metall_graph::local_edge_idx_type eid) const {
-  auto uvlbo = priv_local_get_edge_uv_labels(eid);
+  auto uvlbo = pl_get_edge_uv_labels(eid);
   if (uvlbo.has_value()) {
-    auto uloco = priv_local_get_node_locator(uvlbo.value().first);
-    auto vloco = priv_local_get_node_locator(uvlbo.value().second);
+    auto uloco = pl_get_node_locator(uvlbo.value().first);
+    auto vloco = pl_get_node_locator(uvlbo.value().second);
     if (uloco.has_value() && vloco.has_value()) {
       return std::make_pair(uloco.value(), vloco.value());
     }
@@ -91,14 +91,14 @@ metall_graph::priv_local_get_edge_uv_locators(
   return std::nullopt;
 }
 
-std::optional<bool> metall_graph::priv_local_edge_is_directed(
+std::optional<bool> metall_graph::pl_edge_is_directed(
   metall_graph::local_edge_idx_type eid) const {
-  return priv_local_get_edge_field<bool>(m_dir_col_idx, eid);
+  return pl_get_edge_field<bool>(m_dir_col_idx, eid);
 }
 
-std::optional<std::string_view> metall_graph::priv_local_get_node_label(
+std::optional<std::string_view> metall_graph::pl_get_node_label(
   metall_graph::local_node_idx_type nid) const {
-  auto l = priv_local_get_node_field(m_node_col_idx, nid);
+  auto l = pl_get_node_field(m_node_col_idx, nid);
   if (l.has_value()) {
     if (std::holds_alternative<std::string_view>(l.value())) {
       return std::get<std::string_view>(l.value());
@@ -107,8 +107,7 @@ std::optional<std::string_view> metall_graph::priv_local_get_node_label(
   return std::nullopt;
 }
 
-std::optional<metall_graph::series_types>
-metall_graph::priv_local_get_node_field(
+std::optional<metall_graph::series_types> metall_graph::pl_get_node_field(
   metall_graph::node_series_idx_type sid,
   metall_graph::local_node_idx_type  nid) const {
   return m_pnodes->get_dynamic(std::to_underlying(sid),
@@ -116,13 +115,13 @@ metall_graph::priv_local_get_node_field(
 }
 
 std::vector<std::optional<metall_graph::node_series_idx_type>>
-metall_graph::priv_local_find_node_series(
+metall_graph::pl_find_node_series(
   std::vector<metall_graph::series_name> names) const {
   std::vector<std::optional<node_series_idx_type>> ret;
   ret.reserve(names.size());
 
   for (const auto& n : names) {
-    ret.emplace_back(priv_local_find_node_series(n.unqualified()));
+    ret.emplace_back(pl_find_node_series(n.unqualified()));
   }
   return ret;
 }
@@ -168,7 +167,7 @@ std::vector<metall_graph::series_name> metall_graph::get_edge_series_names()
 };
 
 std::optional<metall_graph::edge_series_idx_type>
-metall_graph::priv_local_find_edge_series(std::string_view name) const {
+metall_graph::pl_find_edge_series(std::string_view name) const {
   auto ret = m_pedges->find_series(name);
   if (ret.has_value()) {
     return edge_series_idx_type{static_cast<edge_series_idx_type>(ret.value())};
@@ -177,13 +176,13 @@ metall_graph::priv_local_find_edge_series(std::string_view name) const {
 }
 
 std::vector<std::optional<metall_graph::edge_series_idx_type>>
-metall_graph::priv_local_find_edge_series(
+metall_graph::pl_find_edge_series(
   const std::vector<metall_graph::series_name>& names) const {
   std::vector<std::optional<edge_series_idx_type>> ret;
   ret.reserve(names.size());
 
   for (const auto& n : names) {
-    ret.emplace_back(priv_local_find_edge_series(n.unqualified()));
+    ret.emplace_back(pl_find_edge_series(n.unqualified()));
   }
 
   return ret;
