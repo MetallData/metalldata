@@ -25,11 +25,9 @@ void metall_graph::pasync_insert_node(std::string_view nlbv) {
       pthis->pl_set_node_field(pthis->m_node_col_idx, nid,
                                std::string_view{nlb});
       auto lb_sa = compact_string::add_string(nlb, *(pthis->m_pstring_store));
-      node_locator nloc = make_node_locator(pthis->m_comm.rank(), nid);
-      pthis->m_pnode_to_locator->insert_or_assign(lb_sa, nloc);
-      nloc_o = nloc;
+      nloc_o = make_node_locator(pthis->m_comm.rank(), nid);
+      pthis->m_pnode_to_locator->insert_or_assign(lb_sa, nloc_o.value());
     }
-    YGM_ASSERT_RELEASE(nloc_o.has_value());
 
     auto response = [](ygm_ptr_type pthis, const std::string& nlb,
                        node_locator nl) {
