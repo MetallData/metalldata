@@ -78,10 +78,10 @@ std::pair<metall_graph::node_locator, metall_graph::node_locator>
 metall_graph::pl_get_edge_uv_locators(
   metall_graph::local_edge_idx_type eid) const {
   auto [ulb, vlb] = pl_get_edge_uv_labels(eid);
-  auto uloco = pl_get_node_locator(ulb);
-  auto vloco = pl_get_node_locator(vlb);
-  YGM_ASSERT_DEBUG(uloco.has_value() && vloco.has_value());
-  return std::make_pair(uloco.value(), vloco.value());
+  auto uloc_o = pl_get_node_locator(ulb);
+  auto vloc_o = pl_get_node_locator(vlb);
+  YGM_ASSERT_DEBUG(uloc_o.has_value() && vloc_o.has_value());
+  return std::make_pair(uloc_o.value(), vloc_o.value());
 }
 
 bool metall_graph::pl_edge_is_directed(

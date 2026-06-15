@@ -112,24 +112,24 @@ result<> metall_graph::priv_check_index_integrity() const {
   m_comm.barrier();
   priv_for_all_edges([&](local_edge_idx_type eid) {
     auto [ulb, vlb] = pl_get_edge_uv_labels(eid);
-    auto uloco = pl_get_node_locator(ulb);
-    if (!uloco.has_value()) {
+    auto uloc_o = pl_get_node_locator(ulb);
+    if (!uloc_o.has_value()) {
       to_return.add_warning();
       return;
     }
-    auto vloco = pl_get_node_locator(vlb);
-    if (!vloco.has_value()) {
+    auto vloc_o = pl_get_node_locator(vlb);
+    if (!vloc_o.has_value()) {
       to_return.add_warning();
       return;
     }
 
     int u_owner = m_partitioner.owner(ulb);
-    if (u_owner != owner(uloco.value())) {
+    if (u_owner != owner(uloc_o.value())) {
       to_return.add_warning();
       return;
     }
     int v_owner = m_partitioner.owner(vlb);
-    if (v_owner != owner(vloco.value())) {
+    if (v_owner != owner(vloc_o.value())) {
       to_return.add_warning();
       return;
     }
@@ -141,8 +141,8 @@ result<> metall_graph::priv_check_index_integrity() const {
         return;
       }
     };
-    m_comm.async(u_owner, index_check, std::string(ulb), local(uloco.value()));
-    m_comm.async(v_owner, index_check, std::string(vlb), local(vloco.value()));
+    m_comm.async(u_owner, index_check, std::string(ulb), local(uloc_o.value()));
+    m_comm.async(v_owner, index_check, std::string(vlb), local(vloc_o.value()));
   });
 
   bool local_errors = !to_return.warnings().empty();
