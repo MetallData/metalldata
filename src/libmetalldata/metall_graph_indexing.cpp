@@ -45,10 +45,8 @@ void metall_graph::pasync_insert_node(std::string_view nlbv) {
 std::optional<metall_graph::local_node_idx_type> metall_graph::pl_get_node_id(
   std::string_view label) const {
   auto nloc_o = pl_get_node_locator(label);
-  if (nloc_o.has_value()) {
-    if (is_local(nloc_o.value())) {
-      return local(nloc_o.value());
-    }
+  if (nloc_o.has_value() && is_local(nloc_o.value())) {
+    return local(nloc_o.value());
   }
   return std::nullopt;
 }

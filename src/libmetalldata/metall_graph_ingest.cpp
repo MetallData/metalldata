@@ -224,8 +224,6 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
                               std::string_view(stringified_val));
 
                 // next, add to the distributed nodeset.
-                // TODO:  could save communication if this was query response to
-                // incremental ingest, but for now this is simplest.
                 pasync_insert_node(stringified_val);
 
                 // finally, increase local_n_edges
