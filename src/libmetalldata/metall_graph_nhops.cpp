@@ -52,17 +52,14 @@ result<> metall_graph::nhops(const series_name& out_name, size_t nhops,
 
   priv_for_all_edges(
     [&](local_edge_idx_type eid) {
-      auto uv_o = pl_get_edge_uv_labels(eid);
-      YGM_ASSERT_RELEASE(uv_o.has_value());
-      std::string u(uv_o.value().first);
-      std::string v(uv_o.value().second);
+      auto [u, v] = pl_get_edge_uv_labels(eid);
 
-      bool is_directed = pl_edge_is_directed(eid).value_or(false);
+      bool is_directed = pl_edge_is_directed(eid);
       auto adj_inserter = [](const std::string&, std::vector<std::string>& adj,
                              const std::string& vert) { adj.push_back(vert); };
-      adj_list.async_visit(u, adj_inserter, v);
+      adj_list.async_visit(std::string(u), adj_inserter, std::string(v));
       if (!is_directed) {
-        adj_list.async_visit(v, adj_inserter, u);
+        adj_list.async_visit(std::string(v), adj_inserter, std::string(u));
       }
     },
     where);

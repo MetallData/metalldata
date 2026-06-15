@@ -50,22 +50,17 @@ void metall_graph::priv_update_reverse_node_index() {
 
   // Index local nodes.
   priv_for_all_nodes([&](local_node_idx_type nid) {
-    auto u_o = pl_get_node_label(nid);
-    if (u_o.has_value()) {
-      auto u_sa = compact_string::add_string(u_o.value(), *m_pstring_store);
-      auto nl = make_node_locator(m_comm.rank(), nid);
-      m_pnode_to_locator->insert_or_assign(u_sa, nl);
-    }
+    auto nlb = pl_get_node_label(nid);
+    auto u_sa = compact_string::add_string(nlb, *m_pstring_store);
+    auto nl = make_node_locator(m_comm.rank(), nid);
+    m_pnode_to_locator->insert_or_assign(u_sa, nl);
   });
 
   // Index edges.   Query request and response necessary.
   priv_for_all_edges([&](local_edge_idx_type eid) {
-    auto uv_o = pl_get_edge_uv_labels(eid);
-    YGM_ASSERT_RELEASE(uv_o.has_value());
-    auto u_sa =
-      compact_string::add_string(uv_o.value().first, *m_pstring_store);
-    auto v_sa =
-      compact_string::add_string(uv_o.value().second, *m_pstring_store);
+    auto [ulb, vlb] = pl_get_edge_uv_labels(eid);
+    auto u_sa = compact_string::add_string(ulb, *m_pstring_store);
+    auto v_sa = compact_string::add_string(vlb, *m_pstring_store);
 
     auto request = [](int requester, const std::string& label) {
       auto nid_o = spthis->pl_get_node_id(label);
@@ -99,17 +94,10 @@ result<> metall_graph::priv_check_index_integrity() const {
   //
   // Loop over local nodes and check m_pnode_to_idx
   priv_for_all_nodes([&](local_node_idx_type nid) {
-    auto nlbo = pl_get_node_label(nid);
-    if (!nlbo.has_value()) {
-      to_return.add_warning();
-      return;
-    }
-    auto nido = pl_get_node_id(nlbo.value());
-    if (!nido.has_value()) {
-      to_return.add_warning();
-      return;
-    }
-    if (nido.value() != nid) {
+    auto nlb = pl_get_node_label(nid);
+    auto nid_o = pl_get_node_id(nlb);
+    YGM_ASSERT_DEBUG(nid_o.has_value());
+    if (nid != nid_o.value()) {
       to_return.add_warning();
     }
   });
@@ -123,49 +111,38 @@ result<> metall_graph::priv_check_index_integrity() const {
   spto_return = &to_return;
   m_comm.barrier();
   priv_for_all_edges([&](local_edge_idx_type eid) {
-    auto uv_o = pl_get_edge_uv_labels(eid);
-    if (!uv_o.has_value()) {
+    auto [ulb, vlb] = pl_get_edge_uv_labels(eid);
+    auto uloc_o = pl_get_node_locator(ulb);
+    if (!uloc_o.has_value()) {
       to_return.add_warning();
       return;
     }
-    std::string u_label{uv_o.value().first};
-    std::string v_label{uv_o.value().second};
-    auto        u_locator_o = pl_get_node_locator(u_label);
-    if (!u_locator_o.has_value()) {
-      to_return.add_warning();
-      return;
-    }
-
-    auto v_locator_o = pl_get_node_locator(v_label);
-    if (!v_locator_o.has_value()) {
+    auto vloc_o = pl_get_node_locator(vlb);
+    if (!vloc_o.has_value()) {
       to_return.add_warning();
       return;
     }
 
-    int u_owner = m_partitioner.owner(u_label);
-    if (u_owner != owner(u_locator_o.value())) {
+    int u_owner = m_partitioner.owner(ulb);
+    if (u_owner != owner(uloc_o.value())) {
       to_return.add_warning();
       return;
     }
-    int v_owner = m_partitioner.owner(v_label);
-    if (v_owner != owner(v_locator_o.value())) {
+    int v_owner = m_partitioner.owner(vlb);
+    if (v_owner != owner(vloc_o.value())) {
       to_return.add_warning();
       return;
     }
 
     auto index_check = [](const std::string& label, local_node_idx_type nid) {
-      auto nlabel_o = spthis->pl_get_node_label(nid);
-      if (!nlabel_o.has_value()) {
-        spto_return->add_warning();
-        return;
-      }
-      if (label != nlabel_o.value()) {
+      auto nlb = spthis->pl_get_node_label(nid);
+      if (label != nlb) {
         spto_return->add_warning();
         return;
       }
     };
-    m_comm.async(u_owner, index_check, u_label, local(u_locator_o.value()));
-    m_comm.async(v_owner, index_check, v_label, local(v_locator_o.value()));
+    m_comm.async(u_owner, index_check, std::string(ulb), local(uloc_o.value()));
+    m_comm.async(v_owner, index_check, std::string(vlb), local(vloc_o.value()));
   });
 
   bool local_errors = !to_return.warnings().empty();

@@ -65,46 +65,38 @@ std::map<std::string, std::string> metall_graph::get_selector_info() {
   return sels;
 }
 
-std::optional<std::pair<std::string_view, std::string_view>>
+std::pair<std::string_view, std::string_view>
 metall_graph::pl_get_edge_uv_labels(
   metall_graph::local_edge_idx_type eid) const {
   auto u = pl_get_edge_field<std::string_view>(m_u_col_idx, eid);
   auto v = pl_get_edge_field<std::string_view>(m_v_col_idx, eid);
-  if (u.has_value() && v.has_value()) {
-    return std::make_pair(u.value(), v.value());
-  } else {
-    return std::nullopt;
-  }
+  YGM_ASSERT_DEBUG(u.has_value() && v.has_value());
+  return std::make_pair(u.value(), v.value());
 }
 
-std::optional<std::pair<metall_graph::node_locator, metall_graph::node_locator>>
+std::pair<metall_graph::node_locator, metall_graph::node_locator>
 metall_graph::pl_get_edge_uv_locators(
   metall_graph::local_edge_idx_type eid) const {
-  auto uvlbo = pl_get_edge_uv_labels(eid);
-  if (uvlbo.has_value()) {
-    auto uloco = pl_get_node_locator(uvlbo.value().first);
-    auto vloco = pl_get_node_locator(uvlbo.value().second);
-    if (uloco.has_value() && vloco.has_value()) {
-      return std::make_pair(uloco.value(), vloco.value());
-    }
-  }
-  return std::nullopt;
+  auto [ulb, vlb] = pl_get_edge_uv_labels(eid);
+  auto uloc_o = pl_get_node_locator(ulb);
+  auto vloc_o = pl_get_node_locator(vlb);
+  YGM_ASSERT_DEBUG(uloc_o.has_value() && vloc_o.has_value());
+  return std::make_pair(uloc_o.value(), vloc_o.value());
 }
 
-std::optional<bool> metall_graph::pl_edge_is_directed(
+bool metall_graph::pl_edge_is_directed(
   metall_graph::local_edge_idx_type eid) const {
-  return pl_get_edge_field<bool>(m_dir_col_idx, eid);
+  auto odir = pl_get_edge_field<bool>(m_dir_col_idx, eid);
+  YGM_ASSERT_DEBUG(odir.has_value());
+  return odir.value();
 }
 
-std::optional<std::string_view> metall_graph::pl_get_node_label(
+std::string_view metall_graph::pl_get_node_label(
   metall_graph::local_node_idx_type nid) const {
   auto l = pl_get_node_field(m_node_col_idx, nid);
-  if (l.has_value()) {
-    if (std::holds_alternative<std::string_view>(l.value())) {
-      return std::get<std::string_view>(l.value());
-    }
-  }
-  return std::nullopt;
+  YGM_ASSERT_DEBUG(l.has_value());
+  YGM_ASSERT_DEBUG(std::holds_alternative<std::string_view>(l.value()));
+  return std::get<std::string_view>(l.value());
 }
 
 std::optional<metall_graph::series_types> metall_graph::pl_get_node_field(
