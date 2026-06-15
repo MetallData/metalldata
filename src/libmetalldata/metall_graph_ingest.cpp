@@ -26,6 +26,7 @@
 #include <ygm/container/set.hpp>
 #include <ygm/container/counting_set.hpp>
 #include "metall/tags.hpp"
+#include "ygm/detail/collective.hpp"
 #include "ygm/utility/assert.hpp"
 
 namespace metalldata {
@@ -151,7 +152,8 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
     }
   }
 
-  size_t               local_nedges = 0;
+  size_t local_nedges = 0;
+  size_t prior_local_nnodes = ygm::sum(m_pnodes->num_records(), m_comm);
   static metall_graph* sthis = nullptr;
   sthis = this;
   parquetp.for_all(
@@ -260,10 +262,8 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
   m_comm.barrier();
   std::map<std::string, size_t> retdict{
     {"num_edges_ingested", ygm::sum(local_nedges, m_comm)},
-    // TODO: do we really need this, gonna be expensive
-    // // {"num_new_nodes_ingested",
-    //  ygm::sum(m_pnode_to_idx->size() - local_nedges, m_comm)}
-  };
+    {"num_new_nodes_ingested",
+     ygm::sum(m_pnodes->num_records(), m_comm) - prior_local_nnodes}};
   return retdict;
 }
 
