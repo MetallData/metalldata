@@ -19,17 +19,17 @@ void metall_graph::pasync_insert_node(std::string_view nlbv) {
   auto request = [](ygm_ptr_type pthis, detail::rank_type requester,
                     const std::string& nlb) {
     YGM_ASSERT_RELEASE(pthis->m_partitioner.owner(nlb) == pthis->m_comm.rank());
-    auto nloco = pthis->pl_get_node_locator(nlb);
-    if (!nloco.has_value()) {
+    auto nloc_o = pthis->pl_get_node_locator(nlb);
+    if (!nloc_o.has_value()) {
       auto nid = local_node_idx_type{pthis->m_pnodes->add_record()};
       pthis->pl_set_node_field(pthis->m_node_col_idx, nid,
                                std::string_view{nlb});
       auto lb_sa = compact_string::add_string(nlb, *(pthis->m_pstring_store));
       pthis->m_pnode_to_locator->insert_or_assign(
         lb_sa, make_node_locator(pthis->m_comm.rank(), nid));
-      nloco = make_node_locator(pthis->m_comm.rank(), nid);
+      nloc_o = make_node_locator(pthis->m_comm.rank(), nid);
     }
-    YGM_ASSERT_RELEASE(nloco.has_value());
+    YGM_ASSERT_RELEASE(nloc_o.has_value());
 
     auto response = [](ygm_ptr_type pthis, const std::string& nlb,
                        node_locator nl) {
@@ -39,17 +39,17 @@ void metall_graph::pasync_insert_node(std::string_view nlbv) {
 
     // 3. Send response back to requester so they can update their reverse
     // index.
-    pthis->m_comm.async(requester, response, pthis, nlb, nloco.value());
+    pthis->m_comm.async(requester, response, pthis, nlb, nloc_o.value());
   };
   m_comm.async(owner, request, pthis, m_comm.rank(), std::string{nlbv});
 }
 
 std::optional<metall_graph::local_node_idx_type> metall_graph::pl_get_node_id(
   std::string_view label) const {
-  auto nloco = pl_get_node_locator(label);
-  if (nloco.has_value()) {
-    if (is_local(nloco.value())) {
-      return local(nloco.value());
+  auto nloc_o = pl_get_node_locator(label);
+  if (nloc_o.has_value()) {
+    if (is_local(nloc_o.value())) {
+      return local(nloc_o.value());
     }
   }
   return std::nullopt;
