@@ -271,22 +271,19 @@ class metall_graph {
   /**
    * @brief Returns an edge's endpoints (u,v) as string_views
    *
-   * @todo remove optional and throw if not found, since this should only be
-   * called.
    * @param eid Edge ID
    * @return std::optional<std::pair<std::string_view, std::string_view>>
    */
-  std::optional<std::pair<std::string_view, std::string_view>>
-  pl_get_edge_uv_labels(local_edge_idx_type eid) const;
+  std::pair<std::string_view, std::string_view> pl_get_edge_uv_labels(
+    local_edge_idx_type eid) const;
 
   /**
    * @brief Returns an edge's endpoints (u,v) as node_locators
-   * @todo remove optional and throw if not found, since this should only be
-   * called.
+   *
    * @param eid Edge ID
    * @return std::optional<std::pair<node_locator, node_locator>>
    */
-  std::optional<std::pair<node_locator, node_locator>> pl_get_edge_uv_locators(
+  std::pair<node_locator, node_locator> pl_get_edge_uv_locators(
     local_edge_idx_type eid) const;
 
   /**
@@ -295,7 +292,7 @@ class metall_graph {
    * @param eid Edge Id
    * @return std::optional<bool>
    */
-  std::optional<bool> pl_edge_is_directed(local_edge_idx_type eid) const;
+  bool pl_edge_is_directed(local_edge_idx_type eid) const;
 
   /**
    * @brief Retuns a node's string label
@@ -303,8 +300,7 @@ class metall_graph {
    * @param nid Node id
    * @return std::optional<std::string_view>
    */
-  std::optional<std::string_view> pl_get_node_label(
-    local_node_idx_type nid) const;
+  std::string_view pl_get_node_label(local_node_idx_type nid) const;
 
   /**
    * @brief Returns an individual node field as a series_type variant
