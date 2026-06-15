@@ -277,23 +277,20 @@ class metall_graph {
   /**
    * @brief Returns an edge's endpoints (u,v) as string_views
    *
-   * @todo remove optional and throw if not found, since this should only be
-   * called.
    * @param eid Edge ID
    * @return std::optional<std::pair<std::string_view, std::string_view>>
    */
-  std::optional<std::pair<std::string_view, std::string_view>>
-  pl_get_edge_uv_labels(local_edge_idx_type eid) const;
+  std::pair<std::string_view, std::string_view> pl_get_edge_uv_labels(
+    local_edge_idx_type eid) const;
 
   /**
    * @brief Returns an edge's endpoints (u,v) as node_locators
-   * @todo remove optional and throw if not found, since this should only be
-   * called.
+   *
    * @param eid Edge ID
    * @return std::optional<std::pair<node_locator, node_locator>>
    */
-  std::optional<std::pair<node_locator, node_locator>>
-  pl_get_edge_uv_locators(local_edge_idx_type eid) const;
+  std::pair<node_locator, node_locator> pl_get_edge_uv_locators(
+    local_edge_idx_type eid) const;
 
   /**
    * @brief Returns an edge's directed field
@@ -301,8 +298,7 @@ class metall_graph {
    * @param eid Edge Id
    * @return std::optional<bool>
    */
-  std::optional<bool> pl_edge_is_directed(
-    local_edge_idx_type eid) const;
+  bool pl_edge_is_directed(local_edge_idx_type eid) const;
 
   /**
    * @brief Retuns a node's string label
@@ -310,8 +306,7 @@ class metall_graph {
    * @param nid Node id
    * @return std::optional<std::string_view>
    */
-  std::optional<std::string_view> pl_get_node_label(
-    local_node_idx_type nid) const;
+  std::string_view pl_get_node_label(local_node_idx_type nid) const;
 
   /**
    * @brief Returns an individual node field as a series_type variant
@@ -320,8 +315,8 @@ class metall_graph {
    * @param nid Node id
    * @return std::optional<series_types>
    */
-  std::optional<series_types> pl_get_node_field(
-    node_series_idx_type sid, local_node_idx_type nid) const;
+  std::optional<series_types> pl_get_node_field(node_series_idx_type sid,
+                                                local_node_idx_type  nid) const;
 
   /**
    * @brief Returns an individual node field as a concrete type
@@ -333,7 +328,7 @@ class metall_graph {
    */
   template <typename T>
   std::optional<T> pl_get_node_field(node_series_idx_type sid,
-                                             local_node_idx_type  nid) const;
+                                     local_node_idx_type  nid) const;
 
   std::vector<std::optional<series_types>> pl_get_node_fields(
     std::vector<node_series_idx_type> sids, local_node_idx_type eid) const {
@@ -345,14 +340,14 @@ class metall_graph {
     return fields;
   }
 
-  std::optional<series_types> pl_get_edge_field(
-    edge_series_idx_type sid, local_edge_idx_type eid) const {
+  std::optional<series_types> pl_get_edge_field(edge_series_idx_type sid,
+                                                local_edge_idx_type eid) const {
     return m_pedges->get_dynamic(std::to_underlying(sid),
                                  std::to_underlying(eid));
   }
   template <typename T>
   std::optional<T> pl_get_edge_field(edge_series_idx_type sid,
-                                             local_edge_idx_type  eid) const {
+                                     local_edge_idx_type  eid) const {
     auto f = pl_get_edge_field(sid, eid);
     if (f.has_value()) {
       if (std::holds_alternative<T>(f.value())) {
@@ -373,14 +368,14 @@ class metall_graph {
   }
 
   template <typename T>
-  void pl_set_node_field(node_series_idx_type sid,
-                                 local_node_idx_type nid, const T& val) {
+  void pl_set_node_field(node_series_idx_type sid, local_node_idx_type nid,
+                         const T& val) {
     m_pnodes->set(std::to_underlying(sid), std::to_underlying(nid), val);
   }
 
   template <typename T>
-  void pl_set_edge_field(edge_series_idx_type sid,
-                                 local_edge_idx_type eid, const T& val) {
+  void pl_set_edge_field(edge_series_idx_type sid, local_edge_idx_type eid,
+                         const T& val) {
     m_pedges->set(std::to_underlying(sid), std::to_underlying(eid), val);
   }
 
@@ -507,8 +502,7 @@ class metall_graph {
    * @param label String node label
    * @return node_locator
    */
-  std::optional<node_locator> pl_get_node_locator(
-    std::string_view label) const;
+  std::optional<node_locator> pl_get_node_locator(std::string_view label) const;
 
   /**
    * @brief Checks the integrity of the indexes
