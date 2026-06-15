@@ -95,9 +95,9 @@ result<> metall_graph::priv_check_index_integrity() const {
   // Loop over local nodes and check m_pnode_to_idx
   priv_for_all_nodes([&](local_node_idx_type nid) {
     auto nlb = pl_get_node_label(nid);
-    auto nido = pl_get_node_id(nlb);
-    YGM_ASSERT_DEBUG(nido.has_value());
-    if (nid != nido.value()) {
+    auto nid_o = pl_get_node_id(nlb);
+    YGM_ASSERT_DEBUG(nid_o.has_value());
+    if (nid != nid_o.value()) {
       to_return.add_warning();
     }
   });
