@@ -8,6 +8,7 @@ namespace metalldata {
 template <typename Fn>
 void metall_graph::priv_for_all_edges_nwhere(
   Fn func, const metall_graph::where_clause& where) const {
+  m_comm.barrier();
   YGM_ASSERT_RELEASE(where.is_node_clause());
   // 1. Compute the set of nodes that satisfy the node where clause.
   node_locator_set filtered_nodes(m_comm);
@@ -41,6 +42,7 @@ void metall_graph::priv_for_all_edges_nwhere(
 template <typename Fn>
 void metall_graph::priv_for_all_edges_ewhere(
   Fn func, const metall_graph::where_clause& where) const {
+  m_comm.barrier();
   // take the where clause. Convert the where clause variables to
   // a vector of series indices. If it's missing, throw runtime.
   //
@@ -84,6 +86,7 @@ void metall_graph::priv_for_all_edges_ewhere(
 
 template <typename Fn>
 void metall_graph::priv_for_all_edges(Fn func) const {
+  m_comm.barrier();
   m_pedges->for_all_rows(
     [&](record_id_type rid) { func(local_edge_idx_type{rid}); });
 }
@@ -94,6 +97,7 @@ void metall_graph::priv_for_all_edges(Fn func) const {
 template <typename Fn>
 void metall_graph::priv_for_all_edges(
   Fn func, const metall_graph::where_clause& where) const {
+  m_comm.barrier();
   if (where.is_node_clause()) {
     priv_for_all_edges_nwhere(func, where);
   } else if (where.is_edge_clause()) {
@@ -106,6 +110,7 @@ void metall_graph::priv_for_all_edges(
 template <typename Fn>
 void metall_graph::priv_for_all_nodes_nwhere(
   Fn func, const metall_graph::where_clause& where) const {
+  m_comm.barrier();
   YGM_ASSERT_RELEASE(where.is_node_clause());
   std::vector<std::string> str_series_names;
   str_series_names.reserve(where.series_names().size());
@@ -145,6 +150,7 @@ void metall_graph::priv_for_all_nodes_nwhere(
 template <typename Fn>
 void metall_graph::priv_for_all_nodes_ewhere(
   Fn func, const metall_graph::where_clause& where) const {
+  m_comm.barrier();
   YGM_ASSERT_RELEASE(where.is_edge_clause());
 
   // 1. compute the set of edges that satisfy the edge where clause & save
@@ -164,6 +170,7 @@ void metall_graph::priv_for_all_nodes_ewhere(
 
 template <typename Fn>
 void metall_graph::priv_for_all_nodes(Fn func) const {
+  m_comm.barrier();
   m_pnodes->for_all_rows(
     [&](record_id_type rid) { func(local_node_idx_type{rid}); });
 }
@@ -172,6 +179,7 @@ void metall_graph::priv_for_all_nodes(Fn func) const {
 template <typename Fn>
 void metall_graph::priv_for_all_nodes(
   Fn func, const metall_graph::where_clause& where) const {
+  m_comm.barrier();
   if (where.is_node_clause()) {
     priv_for_all_nodes_nwhere(func, where);
   } else if (where.is_edge_clause()) {

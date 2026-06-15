@@ -18,6 +18,7 @@
 #include <metall/metall.hpp>
 #include <multiseries/multiseries_record.hpp>
 #include <ygm/comm.hpp>
+#include <ygm/detail/ygm_ptr.hpp>
 #include <ygm/container/detail/hash_partitioner.hpp>
 #include <metall/utility/metall_mpi_adaptor.hpp>
 #include <boost/json.hpp>
@@ -62,6 +63,8 @@ class metall_graph {
   /// string table deduplicates strings
   using string_store_type = record_store_type::string_store_type;
   using string_table_accessor = compact_string::string_accessor;
+
+  using ygm_ptr_type = ygm::ygm_ptr<metall_graph>;
 
   enum class local_node_idx_type : std::size_t;
   enum class local_edge_idx_type : std::size_t;
@@ -236,15 +239,6 @@ class metall_graph {
     std::optional<uint64_t> optseed, const metall_graph::where_clause& where);
 
  private:
-  // TODO:  debug why we can't used string_accessor_fast_hash for these maps.
-  /// hash table from node string label to local id.  For local nodes only.
-  using map_local_node_to_local_id_type = boost::unordered::unordered_flat_map<
-    string_table_accessor, local_node_idx_type,
-    compact_string::string_accessor_hasher,
-    std::equal_to<compact_string::string_accessor>,
-    metall::manager::allocator_type<
-      std::pair<const compact_string::string_accessor, local_node_idx_type>>>;
-
   /// hash table from node string label to global locator.  For tracking remote
   /// nodes.
   using map_node_to_locator_type = boost::unordered::unordered_flat_map<
@@ -262,12 +256,12 @@ class metall_graph {
   record_store_type* m_pnodes = nullptr;
   /// Dataframe for directed edges
   record_store_type* m_pedges = nullptr;
-  /// Map from vertex string to local node id
-  map_local_node_to_local_id_type* m_pnode_to_idx = nullptr;
   /// Map from vertex string to node locator
   map_node_to_locator_type* m_pnode_to_locator = nullptr;
   /// String store
   string_store_type* m_pstring_store = nullptr;
+  /// YGM pointer to self, used for async callbacks. Initialized in constructor.
+  typename ygm::ygm_ptr<metall_graph> pthis = nullptr;
 
   edge_series_idx_type m_u_col_idx;
   edge_series_idx_type m_v_col_idx;
@@ -468,22 +462,6 @@ class metall_graph {
                            const T&           collection);
 
   /**
-   * @brief Updates reverse node index after fresh edge ingestion. Collective
-   * method.
-   *
-   */
-  void priv_update_reverse_node_index();
-
-  /**
-   * @brief Retrieves or inserts node string label into reverse lookup. Returns
-   * local_node_idx
-   *
-   * @param label String node label
-   * @return local_node_idx_type
-   */
-  local_node_idx_type pl_node_find_or_insert(std::string_view label);
-
-  /**
    * @brief Retrieves without inserting node string label into reverse lookup.
    * Returns local_node_idx
    *
@@ -492,6 +470,14 @@ class metall_graph {
    */
   std::optional<local_node_idx_type> pl_get_node_id(
     std::string_view label) const;
+
+  /**
+   * @brief Asynchronously inserts a node label into the reverse index & node
+   * table.
+   *
+   * @param label
+   */
+  void pasync_insert_node(std::string_view label);
 
   /**
    * @brief Retrieves node locator from reverse index.
@@ -531,10 +517,12 @@ class metall_graph {
 
   static detail::rank_type   owner(node_locator nl);
   static local_node_idx_type local(node_locator nl);
+  bool                       is_local(node_locator nl) const;
   static node_locator        make_node_locator(detail::rank_type   owner,
                                                local_node_idx_type nid);
   static detail::rank_type   owner(edge_locator nl);
   static local_edge_idx_type local(edge_locator nl);
+  bool                       is_local(edge_locator nl) const;
   static edge_locator        make_edge_locator(detail::rank_type   owner,
                                                local_edge_idx_type nid);
 

@@ -26,6 +26,7 @@
 #include <ygm/container/set.hpp>
 #include <ygm/container/counting_set.hpp>
 #include "metall/tags.hpp"
+#include "ygm/detail/collective.hpp"
 #include "ygm/utility/assert.hpp"
 
 namespace metalldata {
@@ -152,6 +153,7 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
   }
 
   size_t               local_nedges = 0;
+  size_t               prior_global_nnodes = ygm::sum(pl_num_nodes(), m_comm);
   static metall_graph* sthis = nullptr;
   sthis = this;
   parquetp.for_all(
@@ -224,13 +226,8 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
                               std::string_view(stringified_val));
 
                 // next, add to the distributed nodeset.
-                int owner = m_partitioner.owner(stringified_val);
-                m_comm.async(
-                  owner,
-                  [](const std::string& s) {
-                    sthis->pl_node_find_or_insert(s);
-                  },
-                  stringified_val);
+                pasync_insert_node(stringified_val);
+
                 // finally, increase local_n_edges
                 ++local_nedges;
               } catch (const std::exception) {
@@ -262,15 +259,11 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
       }  // for loop
     });  // for_all
 
-  //
-  // Update the reverse indexes after every ingest
-  priv_update_reverse_node_index();
-
   m_comm.barrier();
   std::map<std::string, size_t> retdict{
     {"num_edges_ingested", ygm::sum(local_nedges, m_comm)},
     {"num_new_nodes_ingested",
-     ygm::sum(m_pnode_to_idx->size() - local_nedges, m_comm)}};
+     ygm::sum(pl_num_nodes(), m_comm) - prior_global_nnodes}};
   return retdict;
 }
 
