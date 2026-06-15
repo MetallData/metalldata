@@ -41,3 +41,4 @@ add_custom_target(pytest
 add_subdirectory(string_table)
 add_subdirectory(multiseries)
 add_subdirectory(metall_graph)
+add_subdirectory(ygm_ext)
