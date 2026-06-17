@@ -82,8 +82,10 @@ int main(int argc, char **argv) try {
 
   bjsn::array json_maps{};
 
-  comm.cerr0() << "select_vec len = " << select_vec.size() << "\n";
   for (const auto &edge : select_vec) {
+    if (json_maps.size() >= limit) {
+      break;
+    }
     bjsn::object edgemap;
     for (int i = 0; i < edge.size(); ++i) {
       auto sname = series_names.at(i);

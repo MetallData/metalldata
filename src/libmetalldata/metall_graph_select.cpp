@@ -15,7 +15,8 @@ using metadata_t = std::vector<metall_graph::data_types>;
 result<ygm::container::bag<metadata_t>> metall_graph::select_edges(
   const std::vector<metall_graph::series_name>& series_names,
   const metall_graph::where_clause& where, size_t limit) {
-  ygm::container::bag<metadata_t> all_edge_data(m_comm);
+  result<ygm::container::bag<metadata_t>> to_return({m_comm});
+  ygm::container::bag<metadata_t>&        all_edge_data = to_return.value();
   if (series_names.empty()) {
     return all_edge_data;
   }
@@ -53,7 +54,7 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_edges(
 
   m_comm.barrier();
 
-  return all_edge_data;
+  return to_return;
 }
 
 result<ygm::container::bag<metadata_t>> metall_graph::select_nodes(
