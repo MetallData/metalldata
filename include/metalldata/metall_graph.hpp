@@ -29,6 +29,7 @@
 #include <optional>
 #include <ygm/utility/assert.hpp>
 #include <ygm/container/set.hpp>
+#include <ygm/container/bag.hpp>
 #include <ygm/container/counting_set.hpp>
 #include <metalldata/result.hpp>
 #include <string_table/string_accessor.hpp>
@@ -183,13 +184,13 @@ class metall_graph {
   void visit_edge_field(const series_name& name, size_t record_id,
                         Fn func) const;
 
-  result<boost::json::array> select_edges(
-    const std::unordered_set<metall_graph::series_name>& series_set,
-    const metall_graph::where_clause& where, size_t limit);
+  result<ygm::container::bag<std::vector<metall_graph::count_types>>>
+  select_edges(const std::vector<metall_graph::series_name>& series_set,
+               const metall_graph::where_clause& where, size_t limit);
 
-  result<boost::json::array> select_nodes(
-    const std::unordered_set<metall_graph::series_name>& series_set,
-    const metall_graph::where_clause& where, size_t limit);
+  result<ygm::container::bag<std::vector<metall_graph::count_types>>>
+  select_nodes(const std::vector<metall_graph::series_name>& series_set,
+               const metall_graph::where_clause& where, size_t limit);
 
   /**
    * @brief Determines if the metall_graph is in good condition

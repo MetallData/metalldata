@@ -4,136 +4,106 @@
 // SPDX-License-Identifier: MIT
 
 #include <metalldata/metall_graph.hpp>
+#include "ygm/container/bag.hpp"
 #include <expected>
 #include <utility>
+#include <variant>
+#include <algorithm>
+
 #define BOOST_JSON_SRC_HPP  // This is a temp hack until YGM removes the src.hpp
                             // inclusion
 #include <ygm/utility/boost_json.hpp>
 
 namespace metalldata {
-result<bjsn::array> metall_graph::select_edges(
-  const std::unordered_set<metall_graph::series_name>& series_set,
+using metadata_t = std::vector<metall_graph::count_types>;
+
+result<ygm::container::bag<metadata_t>> metall_graph::select_edges(
+  const std::vector<metall_graph::series_name>& series_names,
   const metall_graph::where_clause& where, size_t limit) {
-  if (series_set.empty()) {
-    return {};
+  ygm::container::bag<metadata_t> all_edge_data(m_comm);
+  if (series_names.empty()) {
+    return all_edge_data;
   }
 
-  for (const auto& s : series_set) {
+  std::vector<std::string>                        warnings;
+  std::vector<metall_graph::edge_series_idx_type> edge_ser_idx;
+
+  for (const auto& s : series_names) {
     if (!s.is_edge_series()) {
-      return std::unexpected("all series must be of type edge.");
+      return std::unexpected("all series must be of type edge");
     }
+    auto esidx_o = pl_find_edge_series(s.unqualified());
+    if (!esidx_o.has_value()) {
+      return std::unexpected(std::format("series {} not found", s.qualified()));
+    }
+
+    edge_ser_idx.emplace_back(esidx_o.value());
   }
 
-  bjsn::array select_results_arr;
   priv_for_all_edges(
     [&](local_edge_idx_type eid) {
-      bjsn::object edge_obj;
+      metadata_t edge_vals;
 
-      for (const auto& series : series_set) {
-        // TODO: make this better. This is potentially expensive because we
-        // have to do a field lookup on every edge.
-        visit_edge_field(
-          series, std::to_underlying(eid), [&](auto val) { edge_obj[series.unqualified()] = val; });
+      for (const auto& es_idx : edge_ser_idx) {
+        auto ser_val =
+          pl_get_edge_field(es_idx, eid).value_or(std::monostate{});
+        auto count_val = priv_series_to_count_type(ser_val);
+        edge_vals.emplace_back(count_val);
       }
-      select_results_arr.push_back(edge_obj);
+      all_edge_data.async_insert(edge_vals);
+      if (all_edge_data.local_size() > limit) {
+        return;
+      }
     },
     where);
 
-  std::vector<bjsn::array> everything(m_comm.size() - 1);  // don't need rank 0
-  static auto&             s_everything = everything;
-  m_comm.cf_barrier();
-  if (!m_comm.rank0()) {
-    m_comm.async(
-      0,
-      [](const bjsn::array& rank_data, int rank) {
-        (s_everything)[rank - 1] = rank_data;
-      },
-      select_results_arr, m_comm.rank());
-  }
-
   m_comm.barrier();
 
-  if (m_comm.rank0()) {
-    for (auto& el : everything) {
-      if (select_results_arr.size() >= limit) {
-        break;
-      }
-      select_results_arr.insert(select_results_arr.end(), el.begin(), el.end());
-      el.clear();
-    }
-  }
-
-  m_comm.barrier();
-
-  boost::json::array limited;
-  size_t             n = std::min(select_results_arr.size(), size_t(limit));
-  limited.insert(limited.end(), select_results_arr.begin(),
-                 select_results_arr.begin() + n);
-  return limited;
+  return all_edge_data;
 }
 
-result<bjsn::array> metall_graph::select_nodes(
-  const std::unordered_set<metall_graph::series_name>& series_set,
+result<ygm::container::bag<metadata_t>> metall_graph::select_nodes(
+  const std::vector<metall_graph::series_name>& series_names,
   const metall_graph::where_clause& where, size_t limit) {
-  if (series_set.empty()) {
-    return {};
+  ygm::container::bag<metadata_t> all_node_data(m_comm);
+  if (series_names.empty()) {
+    return all_node_data;
   }
 
-  std::vector<node_series_idx_type> node_idxs{};
-  for (const auto& s : series_set) {
+  std::vector<std::string>                        warnings;
+  std::vector<metall_graph::node_series_idx_type> node_ser_idx;
+  for (const auto& s : series_names) {
     if (!s.is_node_series()) {
-      return std::unexpected(std::format(
-        "all series must be of type node (got {}).", s.qualified()));
+      return std::unexpected("all series must be of type node");
     }
+    auto nsidx_o = pl_find_node_series(s.unqualified());
+    if (!nsidx_o.has_value()) {
+      return std::unexpected(std::format("series {} not found", s.qualified()));
+    }
+
+    node_ser_idx.emplace_back(nsidx_o.value());
   }
 
-  bjsn::array select_results_arr;
   priv_for_all_nodes(
-    [&](auto rid) {
-      bjsn::object node_obj;
+    [&](local_node_idx_type nid) {
+      metadata_t node_vals;
 
-      for (const auto& series : series_set) {
-        // TODO: make this better. This is potentially expensive because we
-        // have to do a field lookup on every node.
-        visit_node_field(series, std::to_underlying(rid), [&](auto val) {
-          node_obj[series.unqualified()] = val;
-        });
+      for (const auto& es_idx : node_ser_idx) {
+        auto ser_val =
+          pl_get_node_field(es_idx, nid).value_or(std::monostate{});
+        auto count_val = priv_series_to_count_type(ser_val);
+        node_vals.emplace_back(count_val);
       }
-
-      select_results_arr.push_back(node_obj);
+      all_node_data.async_insert(node_vals);
+      if (all_node_data.local_size() > limit) {
+        return;
+      }
     },
     where);
 
-  std::vector<bjsn::array> everything(m_comm.size() - 1);  // don't need rank0
-  static auto&             s_everything = everything;
-  m_comm.cf_barrier();
-  if (!m_comm.rank0()) {
-    m_comm.async(
-      0,
-      [](const bjsn::array& rank_data, int rank) {
-        (s_everything)[rank - 1] = rank_data;
-      },
-      select_results_arr, m_comm.rank());
-  }
-
-  m_comm.barrier();
-  if (m_comm.rank0()) {
-    for (auto& el : everything) {
-      if (select_results_arr.size() >= limit) {
-        break;
-      }
-      select_results_arr.insert(select_results_arr.end(), el.begin(), el.end());
-      el.clear();
-    }
-  }
-
   m_comm.barrier();
 
-  boost::json::array limited;
-  size_t             n = std::min(select_results_arr.size(), size_t(limit));
-  limited.insert(limited.end(), select_results_arr.begin(),
-                 select_results_arr.begin() + n);
-  return limited;
+  return all_node_data;
 }
 
 }  // namespace metalldata

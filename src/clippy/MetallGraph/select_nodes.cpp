@@ -15,8 +15,8 @@
 #include <ygm/utility/boost_json.hpp>
 #include "utils.hpp"
 
-static const std::string method_name    = "select_nodes";
-static const std::string state_name     = "INTERNAL";
+static const std::string method_name = "select_nodes";
+static const std::string state_name = "INTERNAL";
 static const std::string sel_state_name = "selectors";
 
 int main(int argc, char **argv) try {
@@ -38,9 +38,11 @@ int main(int argc, char **argv) try {
     return 0;
   }
 
-  auto path  = clip.get_state<std::string>("path");
+  auto path = clip.get_state<std::string>("path");
   auto where = clip.get<boost::json::object>("where");
+
   auto limit = clip.get<size_t>("limit");
+
   metalldata::metall_graph::where_clause where_c;
   if (where.contains("rule")) {
     where_c = metalldata::metall_graph::where_clause(where["rule"]);
@@ -48,30 +50,55 @@ int main(int argc, char **argv) try {
 
   metalldata::metall_graph mg(comm, path, false);
 
-  std::unordered_set<metalldata::metall_graph::series_name> series_set;
+  std::vector<metalldata::metall_graph::series_name> series_names;
+
   if (!clip.has_argument("series_names")) {
-    auto e     = mg.get_node_series_names();
-    series_set = {e.begin(), e.end()};
+    series_names = mg.get_node_series_names();
   } else {
-    auto series_obj_set =
-      clip.get<std::unordered_set<boost::json::object>>("series_names");
-    auto try_obj = metalldata::obj2sn(series_obj_set);
-    if (!try_obj) {
-      comm.cerr0(try_obj.error());
+    auto series_obj_vec =
+      clip.get<std::vector<boost::json::object>>("series_names");
+    auto try_obj_r = metalldata::obj2sn(series_obj_vec);
+    if (!try_obj_r) {
+      comm.cerr0(try_obj_r.error());
       return -1;
     }
-    series_set = try_obj.value();
+    // Note: clangd false positive below.
+    auto try_obj = try_obj_r.value();
+    series_names = {try_obj.begin(), try_obj.end()};
   }
+  auto bag_result = mg.select_nodes(series_names, where_c, limit);
 
-  // Build array of edge dictionaries
-  auto expected_array = mg.select_nodes(series_set, where_c, limit);
-
-  if (!expected_array.has_value()) {
-    comm.cerr0(expected_array.error());
+  if (!bag_result) {
+    comm.cerr0(bag_result.error());
     return -1;
   }
 
-  clip.to_return(expected_array.value());
+  auto bag = bag_result.value();
+  comm.barrier();
+  auto foo = bag.size();
+  std::vector<std::vector<metalldata::metall_graph::count_types>> select_vec;
+  bag.gather(select_vec);
+
+  bjsn::array json_maps{};
+
+  for (const auto &node : select_vec) {
+    bjsn::object nodemap;
+    for (int i = 0; i < node.size(); ++i) {
+      auto sname = series_names.at(i);
+      auto sval = node[i];
+      std::visit(
+        [&](const auto &val) {
+          if constexpr (!std::is_same_v<std::decay_t<decltype(val)>,
+                                        std::monostate>) {
+            nodemap[sname.qualified()] = val;
+          }
+        },
+        sval);
+    }
+    json_maps.emplace_back(nodemap);
+  }
+
+  clip.to_return(json_maps);
   return 0;
 } catch (std::runtime_error e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";

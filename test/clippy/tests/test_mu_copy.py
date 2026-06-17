@@ -17,4 +17,4 @@ def test_mu_copy(tmp_path):
     mg_dst = MetallGraph(dst)
     is_as_described(mg_dst, 21, 28)
     el = mg_dst.select_edges()
-    is_as_selected(el, {}, ["u", "v", "graphnum", "relevant"], ["field_does_not_exist"])
+    is_as_selected(el, {}, ["edge.u", "edge.v", "edge.graphnum", "edge.relevant"], ["field_does_not_exist"])

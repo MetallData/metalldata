@@ -6,7 +6,7 @@ def test_mg_cc_full_graph(metallgraph):
     select_data = metallgraph.select_nodes()
 
     # Nodes that are only edge destinations in directed graphs get no cc (shown as "")
-    cc_by_id = {d["id"]: d["cc"] for d in select_data if d.get("cc", "") != ""}
+    cc_by_id = {d["node.id"]: d["node.cc"] for d in select_data if d.get("node.cc", "") != ""}
 
     path_nodes = ["path-a", "path-b", "path-c", "path-d", "path-e", "path-f", "path-g"]
     path_ccs = {cc_by_id[n] for n in path_nodes if n in cc_by_id}
@@ -29,5 +29,5 @@ def test_mg_cc_where(metallgraph):
     select_data = metallgraph.select_nodes(where=metallgraph.edge.graphnum == 3)
 
     # Exclude destination-only nodes that get no cc in directed graphs
-    cc_vals = {d["cc"] for d in select_data if d.get("cc", "") != ""}
+    cc_vals = {d["node.cc"] for d in select_data if d.get("node.cc", "") != ""}
     assert len(cc_vals) == 1
