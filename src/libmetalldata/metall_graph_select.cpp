@@ -39,11 +39,11 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_edges(
     [&](local_edge_idx_type eid) {
       metadata_t edge_vals;
 
-      for (const auto& es_idx : edge_ser_idx) {
-        auto ser_val =
-          pl_get_edge_field(es_idx, eid).value_or(std::monostate{});
-        auto count_val = priv_series_to_data_type(ser_val);
-        edge_vals.emplace_back(count_val);
+      auto       edge_vals_o = pl_get_edge_fields(edge_ser_idx, eid);
+      metadata_t ser_vals;
+      for (const auto& v : edge_vals_o) {
+        data_types dv = priv_series_to_data_type(v.value_or(std::monostate{}));
+        edge_vals.emplace_back(dv);
       }
       all_edge_data.async_insert(edge_vals);
       if (all_edge_data.local_size() > limit) {
@@ -83,11 +83,11 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_nodes(
     [&](local_node_idx_type nid) {
       metadata_t node_vals;
 
-      for (const auto& es_idx : node_ser_idx) {
-        auto ser_val =
-          pl_get_node_field(es_idx, nid).value_or(std::monostate{});
-        auto count_val = priv_series_to_data_type(ser_val);
-        node_vals.emplace_back(count_val);
+      auto node_vals_o = pl_get_node_fields(node_ser_idx, nid);
+
+      for (const auto& v : node_vals_o) {
+        data_types dv = priv_series_to_data_type(v.value_or(std::monostate{}));
+        node_vals.emplace_back(dv);
       }
       all_node_data.async_insert(node_vals);
       if (all_node_data.local_size() > limit) {
