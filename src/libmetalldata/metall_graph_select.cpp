@@ -8,14 +8,9 @@
 #include <expected>
 #include <utility>
 #include <variant>
-#include <algorithm>
-
-#define BOOST_JSON_SRC_HPP  // This is a temp hack until YGM removes the src.hpp
-                            // inclusion
-#include <ygm/utility/boost_json.hpp>
 
 namespace metalldata {
-using metadata_t = std::vector<metall_graph::count_types>;
+using metadata_t = std::vector<metall_graph::data_types>;
 
 result<ygm::container::bag<metadata_t>> metall_graph::select_edges(
   const std::vector<metall_graph::series_name>& series_names,
@@ -25,7 +20,6 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_edges(
     return all_edge_data;
   }
 
-  std::vector<std::string>                        warnings;
   std::vector<metall_graph::edge_series_idx_type> edge_ser_idx;
 
   for (const auto& s : series_names) {
@@ -47,7 +41,7 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_edges(
       for (const auto& es_idx : edge_ser_idx) {
         auto ser_val =
           pl_get_edge_field(es_idx, eid).value_or(std::monostate{});
-        auto count_val = priv_series_to_count_type(ser_val);
+        auto count_val = priv_series_to_data_type(ser_val);
         edge_vals.emplace_back(count_val);
       }
       all_edge_data.async_insert(edge_vals);
@@ -91,7 +85,7 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_nodes(
       for (const auto& es_idx : node_ser_idx) {
         auto ser_val =
           pl_get_node_field(es_idx, nid).value_or(std::monostate{});
-        auto count_val = priv_series_to_count_type(ser_val);
+        auto count_val = priv_series_to_data_type(ser_val);
         node_vals.emplace_back(count_val);
       }
       all_node_data.async_insert(node_vals);

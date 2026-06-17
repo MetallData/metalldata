@@ -180,10 +180,10 @@ result<> metall_graph::rename_series(const series_name& old_name,
 /// Converts a multiseries series_type variant to a metall_graph data_types
 /// variant. string_view is promoted to string (owning). int64_t and uint64_t
 /// are cast to int64_t — uint64_t will now throw runtime.
-metall_graph::count_types metall_graph::priv_series_to_count_type(
+metall_graph::data_types metall_graph::priv_series_to_data_type(
   const record_store_type::series_type& sv) {
   return std::visit(
-    [](const auto& val) -> metall_graph::count_types {
+    [](const auto& val) -> metall_graph::data_types {
       using T = std::decay_t<decltype(val)>;
       if constexpr (std::is_same_v<T, uint64_t>)
         throw std::runtime_error("uint64_t is not supported.");
