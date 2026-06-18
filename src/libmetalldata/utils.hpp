@@ -1,5 +1,6 @@
 #pragma once
 #include <metalldata/metall_graph.hpp>
+#include "ygm/detail/collective.hpp"
 
 namespace metalldata {
 template <typename C>
@@ -7,11 +8,15 @@ C down_select(const C &collection, size_t k) {
   C smaller(collection.comm());
 
   size_t local_count = collection.local_size();
-  size_t global_count = ygm::sum(local_count, collection.comm());
+  size_t psum = ygm::prefix_sum(local_count, collection.comm());
+  // size_t global_count = ygm::sum(local_count, collection.comm());
 
-  size_t local_k = (local_count * k + global_count - 1) / global_count;
+  collection.comm().barrier();
 
-  // local_k now holds the ceil of number of elements needed at this rank
+  size_t local_k =
+    size_t(std::clamp((int(k) - int(psum)), 0, int(local_count)));
+
+  // local_k now holds the number of elements we need to send
 
   size_t i = 0;
   for (auto it = collection.local_cbegin();

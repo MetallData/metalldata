@@ -76,14 +76,12 @@ int main(int argc, char **argv) try {
   auto bag = bag_result.value();
   comm.barrier();
   std::vector<std::vector<metalldata::metall_graph::data_types>> select_vec;
-  bag.gather(select_vec);
+  bag.gather(select_vec, 0);
 
   bjsn::array json_maps{};
+  json_maps.reserve(limit);
 
   for (const auto &node : select_vec) {
-    if (json_maps.size() >= limit) {
-      break;
-    }
     bjsn::object nodemap;
     for (int i = 0; i < node.size(); ++i) {
       auto sname = series_names.at(i);
