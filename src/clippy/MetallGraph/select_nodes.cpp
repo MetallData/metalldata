@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 
+#include "ygm/utility/assert.hpp"
 #define WITH_YGM 1
 
 #include <metalldata/metall_graph.hpp>
@@ -78,12 +79,13 @@ int main(int argc, char **argv) try {
   std::vector<std::vector<metalldata::metall_graph::data_types>> select_vec;
   bag.gather(select_vec);
 
-  bjsn::array json_maps{};
+  if (limit < select_vec.size()) {
+    select_vec.resize(limit);
+  }
 
+  bjsn::array json_maps{};
+  json_maps.reserve(select_vec.size());
   for (const auto &node : select_vec) {
-    if (json_maps.size() >= limit) {
-      break;
-    }
     bjsn::object nodemap;
     for (int i = 0; i < node.size(); ++i) {
       auto sname = series_names.at(i);
