@@ -75,8 +75,6 @@ int main(int argc, char **argv) try {
 
   auto bag = bag_result.value();
   comm.barrier();
-  auto foo = bag.size();
-  comm.cerr0() << "bag.size() = " << foo << "\n";
   std::vector<std::vector<metalldata::metall_graph::data_types>> select_vec;
   bag.gather(select_vec);
 
