@@ -5,6 +5,7 @@
 
 #include <metalldata/metall_graph.hpp>
 #include "ygm/container/bag.hpp"
+#include "utils.hpp"
 #include <expected>
 #include <utility>
 #include <variant>
@@ -20,6 +21,8 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_edges(
   if (series_names.empty()) {
     return all_edge_data;
   }
+
+  bool limited = (limit != 0);
 
   std::vector<metall_graph::edge_series_idx_type> edge_ser_idx;
 
@@ -46,7 +49,7 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_edges(
         edge_vals.emplace_back(dv);
       }
       all_edge_data.async_insert(edge_vals);
-      if (all_edge_data.local_size() > limit) {
+      if (limited && all_edge_data.local_size() > limit) {
         return;
       }
     },
@@ -54,6 +57,10 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_edges(
 
   m_comm.barrier();
 
+  if (limited) {
+    all_edge_data = down_select(all_edge_data, limit);
+  }
+  m_comm.barrier();
   return to_return;
 }
 
@@ -64,6 +71,8 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_nodes(
   if (series_names.empty()) {
     return all_node_data;
   }
+
+  bool limited = (limit != 0);
 
   std::vector<std::string>                        warnings;
   std::vector<metall_graph::node_series_idx_type> node_ser_idx;
@@ -98,7 +107,10 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_nodes(
 
   m_comm.barrier();
 
-  return all_node_data;
+  if (limited) {
+    return down_select(all_node_data, limit);
+  }
+  return to_return;
 }
 
 }  // namespace metalldata
