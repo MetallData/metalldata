@@ -60,9 +60,10 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_edges(
 result<ygm::container::bag<metadata_t>> metall_graph::select_nodes(
   const std::vector<metall_graph::series_name>& series_names,
   const metall_graph::where_clause& where, size_t limit) {
-  ygm::container::bag<metadata_t> all_node_data(m_comm);
+  result<ygm::container::bag<metadata_t>> to_return({m_comm});
+  ygm::container::bag<metadata_t>&        all_node_data = to_return.value();
   if (series_names.empty()) {
-    return all_node_data;
+    return to_return;
   }
 
   std::vector<std::string>                        warnings;
@@ -98,7 +99,7 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_nodes(
 
   m_comm.barrier();
 
-  return all_node_data;
+  return to_return;
 }
 
 }  // namespace metalldata
