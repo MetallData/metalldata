@@ -225,7 +225,7 @@ class metall_graph {
                         std::optional<uint64_t> optseed,
                         const where_clause&     where);
 
-  bjsn::array select_sample_edges(
+  result<ygm::container::bag<std::vector<data_types>>> select_sample_edges(
     size_t k, const std::vector<metall_graph::series_name>& metadata,
     std::optional<uint64_t> optseed, const metall_graph::where_clause& where);
 
@@ -233,7 +233,7 @@ class metall_graph {
                         std::optional<uint64_t> optseed,
                         const where_clause&     where);
 
-  bjsn::array select_sample_nodes(
+  result<ygm::container::bag<std::vector<data_types>>> select_sample_nodes(
     size_t k, const std::vector<metall_graph::series_name>& metadata,
     std::optional<uint64_t> optseed, const metall_graph::where_clause& where);
 
@@ -383,7 +383,7 @@ class metall_graph {
   }
 
   std::vector<std::optional<node_series_idx_type>> pl_find_node_series(
-    std::vector<series_name> names) const;
+    const std::vector<series_name>& names) const;
 
   // TODO: this should probably take a series_name as an argument.
   std::optional<edge_series_idx_type> pl_find_edge_series(

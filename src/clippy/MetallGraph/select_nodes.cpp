@@ -10,7 +10,6 @@
 #include <ygm/comm.hpp>
 #include <clippy/clippy.hpp>
 #include <string>
-#include <unordered_set>
 #include <boost/json.hpp>
 #include <ygm/utility/boost_json.hpp>
 #include "utils.hpp"
@@ -27,7 +26,7 @@ int main(int argc, char **argv) try {
   clip.add_required_state<std::string>("path", "Storage path for MetallGraph");
   clip.add_optional<boost::json::object>("where", "where clause",
                                          boost::json::object{});
-  clip.add_optional<std::unordered_set<boost::json::object>>(
+  clip.add_optional<std::vector<boost::json::object>>(
     "series_names",
     "Series names to include (default: none). All series must be node series.",
     {});
@@ -63,8 +62,7 @@ int main(int argc, char **argv) try {
       return -1;
     }
     // Note: clangd false positive below.
-    auto try_obj = try_obj_r.value();
-    series_names = {try_obj.begin(), try_obj.end()};
+    auto series_names = try_obj_r.value();
   }
   auto bag_result = mg.select_nodes(series_names, where_c, limit);
 
