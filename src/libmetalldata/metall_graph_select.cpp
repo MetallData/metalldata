@@ -49,14 +49,12 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_edges(
         data_types dv = priv_series_to_data_type(v.value_or(std::monostate{}));
         edge_vals.emplace_back(dv);
       }
-      all_edge_data.async_insert(edge_vals);
+      all_edge_data.local_insert(edge_vals);
       if (limited && all_edge_data.local_size() > limit) {
         return;
       }
     },
     where);
-
-  m_comm.barrier();
 
   if (limited) {
     m_comm.cerr0() << "all_edge_data pre-downselect size = "
@@ -104,14 +102,12 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_nodes(
         data_types dv = priv_series_to_data_type(v.value_or(std::monostate{}));
         node_vals.emplace_back(dv);
       }
-      all_node_data.async_insert(node_vals);
+      all_node_data.local_insert(node_vals);
       if (all_node_data.local_size() > limit) {
         return;
       }
     },
     where);
-
-  m_comm.barrier();
 
   if (limited) {
     all_node_data = down_select(all_node_data, limit);
