@@ -10,7 +10,6 @@
 #include <ygm/comm.hpp>
 #include <clippy/clippy.hpp>
 #include <string>
-#include <unordered_set>
 #include <boost/json.hpp>
 #include <ygm/utility/boost_json.hpp>
 #include "utils.hpp"
@@ -31,7 +30,7 @@ int main(int argc, char **argv) try {
   clip.add_optional<std::optional<uint64_t>>(
     "seed", "The seed to use for the RNG", std::nullopt);
 
-  clip.add_optional<std::unordered_set<boost::json::object>>(
+  clip.add_optional<std::vector<boost::json::object>>(
     "series_names",
     "Series names to include (default: none). All series must be edge series.",
     {});
@@ -54,19 +53,35 @@ int main(int argc, char **argv) try {
 
   metalldata::metall_graph mg(comm, path, false);
 
-  auto series_obj_set =
-    clip.get<std::unordered_set<boost::json::object>>("series_names");
+  std::vector<metalldata::metall_graph::series_name> series_names;
 
-  auto try_obj = metalldata::obj2sn(series_obj_set);
-  if (!try_obj) {
-    comm.cerr0(try_obj.error());
+  if (!clip.has_argument("series_names")) {
+    series_names = mg.get_node_series_names();
+  } else {
+    auto series_obj_vec =
+      clip.get<std::vector<boost::json::object>>("series_names");
+    auto try_obj_r = metalldata::obj2sn(series_obj_vec);
+    if (!try_obj_r) {
+      comm.cerr0(try_obj_r.error());
+      return -1;
+    }
+    series_names = try_obj_r.value();
+  }
+
+  auto bag_result = mg.select_sample_nodes(k, series_names, optseed, where_c);
+
+  if (!bag_result) {
+    comm.cerr0(bag_result.error());
     return -1;
   }
-  auto series_set = try_obj.value();
-  std::vector<metalldata::metall_graph::series_name> metadata(
-    series_set.begin(), series_set.end());
-  auto res = mg.select_sample_nodes(k, metadata, optseed, where_c);
-  clip.to_return(res);
+
+  auto bag = bag_result.value();
+
+  std::vector<std::vector<metalldata::metall_graph::data_types>> select_vec;
+  bag.gather(select_vec, 0);
+
+  auto json_maps = rows_to_json(select_vec, series_names);
+  clip.to_return(json_maps);
 
   return 0;
 } catch (std::runtime_error e) {

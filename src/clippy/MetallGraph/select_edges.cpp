@@ -10,13 +10,12 @@
 #include <ygm/comm.hpp>
 #include <clippy/clippy.hpp>
 #include <string>
-#include <unordered_set>
 #include <boost/json.hpp>
 #include <ygm/utility/boost_json.hpp>
 #include "utils.hpp"
 
-static const std::string method_name    = "select_edges";
-static const std::string state_name     = "INTERNAL";
+static const std::string method_name = "select_edges";
+static const std::string state_name = "INTERNAL";
 static const std::string sel_state_name = "selectors";
 
 int main(int argc, char **argv) try {
@@ -27,7 +26,7 @@ int main(int argc, char **argv) try {
   clip.add_required_state<std::string>("path", "Storage path for MetallGraph");
   clip.add_optional<boost::json::object>("where", "where clause",
                                          boost::json::object{});
-  clip.add_optional<std::unordered_set<boost::json::object>>(
+  clip.add_optional<std::vector<boost::json::object>>(
     "series_names",
     "Series names to include (default: none). All series must be edge series.",
     {});
@@ -38,7 +37,7 @@ int main(int argc, char **argv) try {
     return 0;
   }
 
-  auto path  = clip.get_state<std::string>("path");
+  auto path = clip.get_state<std::string>("path");
   auto where = clip.get<boost::json::object>("where");
 
   auto limit = clip.get<size_t>("limit");
@@ -50,30 +49,37 @@ int main(int argc, char **argv) try {
 
   metalldata::metall_graph mg(comm, path, false);
 
-  std::unordered_set<metalldata::metall_graph::series_name> series_set;
+  std::vector<metalldata::metall_graph::series_name> series_names;
+
   if (!clip.has_argument("series_names")) {
-    auto e     = mg.get_edge_series_names();
-    series_set = {e.begin(), e.end()};
+    series_names = mg.get_edge_series_names();
   } else {
-    auto series_obj_set =
-      clip.get<std::unordered_set<boost::json::object>>("series_names");
-    auto try_obj = metalldata::obj2sn(series_obj_set);
-    if (!try_obj) {
-      comm.cerr0(try_obj.error());
+    auto series_obj_vec =
+      clip.get<std::vector<boost::json::object>>("series_names");
+    auto try_obj_r = metalldata::obj2sn(series_obj_vec);
+    if (!try_obj_r) {
+      comm.cerr0(try_obj_r.error());
       return -1;
     }
-    series_set = try_obj.value();
+    series_names = try_obj_r.value();
   }
 
-  // Build array of edge dictionaries
-  auto expected_array = mg.select_edges(series_set, where_c, limit);
+  auto bag_result = mg.select_edges(series_names, limit, where_c);
 
-  if (!expected_array) {
-    comm.cerr0(expected_array.error());
+  if (!bag_result) {
+    comm.cerr0(bag_result.error());
     return -1;
   }
 
-  clip.to_return(expected_array.value());
+  auto bag = bag_result.value();
+
+  std::vector<std::vector<metalldata::metall_graph::data_types>> select_vec;
+  // rank 0 here because it's the only one needed - to_return
+  // just uses rank0's output.
+  bag.gather(select_vec, 0);
+
+  auto json_maps = rows_to_json(select_vec, series_names);
+  clip.to_return(json_maps);
   return 0;
 } catch (std::runtime_error e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";

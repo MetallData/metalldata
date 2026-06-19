@@ -7,7 +7,7 @@ def test_mg_select_sample_nodes(metallgraph):
             k=10, series_names=[metallgraph.node.id]
         )
         assert len(sample_data) == 10
-        is_as_selected(sample_data, {}, ["id"], [])
+        is_as_selected(sample_data, {}, ["node.id"], [])
 
     for _ in range(5):
         sample_data = metallgraph.select_sample_nodes(
@@ -17,8 +17,8 @@ def test_mg_select_sample_nodes(metallgraph):
         )
         assert len(sample_data) == 5
         for el in sample_data:
-            assert el["gnum"] == 3
-        is_as_selected(sample_data, {"gnum": 3}, ["id"], [])
+            assert el["node.gnum"] == 3
+        is_as_selected(sample_data, {"node.gnum": 3}, ["node.id"], [])
 
     for _ in range(5):
         sample_data = metallgraph.select_sample_nodes(
@@ -28,7 +28,7 @@ def test_mg_select_sample_nodes(metallgraph):
         )
         total_nodes_g3 = len(metallgraph.select_nodes(where=metallgraph.node.gnum == 3))
         assert len(sample_data) <= total_nodes_g3
-        is_as_selected(sample_data, {"gnum": 3}, ["id"], [])
+        is_as_selected(sample_data, {"node.gnum": 3}, ["node.id"], [])
 
     for _ in range(5):
         total_nodes = metallgraph.describe()["nv"]
@@ -46,6 +46,9 @@ def test_mg_select_sample_nodes(metallgraph):
             10, series_names=[metallgraph.node.id, metallgraph.node.gnum], seed=seed + 1
         )
 
+        setres_sd1 = set((k, v) for d in sd1 for k, v in d.items())
+        setres_sd2 = set((k, v) for d in sd2 for k, v in d.items())
+        setres_sd3 = set((k, v) for d in sd3 for k, v in d.items())
         assert len(sd1) == len(sd2) == len(sd3)
-        assert sd1 == sd2
-        assert sd2 != sd3
+        assert setres_sd1 == setres_sd2
+        assert setres_sd2 != setres_sd3

@@ -1,12 +1,11 @@
 #include <metalldata/metall_graph.hpp>
 #include <utility>
 #include "ygm/utility/assert.hpp"
-#define BOOST_JSON_SRC_HPP  // This is a temp hack until YGM removes the src.hpp
-                            // inclusion
-#include <ygm/utility/boost_json.hpp>
 #include <metalldata/detail/random_sample.hpp>
+#include <variant>
 
 namespace metalldata {
+using metadata_t = std::vector<metall_graph::data_types>;
 
 // Creates a column of bool where true values indicate that the edge has been
 // selected during the random sample.
@@ -35,78 +34,46 @@ result<> metall_graph::sample_edges(
   return result<>{};
 }
 
-bjsn::array metall_graph::select_sample_edges(
+result<ygm::container::bag<metadata_t>> metall_graph::select_sample_edges(
   size_t k, const std::vector<metall_graph::series_name>& metadata,
   std::optional<uint64_t> optseed, const metall_graph::where_clause& where) {
   uint64_t seed = optseed.value_or(0);
 
+  result<ygm::container::bag<metadata_t>> to_return(m_comm);
+
+  ygm::container::bag<metadata_t>& selected_edges = to_return.value();
+
+  // filtered ids holds the list of eids on each rank that pass the where clause
   std::vector<local_edge_idx_type> filtered_ids;
   priv_for_all_edges(
     [&](local_edge_idx_type eid) { filtered_ids.emplace_back(eid); }, where);
-  auto local_data = random_sample(filtered_ids, k, seed, m_comm);
 
-  std::vector<std::string> unqual_metadata;
-  for (const auto& sn : metadata) {
-    unqual_metadata.push_back(std::string(sn.unqualified()));
-  }
+  auto local_eidxs = random_sample(filtered_ids, k, seed, m_comm);
 
-  std::unordered_map<edge_series_idx_type, series_name> idx_to_name;
-  for (const auto& sname : metadata) {
-    auto eidx_o = pl_find_edge_series(sname.unqualified());
-    if (!eidx_o.has_value()) {
-      return {};
+  auto ser_idxs_o = pl_find_edge_series(metadata);
+
+  std::vector<edge_series_idx_type> ser_idxs;
+  for (const auto i : ser_idxs_o) {
+    if (!i.has_value()) {
+      continue;
     }
-    auto eidx = eidx_o.value();
-    idx_to_name[eidx] = sname;
+    ser_idxs.emplace_back(i.value());
   }
 
-  bjsn::array rows;
-
-  for (const auto& eid : local_data) {
-    bjsn::object row;
-    for (const auto& [eidx, sname] : idx_to_name) {
-      auto val_o = pl_get_edge_field(eidx, eid);
-      if (!val_o.has_value()) {
+  for (const auto& eid : local_eidxs) {
+    auto                    row_edgedata = pl_get_edge_fields(ser_idxs, eid);
+    std::vector<data_types> row_data;
+    for (const auto& e : row_edgedata) {
+      if (!e.has_value()) {
         continue;
       }
-      auto val = val_o.value();
-      std::visit(
-        [&](auto&& v) {
-          using T = std::decay_t<decltype(v)>;
-          if constexpr (std::is_same_v<T, std::monostate>) {
-            row[sname.unqualified()] = nullptr;
-          } else {
-            row[sname.unqualified()] = v;
-          }
-        },
-        val);
+      auto d = priv_series_to_data_type(e.value());
+      row_data.emplace_back(d);
     }
-    rows.emplace_back(row);
-  }
-  std::vector<bjsn::array> everything(m_comm.size() - 1);  // don't need rank 0
-  static auto&             s_everything = everything;
-  m_comm.cf_barrier();
-  if (!m_comm.rank0()) {
-    m_comm.async(
-      0,
-      [](const bjsn::array& rank_data, int rank) {
-        (s_everything)[rank - 1] = rank_data;
-      },
-      rows, m_comm.rank());
+    selected_edges.local_insert(row_data);
   }
 
-  m_comm.barrier();
-
-  if (m_comm.rank0()) {
-    for (auto& el : everything) {
-      rows.insert(rows.end(), el.begin(), el.end());
-      el.clear();
-    }
-  }
-
-  m_comm.barrier();
-
-  return rows;
+  return to_return;
 }
 
 // Nodes below.
@@ -147,79 +114,45 @@ result<> metall_graph::sample_nodes(
   return result<>{};
 }
 
-bjsn::array metall_graph::select_sample_nodes(
+result<ygm::container::bag<metadata_t>> metall_graph::select_sample_nodes(
   size_t k, const std::vector<metall_graph::series_name>& metadata,
   std::optional<uint64_t> optseed, const metall_graph::where_clause& where) {
   uint64_t seed = optseed.value_or(0);
+
+  result<ygm::container::bag<metadata_t>> to_return(m_comm);
+  ygm::container::bag<metadata_t>&        selected_rows = to_return.value();
 
   std::vector<local_node_idx_type> filtered_ids;
   priv_for_all_nodes(
     [&](local_node_idx_type nid) { filtered_ids.emplace_back(nid); }, where);
 
-  auto local_data = random_sample(filtered_ids, k, seed, m_comm);
+  auto local_nidxs = random_sample(filtered_ids, k, seed, m_comm);
 
-  std::vector<std::string> unqual_metadata;
-  for (const auto& sn : metadata) {
-    unqual_metadata.push_back(std::string(sn.unqualified()));
-  }
+  auto ser_idxs_o = pl_find_node_series(metadata);
 
-  std::unordered_map<node_series_idx_type, series_name> idx_to_name;
-  for (const auto& sname : metadata) {
-    auto nidx_o = pl_find_node_series(sname.unqualified());
-    if (!nidx_o.has_value()) {
-      return {};
+  std::vector<node_series_idx_type> ser_idxs;
+
+  for (const auto i : ser_idxs_o) {
+    if (!i.has_value()) {
+      continue;
     }
-    auto nidx = nidx_o.value();
-    idx_to_name[nidx] = sname;
+    ser_idxs.emplace_back(i.value());
   }
 
-  bjsn::array rows;
-
-  for (const auto& nid : local_data) {
-    bjsn::object row;
-    for (const auto& [nidx, sname] : idx_to_name) {
-      auto val_o = pl_get_node_field(nidx, nid);
-      if (!val_o.has_value()) {
+  for (const auto& nid : local_nidxs) {
+    auto                    row_nodedata = pl_get_node_fields(ser_idxs, nid);
+    std::vector<data_types> row_data;
+    for (const auto& e : row_nodedata) {
+      if (!e.has_value()) {
         continue;
       }
-      auto val = val_o.value();
-      std::visit(
-        [&](auto&& v) {
-          using T = std::decay_t<decltype(v)>;
-          if constexpr (std::is_same_v<T, std::monostate>) {
-            row[sname.unqualified()] = nullptr;
-          } else {
-            row[sname.unqualified()] = v;
-          }
-        },
-        val);
+      auto d = priv_series_to_data_type(e.value());
+      row_data.emplace_back(d);
     }
-    rows.emplace_back(row);
-  }
-  std::vector<bjsn::array> everything(m_comm.size() - 1);  // don't need rank 0
-  static auto&             s_everything = everything;
-  m_comm.cf_barrier();
-  if (!m_comm.rank0()) {
-    m_comm.async(
-      0,
-      [](const bjsn::array& rank_data, int rank) {
-        (s_everything)[rank - 1] = rank_data;
-      },
-      rows, m_comm.rank());
+    selected_rows.local_insert(row_data);
   }
 
-  m_comm.barrier();
-
-  if (m_comm.rank0()) {
-    for (auto& el : everything) {
-      rows.insert(rows.end(), el.begin(), el.end());
-      el.clear();
-    }
-  }
-
-  m_comm.barrier();
-
-  return rows;
+  return to_return;
 }
 
 }  // namespace metalldata

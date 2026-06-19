@@ -19,25 +19,25 @@ result<metall_graph::series_name> obj2sn(const boost::json::object &obj) {
   return metall_graph::series_name(rule_obj.at("var").as_string());
 }
 
-result<std::unordered_set<metall_graph::series_name>> obj2sn(
-  const std::unordered_set<boost::json::object> &objset) {
-  std::unordered_set<metall_graph::series_name> sns;
-  for (const auto &obj : objset) {
-    auto r = obj2sn(obj);
+// result<std::unordered_set<metall_graph::series_name>> obj2sn(
+//   const std::unordered_set<boost::json::object> &objset) {
+//   std::unordered_set<metall_graph::series_name> sns;
+//   for (const auto &obj : objset) {
+//     auto r = obj2sn(obj);
 
-    if (!r.has_value()) {
-      return std::unexpected(r.error());
-    }
-    sns.insert(metall_graph::series_name(r.value()));
-  }
+//     if (!r.has_value()) {
+//       return std::unexpected(r.error());
+//     }
+//     sns.insert(metall_graph::series_name(r.value()));
+//   }
 
-  return sns;
-}
+//   return sns;
+// }
 
 result<std::vector<metall_graph::series_name>> obj2sn(
-  const std::vector<boost::json::object> &objset) {
+  const std::vector<boost::json::object> &objs) {
   std::vector<metall_graph::series_name> sns;
-  for (const auto &obj : objset) {
+  for (const auto &obj : objs) {
     auto r = obj2sn(obj);
 
     if (!r.has_value()) {
@@ -57,6 +57,34 @@ result<std::vector<metall_graph::series_name>> obj2sn(
 //   info     = 4,
 //   debug    = 5
 // };
+
+// given a vector of "row" data and a corresponding vector of series names,
+// return a json array suitable for passing back to clippy.
+bjsn::array rows_to_json(
+  std::vector<std::vector<metalldata::metall_graph::data_types>> rows,
+  std::vector<metall_graph::series_name>                         series_names) {
+  bjsn::array json_rows{};
+  json_rows.reserve(rows.size());
+
+  for (const auto &row : rows) {
+    bjsn::object rowmap;
+    for (int i = 0; i < row.size(); ++i) {
+      auto sname = series_names.at(i);
+      auto sval = row[i];
+      std::visit(
+        [&](const auto &val) {
+          if constexpr (!std::is_same_v<std::decay_t<decltype(val)>,
+                                        std::monostate>) {
+            rowmap[sname.qualified()] = val;
+          }
+        },
+        sval);
+    }
+    json_rows.emplace_back(rowmap);
+  }
+
+  return json_rows;
+}
 
 ygm::log_level loglevel_py2ygm(int pyloglevel, ygm::log_level default_level) {
   switch (pyloglevel) {

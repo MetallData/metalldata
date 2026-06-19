@@ -108,7 +108,7 @@ std::optional<metall_graph::series_types> metall_graph::pl_get_node_field(
 
 std::vector<std::optional<metall_graph::node_series_idx_type>>
 metall_graph::pl_find_node_series(
-  std::vector<metall_graph::series_name> names) const {
+  const std::vector<metall_graph::series_name>& names) const {
   std::vector<std::optional<node_series_idx_type>> ret;
   ret.reserve(names.size());
 

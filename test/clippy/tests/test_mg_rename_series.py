@@ -15,27 +15,27 @@ def test_mg_rename_series(rename_graph):
 
     mg.rename_series(mg.node.nsamp1, "testrename1")
     select_data = mg.select_nodes(where=mg.node.testrename1 == True)
-    is_as_selected(select_data, {"testrename1": True}, ["id"], [])
+    is_as_selected(select_data, {"node.testrename1": True}, ["node.id"], [])
 
     mg.rename_series(mg.node.testrename1, "node.testrename2")
     select_data = mg.select_nodes(where=mg.node.testrename2 == True)
-    is_as_selected(select_data, {"testrename2": True}, ["id"], [])
+    is_as_selected(select_data, {"node.testrename2": True}, ["node.id"], [])
 
     mg.rename_series(mg.node.testrename2, "nsamp1")
     select_data = mg.select_nodes(where=mg.node.nsamp1 == True)
-    is_as_selected(select_data, {"nsamp1": True}, ["id"], [])
+    is_as_selected(select_data, {"node.nsamp1": True}, ["node.id"], [])
 
     mg.rename_series(mg.edge.samp1, "testrename1")
     select_data = mg.select_edges(where=mg.edge.testrename1 == True)
-    is_as_selected(select_data, {"testrename1": True}, ["u", "v"], [])
+    is_as_selected(select_data, {"edge.testrename1": True}, ["edge.u", "edge.v"], [])
 
     mg.rename_series(mg.edge.testrename1, "edge.testrename2")
     select_data = mg.select_edges(where=mg.edge.testrename2 == True)
-    is_as_selected(select_data, {"testrename2": True}, ["u", "v"], [])
+    is_as_selected(select_data, {"edge.testrename2": True}, ["edge.u", "edge.v"], [])
 
     mg.rename_series(mg.edge.testrename2, "samp1")
     select_data = mg.select_edges(where=mg.edge.samp1 == True)
-    is_as_selected(select_data, {"samp1": True}, ["u", "v"], [])
+    is_as_selected(select_data, {"edge.samp1": True}, ["edge.u", "edge.v"], [])
 
     with pytest.raises(NonZeroReturnCodeError):
         mg.rename_series(mg.edge.samp1, "edge.u")

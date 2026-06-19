@@ -29,6 +29,7 @@
 #include <optional>
 #include <ygm/utility/assert.hpp>
 #include <ygm/container/set.hpp>
+#include <ygm/container/bag.hpp>
 #include <ygm/container/counting_set.hpp>
 #include <metalldata/result.hpp>
 #include <string_table/string_accessor.hpp>
@@ -63,7 +64,6 @@ class metall_graph {
   /// string table deduplicates strings
   using string_store_type = record_store_type::string_store_type;
   using string_table_accessor = compact_string::string_accessor;
-
   using ygm_ptr_type = ygm::ygm_ptr<metall_graph>;
 
   enum class local_node_idx_type : std::size_t;
@@ -72,10 +72,9 @@ class metall_graph {
   enum class edge_series_idx_type : std::size_t;
 
  public:
-  using series_types = multiseries::basic_record_store<>::series_type;
-  using count_types =
+  using data_types =
     std::variant<std::monostate, bool, int64_t, double, std::string>;
-
+  using series_types = multiseries::basic_record_store<>::series_type;
   enum class node_locator : std::size_t;
   enum class edge_locator : std::size_t;
 
@@ -95,15 +94,19 @@ class metall_graph {
   result<std::map<std::string, size_t>> ingest_parquet_edges(
     std::string_view path, bool recursive, std::string_view col_u,
     std::string_view col_v, bool directed,
-    const std::optional<std::vector<series_name>>& meta = std::nullopt);
+    const std::optional<std::vector<series_name>>& meta);
+
+  result<std::map<std::string, size_t>> ingest_parquet_edges(
+    std::string_view path, bool recursive, std::string_view col_u,
+    std::string_view col_v, bool directed);
 
   result<std::map<std::string, std::any>> dump_parquet_verts(
     std::string_view path, const std::vector<series_name>& meta,
-    bool overwrite = false);
+    bool overwrite);
 
   result<std::map<std::string, std::any>> dump_parquet_edges(
     std::string_view path, const std::vector<series_name>& meta,
-    bool overwrite = false);
+    bool overwrite);
 
   result<> erase_edges(const where_clause& where);
 
@@ -115,7 +118,7 @@ class metall_graph {
                             Fn faker_func, const where_clause& where);
 
   template <typename Compare = std::greater<void>>
-  result<std::vector<std::vector<count_types>>> topk(
+  result<std::vector<std::vector<data_types>>> topk(
     size_t k, const series_name& ser_name,
     const std::vector<series_name>& ser_inc, Compare comp,
     const where_clause& where);
@@ -167,10 +170,10 @@ class metall_graph {
     std::unordered_set<metall_graph::series_name> series_names,
     const where_clause&                           where);
 
-  ygm::container::counting_set<metall_graph::count_types> value_counts(
+  ygm::container::counting_set<metall_graph::data_types> value_counts(
     metall_graph::series_name sname, const where_clause& where);
 
-  std::map<metall_graph::count_types, size_t> value_counts_topk(
+  std::map<metall_graph::data_types, size_t> value_counts_topk(
     metall_graph::series_name sname, int k, const where_clause& where);
 
   // TODO:  Remove this, used by select...  See:  impl/metall_graph_series.ipp
@@ -183,13 +186,13 @@ class metall_graph {
   void visit_edge_field(const series_name& name, size_t record_id,
                         Fn func) const;
 
-  result<boost::json::array> select_edges(
-    const std::unordered_set<metall_graph::series_name>& series_set,
-    const metall_graph::where_clause& where, size_t limit);
+  result<ygm::container::bag<std::vector<metall_graph::data_types>>>
+  select_edges(const std::vector<metall_graph::series_name>& series_set,
+               size_t limit, const metall_graph::where_clause& where);
 
-  result<boost::json::array> select_nodes(
-    const std::unordered_set<metall_graph::series_name>& series_set,
-    const metall_graph::where_clause& where, size_t limit);
+  result<ygm::container::bag<std::vector<metall_graph::data_types>>>
+  select_nodes(const std::vector<metall_graph::series_name>& series_set,
+               size_t limit, const metall_graph::where_clause& where);
 
   /**
    * @brief Determines if the metall_graph is in good condition
@@ -226,7 +229,7 @@ class metall_graph {
                         std::optional<uint64_t> optseed,
                         const where_clause&     where);
 
-  bjsn::array select_sample_edges(
+  result<ygm::container::bag<std::vector<data_types>>> select_sample_edges(
     size_t k, const std::vector<metall_graph::series_name>& metadata,
     std::optional<uint64_t> optseed, const metall_graph::where_clause& where);
 
@@ -234,7 +237,7 @@ class metall_graph {
                         std::optional<uint64_t> optseed,
                         const where_clause&     where);
 
-  bjsn::array select_sample_nodes(
+  result<ygm::container::bag<std::vector<data_types>>> select_sample_nodes(
     size_t k, const std::vector<metall_graph::series_name>& metadata,
     std::optional<uint64_t> optseed, const metall_graph::where_clause& where);
 
@@ -384,7 +387,7 @@ class metall_graph {
   }
 
   std::vector<std::optional<node_series_idx_type>> pl_find_node_series(
-    std::vector<series_name> names) const;
+    const std::vector<series_name>& names) const;
 
   // TODO: this should probably take a series_name as an argument.
   std::optional<edge_series_idx_type> pl_find_edge_series(
@@ -512,7 +515,7 @@ class metall_graph {
                                        const T&           collection)
     requires std::is_same_v<typename T::key_type, local_node_idx_type>;
 
-  static count_types priv_series_to_count_type(
+  static data_types priv_series_to_data_type(
     const record_store_type::series_type& sv);
 
   static detail::rank_type   owner(node_locator nl);

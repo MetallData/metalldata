@@ -17,3 +17,4 @@ venv/
 __pycache__/
 mg[0-9]/
 nosync-*
+test/clippy/mgsedges/
