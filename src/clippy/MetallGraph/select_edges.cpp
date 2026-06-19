@@ -64,7 +64,7 @@ int main(int argc, char **argv) try {
     series_names = try_obj_r.value();
   }
 
-  auto bag_result = mg.select_edges(series_names, where_c, limit);
+  auto bag_result = mg.select_edges(series_names, limit, where_c);
 
   if (!bag_result) {
     comm.cerr0(bag_result.error());

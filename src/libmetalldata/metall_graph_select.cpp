@@ -38,8 +38,8 @@ namespace metalldata {
 using metadata_t = std::vector<metall_graph::data_types>;
 
 result<ygm::container::bag<metadata_t>> metall_graph::select_edges(
-  const std::vector<metall_graph::series_name>& series_names,
-  const metall_graph::where_clause& where, size_t limit) {
+  const std::vector<metall_graph::series_name>& series_names, size_t limit,
+  const metall_graph::where_clause& where) {
   result<ygm::container::bag<metadata_t>> to_return(m_comm);
   ygm::container::bag<metadata_t>&        all_edge_data = to_return.value();
   if (series_names.empty()) {
@@ -87,8 +87,8 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_edges(
 }
 
 result<ygm::container::bag<metadata_t>> metall_graph::select_nodes(
-  const std::vector<metall_graph::series_name>& series_names,
-  const metall_graph::where_clause& where, size_t limit) {
+  const std::vector<metall_graph::series_name>& series_names, size_t limit,
+  const metall_graph::where_clause& where) {
   result<ygm::container::bag<metadata_t>> to_return(m_comm);
   ygm::container::bag<metadata_t>&        all_node_data = to_return.value();
   if (series_names.empty()) {

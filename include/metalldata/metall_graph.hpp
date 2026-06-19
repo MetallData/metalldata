@@ -188,11 +188,11 @@ class metall_graph {
 
   result<ygm::container::bag<std::vector<metall_graph::data_types>>>
   select_edges(const std::vector<metall_graph::series_name>& series_set,
-               const metall_graph::where_clause& where, size_t limit);
+               size_t limit, const metall_graph::where_clause& where);
 
   result<ygm::container::bag<std::vector<metall_graph::data_types>>>
   select_nodes(const std::vector<metall_graph::series_name>& series_set,
-               const metall_graph::where_clause& where, size_t limit);
+               size_t limit, const metall_graph::where_clause& where);
 
   /**
    * @brief Determines if the metall_graph is in good condition

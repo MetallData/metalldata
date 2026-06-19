@@ -64,7 +64,7 @@ int main(int argc, char **argv) try {
     // Note: clangd false positive below.
     series_names = try_obj_r.value();
   }
-  auto bag_result = mg.select_nodes(series_names, where_c, limit);
+  auto bag_result = mg.select_nodes(series_names, limit, where_c);
 
   if (!bag_result) {
     comm.cerr0(bag_result.error());
