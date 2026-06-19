@@ -7,8 +7,6 @@ setup_ygm_target(test_parquet_writer)
 target_include_directories(test_parquet_writer PRIVATE
     ${CMAKE_SOURCE_DIR}/include/parquet_writer)
 
-target_link_libraries(test_parquet_writer PUBLIC
-                parquet_writer_lib)
 link_arrow_parquet(test_parquet_writer PUBLIC)
 
 # Main comprehensive test

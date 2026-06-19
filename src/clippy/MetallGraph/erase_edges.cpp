@@ -10,8 +10,8 @@
 #include <metalldata/metall_graph.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 
-static const std::string method_name    = "erase_edges";
-static const std::string state_name     = "INTERNAL";
+static const std::string method_name = "erase_edges";
+static const std::string state_name = "INTERNAL";
 static const std::string sel_state_name = "selectors";
 
 int main(int argc, char **argv) try {
@@ -35,11 +35,11 @@ int main(int argc, char **argv) try {
     return 0;
   }
 
-  bool has_where       = clip.has_argument("where");
+  bool has_where = clip.has_argument("where");
   bool has_series_name = clip.has_argument("series_name");
-  bool has_erase_list  = clip.has_argument("erase_list");
-  bool invalid_list    = has_series_name ^ has_erase_list;
-  bool any_list        = has_series_name || has_erase_list;
+  bool has_erase_list = clip.has_argument("erase_list");
+  bool invalid_list = has_series_name ^ has_erase_list;
+  bool any_list = has_series_name || has_erase_list;
 
   if (has_where && any_list) {
     comm.cerr0(
@@ -55,8 +55,8 @@ int main(int argc, char **argv) try {
   }
   auto path = clip.get_state<std::string>("path");
 
-  metalldata::metall_graph              mg(comm, path, false);
-  metalldata::result<>                  rc;
+  metalldata::metall_graph mg(comm, path, false);
+  metalldata::result<>     rc;
   if (has_where) {
     auto where = clip.get<boost::json::object>("where");
     metalldata::metall_graph::where_clause where_c;
@@ -80,7 +80,7 @@ int main(int argc, char **argv) try {
     }
 
     auto series_str = std::string(rule_obj["var"].as_string());
-    auto series     = metalldata::metall_graph::series_name(series_str);
+    auto series = metalldata::metall_graph::series_name(series_str);
 
     auto erase_list =
       clip.get<boost::unordered_flat_set<std::string>>("erase_list");
@@ -98,7 +98,7 @@ int main(int argc, char **argv) try {
   }
 
   return 0;
-} catch (std::runtime_error e) {
+} catch (const std::runtime_error &e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";
 } catch (...) {
   std::cerr << "Unknown error in execution; aborting.\n";

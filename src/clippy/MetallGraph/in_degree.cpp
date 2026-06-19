@@ -9,8 +9,8 @@
 #include <ygm/comm.hpp>
 #include <metalldata/metall_graph.hpp>
 
-static const std::string method_name    = "in_degree";
-static const std::string state_name     = "INTERNAL";
+static const std::string method_name = "in_degree";
+static const std::string state_name = "INTERNAL";
 static const std::string sel_state_name = "selectors";
 
 int main(int argc, char **argv) try {
@@ -29,9 +29,9 @@ int main(int argc, char **argv) try {
     return 0;
   }
 
-  auto path   = clip.get_state<std::string>("path");
+  auto path = clip.get_state<std::string>("path");
   auto output = clip.get<std::string>("output");
-  auto where  = clip.get<boost::json::object>("where");
+  auto where = clip.get<boost::json::object>("where");
 
   metalldata::metall_graph::where_clause where_c;
   if (where.contains("rule")) {
@@ -62,7 +62,7 @@ int main(int argc, char **argv) try {
 
   clip.update_selectors(mg.get_selector_info());
   return 0;
-} catch (std::runtime_error e) {
+} catch (const std::runtime_error &e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";
 } catch (...) {
   std::cerr << "Unknown error in execution; aborting.\n";

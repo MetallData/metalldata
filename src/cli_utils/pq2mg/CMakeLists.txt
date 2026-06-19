@@ -18,7 +18,6 @@ target_include_directories(pq2mg
 add_common_compile_options(pq2mg)
 setup_ygm_target(pq2mg)
 setup_metall_target(pq2mg)
-target_compile_definitions(pq2mg PRIVATE METALLDATA_USE_PARQUET)
 
 # Install target
 install(TARGETS pq2mg

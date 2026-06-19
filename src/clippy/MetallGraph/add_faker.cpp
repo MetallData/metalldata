@@ -17,7 +17,7 @@
 #include <functional>
 
 static const std::string method_name = "add_faker";
-static const std::string state_name  = "INTERNAL";
+static const std::string state_name = "INTERNAL";
 
 // Type-erased generator function for metall_graph
 using generator_func = std::function<void(
@@ -58,7 +58,7 @@ inline GeneratorRegistry create_registry() {
                 const metalldata::metall_graph::where_clause& where) {
       auto gen = []() -> std::string_view {
         static thread_local std::string uuid = faker::string::uuidV4();
-        uuid                                 = faker::string::uuidV4();
+        uuid = faker::string::uuidV4();
         return uuid;
       };
       mg.add_faker_series<decltype(gen), std::string_view>(name, gen, where);
@@ -102,7 +102,7 @@ inline GeneratorRegistry create_registry() {
                           const metalldata::metall_graph::where_clause& where) {
       auto gen = []() -> std::string_view {
         static thread_local std::string s = faker::string::alpha(2);
-        s                                 = faker::string::alpha(2);
+        s = faker::string::alpha(2);
         return s;
       };
       mg.add_faker_series<decltype(gen), std::string_view>(name, gen, where);
@@ -122,7 +122,7 @@ inline GeneratorRegistry create_registry() {
                const metalldata::metall_graph::where_clause& where) {
       auto gen = []() -> std::string_view {
         static thread_local std::string n = faker::person::fullName();
-        n                                 = faker::person::fullName();
+        n = faker::person::fullName();
         return n;
       };
       mg.add_faker_series<decltype(gen), std::string_view>(name, gen, where);
@@ -134,7 +134,7 @@ inline GeneratorRegistry create_registry() {
                 const metalldata::metall_graph::where_clause& where) {
       auto gen = []() -> std::string_view {
         static thread_local std::string e = faker::internet::email();
-        e                                 = faker::internet::email();
+        e = faker::internet::email();
         return e;
       };
       mg.add_faker_series<decltype(gen), std::string_view>(name, gen, where);
@@ -146,7 +146,7 @@ inline GeneratorRegistry create_registry() {
                    const metalldata::metall_graph::where_clause& where) {
       auto gen = []() -> std::string_view {
         static thread_local std::string u = faker::internet::username();
-        u                                 = faker::internet::username();
+        u = faker::internet::username();
         return u;
       };
       mg.add_faker_series<decltype(gen), std::string_view>(name, gen, where);
@@ -155,7 +155,7 @@ inline GeneratorRegistry create_registry() {
   return registry;
 }
 
-int main(int argc, char **argv) try {
+int main(int argc, char** argv) try {
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{
@@ -174,9 +174,9 @@ int main(int argc, char **argv) try {
     return 0;
   }
 
-  auto path           = clip.get_state<std::string>("path");
-  auto where          = clip.get<boost::json::object>("where");
-  auto name_str       = clip.get<std::string>("series_name");
+  auto path = clip.get_state<std::string>("path");
+  auto where = clip.get<boost::json::object>("where");
+  auto name_str = clip.get<std::string>("series_name");
   auto generator_type = clip.get<std::string>("generator_type");
 
   metalldata::metall_graph::series_name name(name_str);
@@ -206,7 +206,7 @@ int main(int argc, char **argv) try {
 
   clip.update_selectors(mg.get_selector_info());
   return 0;
-} catch (std::runtime_error e) {
+} catch (const std::runtime_error& e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";
 } catch (...) {
   std::cerr << "Unknown error in execution; aborting.\n";

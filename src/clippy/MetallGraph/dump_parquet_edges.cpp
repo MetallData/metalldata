@@ -12,11 +12,11 @@
 #include <metalldata/metall_graph.hpp>
 #include <format>
 
-static const std::string method_name    = "dump_parquet_edges";
-static const std::string state_name     = "INTERNAL";
+static const std::string method_name = "dump_parquet_edges";
+static const std::string state_name = "INTERNAL";
 static const std::string sel_state_name = "selectors";
 
-int main(int argc, char **argv) try {
+int main(int argc, char** argv) try {
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{method_name, "Writes a parquet file of edge data"};
@@ -37,9 +37,9 @@ int main(int argc, char **argv) try {
   bool all = !clip.has_argument(
     "metadata");  // if we don't specify it at all, include everything
 
-  auto path        = clip.get_state<std::string>("path");
+  auto path = clip.get_state<std::string>("path");
   auto output_path = clip.get<std::string>("output_path");
-  auto overwrite   = clip.get<bool>("overwrite");
+  auto overwrite = clip.get<bool>("overwrite");
 
   metalldata::metall_graph mg(comm, path, false);
 
@@ -67,7 +67,7 @@ int main(int argc, char **argv) try {
   }
 
   return 0;
-} catch (std::runtime_error e) {
+} catch (const std::runtime_error& e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";
 } catch (...) {
   std::cerr << "Unknown error in execution; aborting.\n";

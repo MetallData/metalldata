@@ -71,10 +71,10 @@ using name_to_type = std::unordered_map<std::string, Metall_Type>;
 // Type mappings
 extern const std::unordered_map<char, Metall_Type> char_to_type;
 extern const std::unordered_map<Metall_Type, std::shared_ptr<arrow::DataType>>
-    metall_to_arrow_type;
+  metall_to_arrow_type;
 
 std::pair<std::vector<std::string>, name_to_type> parse_field_types(
-    const std::vector<std::string>& fields_with_type, char delimiter = ':');
+  const std::vector<std::string>& fields_with_type, char delimiter = ':');
 
 class ParquetWriter {
  public:
@@ -91,7 +91,7 @@ class ParquetWriter {
                 size_t batch_size = 1'000'000);
   // Disable copy constructor and copy assignment to prevent resource
   // duplication
-  ParquetWriter(const ParquetWriter&)            = delete;
+  ParquetWriter(const ParquetWriter&) = delete;
   ParquetWriter& operator=(const ParquetWriter&) = delete;
 
   // Enable move constructor and move assignment
@@ -115,7 +115,8 @@ class ParquetWriter {
     std::vector<metall_series_type> converted;
     converted.reserve(row.size());
     for (const auto& val : row) {
-      std::visit([&converted](const auto& v) { converted.emplace_back(v); }, val);
+      std::visit([&converted](const auto& v) { converted.emplace_back(v); },
+                 val);
     }
     return write_row(converted);
   }
@@ -124,8 +125,8 @@ class ParquetWriter {
   // vector
   template <typename T, typename... Args>
   std::enable_if_t<
-      !std::is_same_v<std::decay_t<T>, std::vector<metall_series_type>>,
-      arrow::Status>
+    !std::is_same_v<std::decay_t<T>, std::vector<metall_series_type>>,
+    arrow::Status>
   write_row(T&& first, Args&&... rest) {
     std::vector<metall_series_type> row;
     row.reserve(1 + sizeof...(rest));
@@ -135,19 +136,19 @@ class ParquetWriter {
   }
 
   arrow::Status write_rows(
-      const std::vector<std::vector<metall_series_type>>& rows);
+    const std::vector<std::vector<metall_series_type>>& rows);
 
   arrow::Status flush();
 
   arrow::Status close();
 
  private:
-  std::string                                  filename_;
-  std::vector<std::string>                     field_names_;
-  std::vector<Metall_Type>                     field_types_;
-  std::shared_ptr<arrow::Schema>               schema_;
-  std::shared_ptr<arrow::io::FileOutputStream> outfile_;
-  std::unique_ptr<parquet::arrow::FileWriter>  writer_;
+  std::string                                       filename_;
+  std::vector<std::string>                          field_names_;
+  std::vector<Metall_Type>                          field_types_;
+  std::shared_ptr<arrow::Schema>                    schema_;
+  std::shared_ptr<arrow::io::FileOutputStream>      outfile_;
+  std::unique_ptr<parquet::arrow::FileWriter>       writer_;
   std::vector<std::unique_ptr<arrow::ArrayBuilder>> column_builders_;
   size_t                                            batch_size_;
 
@@ -157,3 +158,5 @@ class ParquetWriter {
 };
 
 }  // namespace parquet_writer
+
+#include <parquet_writer/parquet_writer.ipp>

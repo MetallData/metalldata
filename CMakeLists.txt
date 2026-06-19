@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.28)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 project(MetallData
@@ -130,6 +130,7 @@ FetchContent_MakeAvailable(Metall)
 #
 function(add_common_compile_options name)
     # Common
+    # TODO:   Enable after fixing Clippy Issue #46
     #target_compile_options(${name} PRIVATE -Wall -Wextra -pedantic)
 
     # Debug
@@ -157,7 +158,6 @@ function(add_metalldata_executable name source)
     target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include ${BOOST_INCLUDE_DIRS} ${jsonlogic_INCLUDE_DIR})
     target_link_libraries(${name} PRIVATE Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph Boost::program_options jsonlogic)
     link_arrow_parquet(${name} PRIVATE)
-    target_compile_definitions(${name} PRIVATE METALLDATA_USE_PARQUET)
 endfunction()
 
 
@@ -214,17 +214,13 @@ function(setup_metall_target exe_name)
         target_compile_definitions(${exe_name} PRIVATE "METALL_DISABLE_CXX17_FILESYSTEM_LIB")
     endif ()
 
-    if (METALLDATA_USE_PARQUET AND Arrow_FOUND AND Parquet_FOUND)
-        link_arrow_parquet(${exe_name} PRIVATE)
-        target_compile_definitions(${exe_name} PRIVATE METALLDATA_USE_PARQUET)
-    endif ()
     target_compile_definitions(${exe_name} PRIVATE "METALL_DISABLE_CONCURRENCY")
 endfunction()
 
 add_subdirectory(src)
-add_subdirectory(include)
 
-if (METALLDATA_BUILD_TESTS)
+set(ENV_METALLDATA_BUILD_TESTS "$ENV{METALLDATA_BUILD_TESTS}")
+if (METALLDATA_BUILD_TESTS OR ENV_METALLDATA_BUILD_TESTS)
     enable_testing()
     add_subdirectory(test)
 endif ()

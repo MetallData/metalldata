@@ -18,7 +18,7 @@ static const std::string method_name = "select_edges";
 static const std::string state_name = "INTERNAL";
 static const std::string sel_state_name = "selectors";
 
-int main(int argc, char **argv) try {
+int main(int argc, char** argv) try {
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{method_name,
@@ -81,7 +81,7 @@ int main(int argc, char **argv) try {
   auto json_maps = rows_to_json(select_vec, series_names);
   clip.to_return(json_maps);
   return 0;
-} catch (std::runtime_error e) {
+} catch (const std::runtime_error& e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";
 } catch (...) {
   std::cerr << "Unknown error in execution; aborting.\n";

@@ -7,13 +7,6 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-#set(CMAKE_CXX_FLAGS_DEBUG "-Wall -Wextra -pedantic -Wno-unused-parameter -O0 -g")
-#set(CMAKE_CXX_FLAGS_RELEASE "-Wall -Wextra -O3 -march=native")
-
-# include_directories(${Boost_INCLUDE_DIRS})
-
-include_directories(${PROJECT_SOURCE_DIR}/src/MetallGraph/)
-
 
 #List all future metall_graph cpp files here
 add_library(libmetalldata STATIC 
@@ -41,6 +34,18 @@ set_target_properties(libmetalldata PROPERTIES
 
 setup_metall_target(libmetalldata)
 setup_ygm_target(libmetalldata)
-target_link_libraries(libmetalldata PUBLIC Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph Boost::program_options jsonlogic parquet_writer_lib faker-cxx)
-target_include_directories(libmetalldata PUBLIC ${PROJECT_SOURCE_DIR}/include ${BOOST_INCLUDE_DIRS} ${jsonlogic_INCLUDE_DIR})
+target_link_libraries(libmetalldata PUBLIC 
+                      Boost::json 
+                      Boost::container 
+                      Boost::unordered 
+                      Boost::interprocess 
+                      Boost::property_tree 
+                      Boost::uuid 
+                      Boost::graph 
+                      jsonlogic 
+                      faker-cxx)
+target_include_directories(libmetalldata PUBLIC 
+                      ${PROJECT_SOURCE_DIR}/include 
+                      ${BOOST_INCLUDE_DIRS} 
+                      ${jsonlogic_INCLUDE_DIR})
 link_arrow_parquet(libmetalldata PUBLIC)

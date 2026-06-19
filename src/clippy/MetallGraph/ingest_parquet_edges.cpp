@@ -11,8 +11,8 @@
 #include <format>
 #include "utils.hpp"
 
-static const std::string method_name    = "ingest_parquet_edges";
-static const std::string state_name     = "INTERNAL";
+static const std::string method_name = "ingest_parquet_edges";
+static const std::string state_name = "INTERNAL";
 static const std::string log_state_name = "loglevel";
 
 int main(int argc, char **argv) try {
@@ -35,17 +35,17 @@ int main(int argc, char **argv) try {
     return 0;
   }
 
-  auto path       = clip.get_state<std::string>("path");
-  auto loglevel   = clip.get_state<int>("loglevel");
+  auto path = clip.get_state<std::string>("path");
+  auto loglevel = clip.get_state<int>("loglevel");
 
   comm.set_logger_target(ygm::logger_target::stderr);
   comm.set_log_level(metalldata::loglevel_py2ygm(loglevel));
 
   auto input_path = clip.get<std::string>("input_path");
-  auto col_u      = clip.get<std::string>("col_u");
-  auto col_v      = clip.get<std::string>("col_v");
-  auto directed   = clip.get<bool>("directed");
-  auto meta_str   = clip.get<std::vector<std::string>>("metadata");
+  auto col_u = clip.get<std::string>("col_u");
+  auto col_v = clip.get<std::string>("col_v");
+  auto directed = clip.get<bool>("directed");
+  auto meta_str = clip.get<std::vector<std::string>>("metadata");
 
   metalldata::metall_graph mg(comm, path, false);
 
@@ -54,7 +54,7 @@ int main(int argc, char **argv) try {
 
   bool has_meta = clip.has_argument("metadata");
 
-  for (const auto m : meta_str) {
+  for (const auto &m : meta_str) {
     meta.emplace_back("edge", m);
   }
 
@@ -79,7 +79,7 @@ int main(int argc, char **argv) try {
   //   clip.to_return(rc.return_info);
   clip.to_return(rc.value());
   return 0;
-} catch (std::runtime_error e) {
+} catch (const std::runtime_error &e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";
 } catch (...) {
   std::cerr << "Unknown error in execution; aborting.\n";

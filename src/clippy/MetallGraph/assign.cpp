@@ -9,11 +9,11 @@
 #include <ygm/comm.hpp>
 #include <metalldata/metall_graph.hpp>
 
-static const std::string method_name    = "assign";
-static const std::string state_name     = "INTERNAL";
+static const std::string method_name = "assign";
+static const std::string state_name = "INTERNAL";
 static const std::string sel_state_name = "selectors";
 
-int main(int argc, char **argv) try {
+int main(int argc, char** argv) try {
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{
@@ -30,8 +30,8 @@ int main(int argc, char **argv) try {
     return 0;
   }
 
-  auto path     = clip.get_state<std::string>("path");
-  auto where    = clip.get<boost::json::object>("where");
+  auto path = clip.get_state<std::string>("path");
+  auto where = clip.get<boost::json::object>("where");
   auto name_str = clip.get<std::string>("series_name");
   auto val = clip.get<metalldata::metall_graph::series_types>("value");
 
@@ -47,7 +47,7 @@ int main(int argc, char **argv) try {
   mg.assign(name, val, where_c);
   clip.update_selectors(mg.get_selector_info());
   return 0;
-} catch (std::runtime_error e) {
+} catch (const std::runtime_error& e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";
 } catch (...) {
   std::cerr << "Unknown error in execution; aborting.\n";
