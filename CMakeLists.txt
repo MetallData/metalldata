@@ -157,7 +157,6 @@ function(add_metalldata_executable name source)
     target_include_directories(${name} PRIVATE ${PROJECT_SOURCE_DIR}/include ${BOOST_INCLUDE_DIRS} ${jsonlogic_INCLUDE_DIR})
     target_link_libraries(${name} PRIVATE Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph Boost::program_options jsonlogic)
     link_arrow_parquet(${name} PRIVATE)
-    target_compile_definitions(${name} PRIVATE METALLDATA_USE_PARQUET)
 endfunction()
 
 
@@ -214,10 +213,6 @@ function(setup_metall_target exe_name)
         target_compile_definitions(${exe_name} PRIVATE "METALL_DISABLE_CXX17_FILESYSTEM_LIB")
     endif ()
 
-    if (METALLDATA_USE_PARQUET AND Arrow_FOUND AND Parquet_FOUND)
-        link_arrow_parquet(${exe_name} PRIVATE)
-        target_compile_definitions(${exe_name} PRIVATE METALLDATA_USE_PARQUET)
-    endif ()
     target_compile_definitions(${exe_name} PRIVATE "METALL_DISABLE_CONCURRENCY")
 endfunction()
 

@@ -7,8 +7,6 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-#include_directories(${PROJECT_SOURCE_DIR}/src/MetallGraph/)
-
 
 #List all future metall_graph cpp files here
 add_library(libmetalldata STATIC 
