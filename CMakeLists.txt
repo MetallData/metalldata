@@ -81,7 +81,7 @@ set(YGM_FIND_PARQUET_IN_SYSTEM OFF)
 set(YGM_INSTALL_PARQUET OFF)
 FetchContent_Declare(YGM
     GIT_REPOSITORY ${YGM_FETCH_GIT}
-    GIT_TAG a66df3e3c51d9b58df7641894062c9fdb782b571
+    GIT_TAG feature/array
         )
 FetchContent_MakeAvailable(YGM)
 

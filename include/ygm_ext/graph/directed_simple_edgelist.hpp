@@ -23,13 +23,13 @@ class directed_simple_edgelist {
 
   directed_simple_edgelist(ygm::comm& comm) {}
 
-  void async_insert(const node_label_type& u, const node_label_type& v,
-                    const edge_weight_type& weight = edge_weight_type{}) {
-    if (u == v) {
-      return;
-    }
-    m_emap.async_insert({u, v}, weight);
-  }
+  // void async_insert(const node_label_type& u, const node_label_type& v,
+  //                   const edge_weight_type& weight = edge_weight_type{}) {
+  //   if (u == v) {
+  //     return;
+  //   }
+  //   m_emap.async_insert({u, v}, weight);
+  // }
 
   void async_insert_or_assign(
     const node_label_type& u, const node_label_type& v,

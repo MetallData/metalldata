@@ -23,17 +23,17 @@ class undirected_simple_edgelist {
 
   undirected_simple_edgelist(ygm::comm& comm) : m_emap(comm) {}
 
-  void async_insert(const node_label_type& u, const node_label_type& v,
-                    const edge_weight_type& weight = edge_weight_type{}) {
-    if (u == v) {
-      return;
-    }
-    if (u < v) {
-      m_emap.async_insert({u, v}, weight);
-    } else {
-      m_emap.async_insert({v, u}, weight);
-    }
-  }
+  // void async_insert(const node_label_type& u, const node_label_type& v,
+  //                   const edge_weight_type& weight = edge_weight_type{}) {
+  //   if (u == v) {
+  //     return;
+  //   }
+  //   if (u < v) {
+  //     m_emap.async_insert({u, v}, weight);
+  //   } else {
+  //     m_emap.async_insert({v, u}, weight);
+  //   }
+  // }
 
   void async_insert_or_assign(
     const node_label_type& u, const node_label_type& v,
@@ -48,7 +48,7 @@ class undirected_simple_edgelist {
     }
   }
 
-  // todo:   async_visit() for things like counting edges
+  // todo:   async_reduce(k, value, reduction) for things like counting edges
 
   ygm::container::counting_set<node_label_type> count_degrees() const {
     ygm::container::counting_set<node_label_type> to_return(m_emap.comm());

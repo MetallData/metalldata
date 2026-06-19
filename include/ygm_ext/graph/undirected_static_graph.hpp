@@ -64,11 +64,19 @@ class undirected_static_graph {
   void priv_ingest_edgelist(const EL& el) {
     auto degree_counts = el.count_degrees();
 
-    // todo, upgrade to ranges & skip bag
+    // // todo, upgrade to ranges & skip bag
     ygm::container::bag<std::pair<size_t, NodeLabel>> bag_deg_node(m_comm);
     for (const auto& dc : degree_counts) {
       bag_deg_node.async_insert({dc.second, dc.first});
     }
+
+    // auto transformed = degree_counts | std::views::transform([](const auto& p) {
+    //    return std::make_pair(p.second, p.first);});
+
+
+
+    // ygm::container::array<std::pair<size_t, NodeLabel>> myarray(
+    //   m_comm, transformed);
 
     //
   }
@@ -78,3 +86,19 @@ class undirected_static_graph {
 };
 
 }  // namespace ygm_ext::graph
+
+
+/*
+
+ygm::graph::undirected_static_graph<metall_graph::node_locator> g;
+
+auto bfs_level = g.make_vertex_metadata<size_t>;
+auto parent = g.make_vertex_metadata<metall_graph::node_locator>;
+
+bfs(g, bfs_level, parent);
+
+
+
+
+
+*/
