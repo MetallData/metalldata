@@ -24,7 +24,7 @@ function(add_metallgraph_executable name source)
   setup_clippy_target(${name})
   setup_ygm_target(${name})
   setup_metall_target(${name})
-  target_link_libraries(${name} PUBLIC Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph Boost::program_options jsonlogic parquet_writer_lib faker-cxx)
+  target_link_libraries(${name} PUBLIC Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph Boost::program_options jsonlogic faker-cxx)
 endfunction()
 
 

@@ -222,7 +222,6 @@ function(setup_metall_target exe_name)
 endfunction()
 
 add_subdirectory(src)
-add_subdirectory(include)
 
 if (METALLDATA_BUILD_TESTS)
     enable_testing()

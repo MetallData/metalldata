@@ -27,8 +27,8 @@ const std::unordered_map<Metall_Type, std::shared_ptr<arrow::DataType>>
                           {Metall_Type::String, arrow::utf8()}};
 
 // Helper to validate that variant type matches expected column type
-bool validate_variant_type(const metall_series_type& value,
-                           Metall_Type               expected_type) {
+inline bool validate_variant_type(const metall_series_type& value,
+                                  Metall_Type               expected_type) {
   switch (expected_type) {
     case Metall_Type::Bool:
       return std::holds_alternative<bool>(value) ||
@@ -50,34 +50,34 @@ bool validate_variant_type(const metall_series_type& value,
 }
 
 // Simple helper to append a value to the appropriate builder type
-arrow::Status append_value_to_builder(arrow::ArrayBuilder*      builder,
-                                      const metall_series_type& value) {
+inline arrow::Status append_value_to_builder(arrow::ArrayBuilder*      builder,
+                                             const metall_series_type& value) {
   return std::visit(
-      [builder](const auto& val) -> arrow::Status {
-        using T = std::decay_t<decltype(val)>;
+    [builder](const auto& val) -> arrow::Status {
+      using T = std::decay_t<decltype(val)>;
 
-        if constexpr (std::is_same_v<T, std::monostate>) {
-          return builder->AppendNull();
-        } else if constexpr (std::is_same_v<T, bool>) {
-          return static_cast<arrow::BooleanBuilder*>(builder)->Append(val);
-        } else if constexpr (std::is_same_v<T, int64_t>) {
-          return static_cast<arrow::Int64Builder*>(builder)->Append(val);
-        } else if constexpr (std::is_same_v<T, uint64_t>) {
-          return static_cast<arrow::UInt64Builder*>(builder)->Append(val);
-        } else if constexpr (std::is_same_v<T, double>) {
-          return static_cast<arrow::DoubleBuilder*>(builder)->Append(val);
-        } else if constexpr (std::is_same_v<T, std::string_view>) {
-          return static_cast<arrow::StringBuilder*>(builder)->Append(
-              val.data(), val.size());
-        } else {
-          return arrow::Status::Invalid("Unsupported variant type");
-        }
-      },
-      value);
+      if constexpr (std::is_same_v<T, std::monostate>) {
+        return builder->AppendNull();
+      } else if constexpr (std::is_same_v<T, bool>) {
+        return static_cast<arrow::BooleanBuilder*>(builder)->Append(val);
+      } else if constexpr (std::is_same_v<T, int64_t>) {
+        return static_cast<arrow::Int64Builder*>(builder)->Append(val);
+      } else if constexpr (std::is_same_v<T, uint64_t>) {
+        return static_cast<arrow::UInt64Builder*>(builder)->Append(val);
+      } else if constexpr (std::is_same_v<T, double>) {
+        return static_cast<arrow::DoubleBuilder*>(builder)->Append(val);
+      } else if constexpr (std::is_same_v<T, std::string_view>) {
+        return static_cast<arrow::StringBuilder*>(builder)->Append(val.data(),
+                                                                   val.size());
+      } else {
+        return arrow::Status::Invalid("Unsupported variant type");
+      }
+    },
+    value);
 }
 
-std::pair<std::vector<std::string>, name_to_type> parse_field_types(
-    const std::vector<std::string>& fields_with_type, char delimiter) {
+inline std::pair<std::vector<std::string>, name_to_type> parse_field_types(
+  const std::vector<std::string>& fields_with_type, char delimiter) {
   name_to_type             ntt{};
   std::vector<std::string> field_list{};
   field_list.reserve(fields_with_type.size());
@@ -91,7 +91,7 @@ std::pair<std::vector<std::string>, name_to_type> parse_field_types(
       throw DelimiterNotFoundError(field_with_type, delimiter);
     }
     auto field_name = field_with_type.substr(0, n - 2);
-    auto type_name  = field_with_type[n - 1];
+    auto type_name = field_with_type[n - 1];
     if (!char_to_type.contains(type_name)) {
       throw InvalidTypeError(type_name);
     }
@@ -105,16 +105,16 @@ std::pair<std::vector<std::string>, name_to_type> parse_field_types(
 }
 
 // Helper function to split a string by delimiter (internal use only)
-static std::vector<std::string> split(const std::string& s,
-                                      const std::string& delimiter) {
+inline static std::vector<std::string> split(const std::string& s,
+                                             const std::string& delimiter) {
   std::vector<std::string> tokens;
   size_t                   start = 0;
-  size_t                   end   = s.find(delimiter);
+  size_t                   end = s.find(delimiter);
 
   while (end != std::string::npos) {
     tokens.push_back(s.substr(start, end - start));
     start = end + delimiter.length();
-    end   = s.find(delimiter, start);
+    end = s.find(delimiter, start);
   }
   // Add the last token (or the only token if no delimiter is found)
   tokens.push_back(s.substr(start));
@@ -123,9 +123,9 @@ static std::vector<std::string> split(const std::string& s,
 
 // Parse a single comma-separated string of "field_name:type_char" values
 // (internal use only)
-static std::vector<std::string> parse_field_types_str(
-    const std::string& fields_with_type_str, char field_delimiter = ',',
-    char type_delimiter = ':') {
+inline static std::vector<std::string> parse_field_types_str(
+  const std::string& fields_with_type_str, char field_delimiter = ',',
+  char type_delimiter = ':') {
   if (fields_with_type_str.empty()) {
     return {};
   }
@@ -133,7 +133,7 @@ static std::vector<std::string> parse_field_types_str(
   // Split the input string by field_delimiter
   std::string              delimiter_str(1, field_delimiter);
   std::vector<std::string> raw_fields =
-      split(fields_with_type_str, delimiter_str);
+    split(fields_with_type_str, delimiter_str);
 
   std::vector<std::string> fields_with_type;
   fields_with_type.reserve(raw_fields.size());
@@ -143,7 +143,7 @@ static std::vector<std::string> parse_field_types_str(
     size_t start = field.find_first_not_of(" \t\r\n");
     if (start == std::string::npos) continue;  // Skip empty fields
 
-    size_t      end     = field.find_last_not_of(" \t\r\n");
+    size_t      end = field.find_last_not_of(" \t\r\n");
     std::string trimmed = field.substr(start, end - start + 1);
 
     if (!trimmed.empty()) {
@@ -155,14 +155,14 @@ static std::vector<std::string> parse_field_types_str(
   return fields_with_type;
 }
 
-ParquetWriter::ParquetWriter(const std::string&              filename,
-                             const std::vector<std::string>& fields_with_type,
-                             char delimiter, size_t batch_size)
+inline ParquetWriter::ParquetWriter(
+  const std::string& filename, const std::vector<std::string>& fields_with_type,
+  char delimiter, size_t batch_size)
     : filename_(filename), batch_size_(batch_size), is_valid_(false) {
   try {
     // Parse the field names and types using the existing function
     auto [field_names, name_type_map] =
-        parse_field_types(fields_with_type, delimiter);
+      parse_field_types(fields_with_type, delimiter);
 
     field_names_ = std::move(field_names);
 
@@ -179,11 +179,11 @@ ParquetWriter::ParquetWriter(const std::string&              filename,
       switch (field_type) {
         case Metall_Type::Bool:
           column_builders_.emplace_back(
-              std::make_unique<arrow::BooleanBuilder>());
+            std::make_unique<arrow::BooleanBuilder>());
           break;
         case Metall_Type::Int64:
           column_builders_.emplace_back(
-              std::make_unique<arrow::Int64Builder>());
+            std::make_unique<arrow::Int64Builder>());
           break;
         case Metall_Type::UInt64:
           column_builders_.emplace_back(
@@ -191,11 +191,11 @@ ParquetWriter::ParquetWriter(const std::string&              filename,
           break;
         case Metall_Type::Double:
           column_builders_.emplace_back(
-              std::make_unique<arrow::DoubleBuilder>());
+            std::make_unique<arrow::DoubleBuilder>());
           break;
         case Metall_Type::String:
           column_builders_.emplace_back(
-              std::make_unique<arrow::StringBuilder>());
+            std::make_unique<arrow::StringBuilder>());
           break;
       }
     }
@@ -211,14 +211,14 @@ ParquetWriter::ParquetWriter(const std::string&              filename,
   }
 }
 
-ParquetWriter::ParquetWriter(const std::string& filename,
-                             const std::string& fields_with_type_str,
-                             char delimeter, size_t batch_size)
+inline ParquetWriter::ParquetWriter(const std::string& filename,
+                                    const std::string& fields_with_type_str,
+                                    char delimeter, size_t batch_size)
     : ParquetWriter::ParquetWriter(filename,
                                    parse_field_types_str(fields_with_type_str),
                                    delimeter, batch_size) {};
 
-ParquetWriter::ParquetWriter(ParquetWriter&& other) noexcept
+inline ParquetWriter::ParquetWriter(ParquetWriter&& other) noexcept
     : filename_(std::move(other.filename_)),
       field_names_(std::move(other.field_names_)),
       field_types_(std::move(other.field_types_)),
@@ -231,41 +231,43 @@ ParquetWriter::ParquetWriter(ParquetWriter&& other) noexcept
   other.is_valid_ = false;
 }
 
-ParquetWriter& ParquetWriter::operator=(ParquetWriter&& other) noexcept {
+inline ParquetWriter& ParquetWriter::operator=(ParquetWriter&& other) noexcept {
   if (this != &other) {
     // Close current file if open
     if (is_valid_) {
       (void)close();  // Ignore return value in destructor
     }
 
-    filename_        = std::move(other.filename_);
-    field_names_     = std::move(other.field_names_);
-    field_types_     = std::move(other.field_types_);
-    schema_          = std::move(other.schema_);
-    outfile_         = std::move(other.outfile_);
-    writer_          = std::move(other.writer_);
+    filename_ = std::move(other.filename_);
+    field_names_ = std::move(other.field_names_);
+    field_types_ = std::move(other.field_types_);
+    schema_ = std::move(other.schema_);
+    outfile_ = std::move(other.outfile_);
+    writer_ = std::move(other.writer_);
     column_builders_ = std::move(other.column_builders_);
-    batch_size_      = other.batch_size_;
-    is_valid_        = other.is_valid_;
+    batch_size_ = other.batch_size_;
+    is_valid_ = other.is_valid_;
 
     other.is_valid_ = false;
   }
   return *this;
 }
 
-ParquetWriter::~ParquetWriter() {
+inline ParquetWriter::~ParquetWriter() {
   if (is_valid_) {
     (void)close();  // Ignore return value in destructor
   }
 }
 
-bool ParquetWriter::is_valid() const { return is_valid_; }
+inline bool ParquetWriter::is_valid() const { return is_valid_; }
 
-const std::string& ParquetWriter::get_filename() const { return filename_; }
+inline const std::string& ParquetWriter::get_filename() const {
+  return filename_;
+}
 
-size_t ParquetWriter::get_batch_size() const { return batch_size_; }
+inline size_t ParquetWriter::get_batch_size() const { return batch_size_; }
 
-arrow::Status ParquetWriter::initialize() {
+inline arrow::Status ParquetWriter::initialize() {
   std::vector<std::shared_ptr<arrow::Field>> fields;
   fields.reserve(field_names_.size());
 
@@ -290,14 +292,14 @@ arrow::Status ParquetWriter::initialize() {
 
   ARROW_ASSIGN_OR_RAISE(writer_,
                         parquet::arrow::FileWriter::Open(
-                            *schema_, arrow::default_memory_pool(), outfile_));
+                          *schema_, arrow::default_memory_pool(), outfile_));
 
   is_valid_ = true;
   return arrow::Status::OK();
 }
 
-arrow::Status ParquetWriter::write_rows(
-    const std::vector<std::vector<metall_series_type>>& rows) {
+inline arrow::Status ParquetWriter::write_rows(
+  const std::vector<std::vector<metall_series_type>>& rows) {
   if (!is_valid_) {
     return arrow::Status::Invalid("Writer is not valid");
   }
@@ -314,30 +316,30 @@ arrow::Status ParquetWriter::write_rows(
   return arrow::Status::OK();
 }
 
-arrow::Status ParquetWriter::write_row(
-    const std::vector<metall_series_type>& row) {
+inline arrow::Status ParquetWriter::write_row(
+  const std::vector<metall_series_type>& row) {
   if (!is_valid_) {
     return arrow::Status::Invalid("ParquetWriter is not valid");
   }
 
   if (row.size() != field_names_.size()) {
     return arrow::Status::Invalid(
-        "Row size (" + std::to_string(row.size()) +
-        ") does not match expected number of fields (" +
-        std::to_string(field_names_.size()) + ")");
+      "Row size (" + std::to_string(row.size()) +
+      ") does not match expected number of fields (" +
+      std::to_string(field_names_.size()) + ")");
   }
 
   // Append each column value directly to its builder
   for (size_t col = 0; col < row.size(); ++col) {
-    const auto& value         = row[col];
+    const auto& value = row[col];
     Metall_Type expected_type = field_types_[col];
-    auto*       builder       = column_builders_[col].get();
+    auto*       builder = column_builders_[col].get();
 
     // Validate that variant type matches expected column type
     if (!validate_variant_type(value, expected_type)) {
       return arrow::Status::Invalid(
-          "Type mismatch in field '" + field_names_[col] +
-          "': variant type doesn't match expected column type");
+        "Type mismatch in field '" + field_names_[col] +
+        "': variant type doesn't match expected column type");
     }
 
     auto status = append_value_to_builder(builder, value);
@@ -355,7 +357,7 @@ arrow::Status ParquetWriter::write_row(
   return arrow::Status::OK();
 }
 
-arrow::Status ParquetWriter::flush() {
+inline arrow::Status ParquetWriter::flush() {
   if (!is_valid_) {
     return arrow::Status::Invalid("ParquetWriter is not valid");
   }
@@ -377,7 +379,7 @@ arrow::Status ParquetWriter::flush() {
 
   // Create table and write it as a row group to the Parquet file
   int64_t num_rows = arrays.empty() ? 0 : arrays[0]->length();
-  auto    table    = arrow::Table::Make(schema_, arrays, num_rows);
+  auto    table = arrow::Table::Make(schema_, arrays, num_rows);
   ARROW_RETURN_NOT_OK(writer_->WriteTable(*table));
 
   // Reset all builders for the next batch
