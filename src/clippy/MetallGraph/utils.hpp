@@ -10,6 +10,10 @@ result<std::unordered_set<metall_graph::series_name>> obj2sn(
 result<std::vector<metall_graph::series_name>> obj2sn(
   const std::vector<boost::json::object> &objset);
 
+bjsn::array rows_to_json(
+  std::vector<std::vector<metalldata::metall_graph::data_types>> rows,
+  std::vector<metall_graph::series_name>                         series_names);
+
 ygm::log_level loglevel_py2ygm(
   int pyloglevel, ygm::log_level default_level = ygm::log_level::warn);
 

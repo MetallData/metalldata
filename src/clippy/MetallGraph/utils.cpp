@@ -58,6 +58,34 @@ result<std::vector<metall_graph::series_name>> obj2sn(
 //   debug    = 5
 // };
 
+// given a vector of "row" data and a corresponding vector of series names,
+// return a json array suitable for passing back to clippy.
+bjsn::array rows_to_json(
+  std::vector<std::vector<metalldata::metall_graph::data_types>> rows,
+  std::vector<metall_graph::series_name>                         series_names) {
+  bjsn::array json_rows{};
+  json_rows.reserve(rows.size());
+
+  for (const auto &row : rows) {
+    bjsn::object rowmap;
+    for (int i = 0; i < row.size(); ++i) {
+      auto sname = series_names.at(i);
+      auto sval = row[i];
+      std::visit(
+        [&](const auto &val) {
+          if constexpr (!std::is_same_v<std::decay_t<decltype(val)>,
+                                        std::monostate>) {
+            rowmap[sname.qualified()] = val;
+          }
+        },
+        sval);
+    }
+    json_rows.emplace_back(rowmap);
+  }
+
+  return json_rows;
+}
+
 ygm::log_level loglevel_py2ygm(int pyloglevel, ygm::log_level default_level) {
   switch (pyloglevel) {
     case 0:

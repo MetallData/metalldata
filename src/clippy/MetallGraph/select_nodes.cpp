@@ -72,30 +72,11 @@ int main(int argc, char **argv) try {
   }
 
   auto bag = bag_result.value();
-  comm.barrier();
+
   std::vector<std::vector<metalldata::metall_graph::data_types>> select_vec;
   bag.gather(select_vec, 0);
 
-  bjsn::array json_maps{};
-  json_maps.reserve(limit);
-
-  for (const auto &node : select_vec) {
-    bjsn::object nodemap;
-    for (int i = 0; i < node.size(); ++i) {
-      auto sname = series_names.at(i);
-      auto sval = node[i];
-      std::visit(
-        [&](const auto &val) {
-          if constexpr (!std::is_same_v<std::decay_t<decltype(val)>,
-                                        std::monostate>) {
-            nodemap[sname.qualified()] = val;
-          }
-        },
-        sval);
-    }
-    json_maps.emplace_back(nodemap);
-  }
-
+  auto json_maps = rows_to_json(select_vec, series_names);
   clip.to_return(json_maps);
   return 0;
 } catch (std::runtime_error e) {

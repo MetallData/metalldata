@@ -81,26 +81,7 @@ int main(int argc, char **argv) try {
   std::vector<std::vector<metalldata::metall_graph::data_types>> select_vec;
   bag.gather(select_vec, 0);
 
-  bjsn::array json_maps{};
-  json_maps.reserve(k);
-
-  for (const auto &edge : select_vec) {
-    bjsn::object edgemap;
-    for (int i = 0; i < edge.size(); ++i) {
-      auto sname = series_names.at(i);
-      auto sval = edge[i];
-      std::visit(
-        [&](const auto &val) {
-          if constexpr (!std::is_same_v<std::decay_t<decltype(val)>,
-                                        std::monostate>) {
-            edgemap[sname.qualified()] = val;
-          }
-        },
-        sval);
-    }
-    json_maps.emplace_back(edgemap);
-  }
-
+  auto json_maps = rows_to_json(select_vec, series_names);
   clip.to_return(json_maps);
 
   return 0;
