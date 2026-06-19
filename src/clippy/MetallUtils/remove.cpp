@@ -11,7 +11,7 @@
 
 static const std::string method_name = "remove";
 
-int main(int argc, char **argv) try {
+int main(int argc, char** argv) try {
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{method_name, "Removes Metall storage across processors"};
@@ -30,7 +30,7 @@ int main(int argc, char **argv) try {
   }
 
   return 0;
-} catch (std::runtime_error e) {
+} catch (const std::runtime_error& e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";
 } catch (...) {
   std::cerr << "Unknown error in execution; aborting.\n";

@@ -130,6 +130,7 @@ FetchContent_MakeAvailable(Metall)
 #
 function(add_common_compile_options name)
     # Common
+    # TODO:   Enable after fixing Clippy Issue #46
     #target_compile_options(${name} PRIVATE -Wall -Wextra -pedantic)
 
     # Debug

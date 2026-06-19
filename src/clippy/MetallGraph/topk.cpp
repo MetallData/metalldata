@@ -15,11 +15,11 @@
 #include <ygm/utility/boost_json.hpp>
 #include "utils.hpp"
 
-static const std::string method_name    = "topk";
-static const std::string state_name     = "INTERNAL";
+static const std::string method_name = "topk";
+static const std::string state_name = "INTERNAL";
 static const std::string sel_state_name = "selectors";
 
-int main(int argc, char **argv) try {
+int main(int argc, char** argv) try {
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{method_name, "Returns the top k nodes or edges."};
@@ -39,8 +39,8 @@ int main(int argc, char **argv) try {
     return 0;
   }
 
-  auto path   = clip.get_state<std::string>("path");
-  auto where  = clip.get<boost::json::object>("where");
+  auto path = clip.get_state<std::string>("path");
+  auto where = clip.get<boost::json::object>("where");
   auto sn_obj = clip.get<boost::json::object>("series");
 
   auto try_sn = metalldata::obj2sn(sn_obj);
@@ -50,7 +50,7 @@ int main(int argc, char **argv) try {
   }
 
   auto                                   comp_series = try_sn.value();
-  auto                                   k           = clip.get<size_t>("k");
+  auto                                   k = clip.get<size_t>("k");
   metalldata::metall_graph::where_clause where_c;
   if (where.contains("rule")) {
     where_c = metalldata::metall_graph::where_clause(where["rule"]);
@@ -108,7 +108,7 @@ int main(int argc, char **argv) try {
   }
   clip.to_return(json_rows);
   return 0;
-} catch (std::runtime_error e) {
+} catch (const std::runtime_error& e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";
 } catch (...) {
   std::cerr << "Unknown error in execution; aborting.\n";

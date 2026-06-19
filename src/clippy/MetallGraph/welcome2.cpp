@@ -9,11 +9,11 @@
 #include <ygm/comm.hpp>
 #include <metalldata/metall_graph.hpp>
 
-static const std::string method_name    = "welcome2";
-static const std::string state_name     = "INTERNAL";
+static const std::string method_name = "welcome2";
+static const std::string state_name = "INTERNAL";
 static const std::string sel_state_name = "selectors";
 
-int main(int argc, char **argv) try {
+int main(int argc, char** argv) try {
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{method_name, "Prints YGM's welcome message"};
@@ -38,7 +38,7 @@ int main(int argc, char **argv) try {
 
   clip.to_return(0);
   return 0;
-} catch (std::runtime_error e) {
+} catch (const std::runtime_error& e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";
 } catch (...) {
   std::cerr << "Unknown error in execution; aborting.\n";

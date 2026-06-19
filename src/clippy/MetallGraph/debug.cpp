@@ -11,8 +11,8 @@
 #include <clippy/clippy.hpp>
 #include <string>
 
-static const std::string method_name    = "debug";
-static const std::string state_name     = "INTERNAL";
+static const std::string method_name = "debug";
+static const std::string state_name = "INTERNAL";
 static const std::string sel_state_name = "selectors";
 
 void print_separator(ygm::comm& comm, const std::string& title = "") {
@@ -26,7 +26,7 @@ void print_separator(ygm::comm& comm, const std::string& title = "") {
   }
 }
 
-int main(int argc, char **argv) try {
+int main(int argc, char** argv) try {
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{method_name, "Provides graph debug information"};
@@ -98,7 +98,7 @@ int main(int argc, char **argv) try {
   }
   clip.to_return(0);
   return 0;
-} catch (std::runtime_error e) {
+} catch (const std::runtime_error& e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";
 } catch (...) {
   std::cerr << "Unknown error in execution; aborting.\n";

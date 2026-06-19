@@ -11,7 +11,7 @@ result<metall_graph::series_name> obj2sn(const boost::json::object &obj) {
     return std::unexpected("series name invalid (norule)");
   }
 
-  auto rule     = obj.at("rule");
+  auto rule = obj.at("rule");
   auto rule_obj = rule.get_object();
   if (!rule_obj.contains("var")) {
     return std::unexpected("series name invalid (novar)");
@@ -68,7 +68,7 @@ bjsn::array rows_to_json(
 
   for (const auto &row : rows) {
     bjsn::object rowmap;
-    for (int i = 0; i < row.size(); ++i) {
+    for (size_t i = 0; i < row.size(); ++i) {
       auto sname = series_names.at(i);
       auto sval = row[i];
       std::visit(

@@ -174,7 +174,6 @@ class basic_record_store {
       return std::nullopt;
     }
     series_type to_return = std::monostate{};  // default
-    const auto &container = m_series[series_index].container;
 
     std::visit(
       [&to_return, record_id, series_index](const auto &container) {

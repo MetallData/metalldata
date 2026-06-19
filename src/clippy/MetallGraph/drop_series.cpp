@@ -13,7 +13,7 @@ static const std::string method_name = "drop_series";
 
 using series_name = metalldata::metall_graph::series_name;
 
-int main(int argc, char **argv) try {
+int main(int argc, char** argv) try {
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{method_name, "Drops a series from a MetallGraph"};
@@ -26,7 +26,7 @@ int main(int argc, char **argv) try {
     return 0;
   }
 
-  auto path     = clip.get_state<std::string>("path");
+  auto path = clip.get_state<std::string>("path");
   auto name_obj = clip.get<boost::json::object>("series_name");
 
   if (!name_obj.contains("rule")) {
@@ -42,7 +42,7 @@ int main(int argc, char **argv) try {
   }
 
   auto name_str = std::string(rule_obj["var"].as_string());
-  auto name     = series_name(name_str);
+  auto name = series_name(name_str);
 
   metalldata::metall_graph mg(comm, path, false);
 
@@ -55,7 +55,7 @@ int main(int argc, char **argv) try {
   clip.update_selectors(mg.get_selector_info());
 
   return 0;
-} catch (std::runtime_error e) {
+} catch (const std::runtime_error& e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";
 } catch (...) {
   std::cerr << "Unknown error in execution; aborting.\n";

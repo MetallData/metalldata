@@ -61,7 +61,7 @@ int main(int argc, char **argv) try {
 
   clip.update_selectors(mg.get_selector_info());
   return 0;
-} catch (std::runtime_error e) {
+} catch (const std::runtime_error &e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";
 } catch (...) {
   std::cerr << "Unknown error in execution; aborting.\n";

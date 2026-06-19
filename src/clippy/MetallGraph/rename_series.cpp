@@ -10,13 +10,13 @@
 #include <metalldata/metall_graph.hpp>
 #include "utils.hpp"
 
-static const std::string method_name    = "rename_series";
-static const std::string state_name     = "INTERNAL";
+static const std::string method_name = "rename_series";
+static const std::string state_name = "INTERNAL";
 static const std::string sel_state_name = "selectors";
 
 using series_name = metalldata::metall_graph::series_name;
 
-int main(int argc, char **argv) try {
+int main(int argc, char** argv) try {
   ygm::comm comm(&argc, &argv);
 
   clippy::clippy clip{method_name, "Renames a series in a MetallGraph"};
@@ -30,7 +30,7 @@ int main(int argc, char **argv) try {
     return 0;
   }
 
-  auto path         = clip.get_state<std::string>("path");
+  auto path = clip.get_state<std::string>("path");
   auto old_name_obj = clip.get<boost::json::object>("old_name");
 
   auto try_old_name = metalldata::obj2sn(old_name_obj);
@@ -41,7 +41,7 @@ int main(int argc, char **argv) try {
   series_name old_name = try_old_name.value();
 
   auto new_name_str = clip.get<std::string>("new_name");
-  auto new_name     = series_name(new_name_str);
+  auto new_name = series_name(new_name_str);
 
   if (!new_name.is_qualified()) {
     new_name = series_name(old_name.prefix(), new_name.unqualified());
@@ -56,7 +56,7 @@ int main(int argc, char **argv) try {
   }
   clip.update_selectors(mg.get_selector_info());
   return 0;
-} catch (std::runtime_error e) {
+} catch (const std::runtime_error& e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";
 } catch (...) {
   std::cerr << "Unknown error in execution; aborting.\n";
