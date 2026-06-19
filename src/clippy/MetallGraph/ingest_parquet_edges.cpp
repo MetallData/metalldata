@@ -54,7 +54,7 @@ int main(int argc, char **argv) try {
 
   bool has_meta = clip.has_argument("metadata");
 
-  for (const auto m : meta_str) {
+  for (const auto &m : meta_str) {
     meta.emplace_back("edge", m);
   }
 
