@@ -2,6 +2,7 @@
 #include <utility>
 #include "ygm/utility/assert.hpp"
 #include <metalldata/detail/random_sample.hpp>
+#include <variant>
 
 namespace metalldata {
 using metadata_t = std::vector<metall_graph::data_types>;

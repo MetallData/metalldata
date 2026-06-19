@@ -62,7 +62,7 @@ int main(int argc, char **argv) try {
       return -1;
     }
     // Note: clangd false positive below.
-    auto series_names = try_obj_r.value();
+    series_names = try_obj_r.value();
   }
   auto bag_result = mg.select_nodes(series_names, where_c, limit);
 

@@ -94,15 +94,19 @@ class metall_graph {
   result<std::map<std::string, size_t>> ingest_parquet_edges(
     std::string_view path, bool recursive, std::string_view col_u,
     std::string_view col_v, bool directed,
-    const std::optional<std::vector<series_name>>& meta = std::nullopt);
+    const std::optional<std::vector<series_name>>& meta);
+
+  result<std::map<std::string, size_t>> ingest_parquet_edges(
+    std::string_view path, bool recursive, std::string_view col_u,
+    std::string_view col_v, bool directed);
 
   result<std::map<std::string, std::any>> dump_parquet_verts(
     std::string_view path, const std::vector<series_name>& meta,
-    bool overwrite = false);
+    bool overwrite);
 
   result<std::map<std::string, std::any>> dump_parquet_edges(
     std::string_view path, const std::vector<series_name>& meta,
-    bool overwrite = false);
+    bool overwrite);
 
   result<> erase_edges(const where_clause& where);
 

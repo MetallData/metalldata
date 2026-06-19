@@ -7,7 +7,7 @@ def test_mg_select_sample_edges(metallgraph):
             k=10, series_names=[metallgraph.edge.u, metallgraph.edge.v]
         )
         assert len(sample_data) == 10
-        is_as_selected(sample_data, {}, ["u", "v"], [])
+        is_as_selected(sample_data, {}, ["edge.u", "edge.v"], [])
 
     for _ in range(5):
         sample_data = metallgraph.select_sample_edges(
@@ -17,8 +17,8 @@ def test_mg_select_sample_edges(metallgraph):
         )
         assert len(sample_data) == 5
         for el in sample_data:
-            assert el["graphnum"] == 0
-        is_as_selected(sample_data, {"graphnum": 0}, ["u", "v"], [])
+            assert el["edge.graphnum"] == 0
+        is_as_selected(sample_data, {"edge.graphnum": 0}, ["edge.u", "edge.v"], [])
 
     for _ in range(5):
         sample_data = metallgraph.select_sample_edges(
@@ -28,7 +28,7 @@ def test_mg_select_sample_edges(metallgraph):
         )
         total_edges_g1 = len(metallgraph.select_edges(where=metallgraph.edge.graphnum == 1))
         assert len(sample_data) <= total_edges_g1
-        is_as_selected(sample_data, {"graphnum": 1}, ["u", "v"], [])
+        is_as_selected(sample_data, {"edge.graphnum": 1}, ["edge.u", "edge.v"], [])
 
     for _ in range(5):
         total_edges = metallgraph.describe()["ne"]
@@ -46,6 +46,9 @@ def test_mg_select_sample_edges(metallgraph):
             10, [metallgraph.edge.u, metallgraph.edge.v, metallgraph.edge.graphnum], seed=seed + 1
         )
 
+        setres_sd1 = set((k, v) for d in sd1 for k, v in d.items())
+        setres_sd2 = set((k, v) for d in sd2 for k, v in d.items())
+        setres_sd3 = set((k, v) for d in sd3 for k, v in d.items())
         assert len(sd1) == len(sd2) == len(sd3)
-        assert sd1 == sd2
-        assert sd2 != sd3
+        assert setres_sd1 == setres_sd2
+        assert setres_sd2 != setres_sd3

@@ -267,4 +267,11 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
   return retdict;
 }
 
+result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
+  std::string_view path, bool recursive, std::string_view col_u,
+  std::string_view col_v, bool directed) {
+  return ingest_parquet_edges(path, recursive, col_u, col_v, directed,
+                              std::nullopt);
+}
+
 }  // namespace metalldata

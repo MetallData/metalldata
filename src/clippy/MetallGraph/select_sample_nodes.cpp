@@ -53,16 +53,22 @@ int main(int argc, char **argv) try {
 
   metalldata::metall_graph mg(comm, path, false);
 
-  auto series_objs = clip.get<std::vector<boost::json::object>>("series_names");
+  std::vector<metalldata::metall_graph::series_name> series_names;
 
-  auto try_obj = metalldata::obj2sn(series_objs);
-  if (!try_obj) {
-    comm.cerr0(try_obj.error());
-    return -1;
+  if (!clip.has_argument("series_names")) {
+    series_names = mg.get_node_series_names();
+  } else {
+    auto series_obj_vec =
+      clip.get<std::vector<boost::json::object>>("series_names");
+    auto try_obj_r = metalldata::obj2sn(series_obj_vec);
+    if (!try_obj_r) {
+      comm.cerr0(try_obj_r.error());
+      return -1;
+    }
+    series_names = try_obj_r.value();
   }
-  auto series_names = try_obj.value();
 
-  auto bag_result = mg.select_sample_edges(k, series_names, optseed, where_c);
+  auto bag_result = mg.select_sample_nodes(k, series_names, optseed, where_c);
 
   if (!bag_result) {
     comm.cerr0(bag_result.error());
@@ -70,7 +76,6 @@ int main(int argc, char **argv) try {
   }
 
   auto bag = bag_result.value();
-  comm.barrier();
 
   std::vector<std::vector<metalldata::metall_graph::data_types>> select_vec;
   bag.gather(select_vec, 0);

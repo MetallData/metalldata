@@ -61,9 +61,9 @@ int main(int argc, char **argv) try {
       comm.cerr0(try_obj_r.error());
       return -1;
     }
-    auto series_names = try_obj_r.value();
+    series_names = try_obj_r.value();
   }
-  comm.cerr0() << "series_names size = " << series_names.size() << "\n";
+
   auto bag_result = mg.select_edges(series_names, where_c, limit);
 
   if (!bag_result) {
