@@ -41,6 +41,18 @@ set_target_properties(libmetalldata PROPERTIES
 
 setup_metall_target(libmetalldata)
 setup_ygm_target(libmetalldata)
-target_link_libraries(libmetalldata PUBLIC Boost::json Boost::container Boost::unordered Boost::interprocess Boost::property_tree Boost::uuid Boost::graph Boost::program_options jsonlogic faker-cxx)
-target_include_directories(libmetalldata PUBLIC ${PROJECT_SOURCE_DIR}/include ${BOOST_INCLUDE_DIRS} ${jsonlogic_INCLUDE_DIR})
+target_link_libraries(libmetalldata PUBLIC 
+                      Boost::json 
+                      Boost::container 
+                      Boost::unordered 
+                      Boost::interprocess 
+                      Boost::property_tree 
+                      Boost::uuid 
+                      Boost::graph 
+                      jsonlogic 
+                      faker-cxx)
+target_include_directories(libmetalldata PUBLIC 
+                      ${PROJECT_SOURCE_DIR}/include 
+                      ${BOOST_INCLUDE_DIRS} 
+                      ${jsonlogic_INCLUDE_DIR})
 link_arrow_parquet(libmetalldata PUBLIC)
