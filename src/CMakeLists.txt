@@ -6,4 +6,3 @@
 add_subdirectory(libmetalldata)
 add_subdirectory(clippy)
 add_subdirectory(cli_utils)
-add_subdirectory(examples)
