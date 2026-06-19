@@ -19,3 +19,7 @@ RUN update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-
 
 # Always build MetallData tests in devcontainer
 ENV METALLDATA_BUILD_TESTS=ON
+
+# Set default values for clippy
+ENV CLIPPY_BACKEND_PATH=/workspaces/metalldata/build/src/clippy
+ENV CLIPPY_CMD_PREFIX="mpirun"
