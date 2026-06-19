@@ -7,12 +7,7 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-#set(CMAKE_CXX_FLAGS_DEBUG "-Wall -Wextra -pedantic -Wno-unused-parameter -O0 -g")
-#set(CMAKE_CXX_FLAGS_RELEASE "-Wall -Wextra -O3 -march=native")
-
-# include_directories(${Boost_INCLUDE_DIRS})
-
-include_directories(${PROJECT_SOURCE_DIR}/src/MetallGraph/)
+#include_directories(${PROJECT_SOURCE_DIR}/src/MetallGraph/)
 
 
 #List all future metall_graph cpp files here
