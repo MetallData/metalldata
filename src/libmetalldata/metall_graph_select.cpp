@@ -19,8 +19,6 @@ C down_select(const C& collection, size_t k) {
   size_t psum = ygm::prefix_sum(local_count, collection.comm());
   // size_t global_count = ygm::sum(local_count, collection.comm());
 
-  collection.comm().barrier();
-
   size_t local_k =
     size_t(std::clamp((int(k) - int(psum)), 0, int(local_count)));
 
@@ -42,14 +40,13 @@ using metadata_t = std::vector<metall_graph::data_types>;
 result<ygm::container::bag<metadata_t>> metall_graph::select_edges(
   const std::vector<metall_graph::series_name>& series_names,
   const metall_graph::where_clause& where, size_t limit) {
-  result<ygm::container::bag<metadata_t>> to_return({m_comm});
+  result<ygm::container::bag<metadata_t>> to_return(m_comm);
   ygm::container::bag<metadata_t>&        all_edge_data = to_return.value();
   if (series_names.empty()) {
-    return all_edge_data;
+    return to_return;
   }
 
   bool limited = (limit != 0);
-  m_comm.cerr0() << "limited = " << limited << "; limit = " << limit << "\n";
 
   std::vector<metall_graph::edge_series_idx_type> edge_ser_idx;
 
@@ -83,11 +80,7 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_edges(
     where);
 
   if (limited) {
-    m_comm.cerr0() << "all_edge_data pre-downselect size = "
-                   << all_edge_data.size() << "\n";
     all_edge_data = down_select(all_edge_data, limit);
-    m_comm.cerr0() << "all_edge_data post-downselect size = "
-                   << all_edge_data.size() << "\n";
   }
   m_comm.barrier();
   return to_return;
@@ -96,7 +89,7 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_edges(
 result<ygm::container::bag<metadata_t>> metall_graph::select_nodes(
   const std::vector<metall_graph::series_name>& series_names,
   const metall_graph::where_clause& where, size_t limit) {
-  result<ygm::container::bag<metadata_t>> to_return({m_comm});
+  result<ygm::container::bag<metadata_t>> to_return(m_comm);
   ygm::container::bag<metadata_t>&        all_node_data = to_return.value();
   if (series_names.empty()) {
     return to_return;

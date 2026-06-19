@@ -72,7 +72,7 @@ int main(int argc, char **argv) try {
   }
 
   auto bag = bag_result.value();
-  comm.barrier();
+
   std::vector<std::vector<metalldata::metall_graph::data_types>> select_vec;
   // rank 0 here because it's the only one needed - to_return
   // just uses rank0's output.

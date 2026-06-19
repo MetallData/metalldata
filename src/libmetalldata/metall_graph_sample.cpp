@@ -39,7 +39,7 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_sample_edges(
   std::optional<uint64_t> optseed, const metall_graph::where_clause& where) {
   uint64_t seed = optseed.value_or(0);
 
-  result<ygm::container::bag<metadata_t>> to_return({m_comm});
+  result<ygm::container::bag<metadata_t>> to_return(m_comm);
 
   ygm::container::bag<metadata_t>& selected_edges = to_return.value();
 
@@ -119,7 +119,7 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_sample_nodes(
   std::optional<uint64_t> optseed, const metall_graph::where_clause& where) {
   uint64_t seed = optseed.value_or(0);
 
-  result<ygm::container::bag<metadata_t>> to_return({m_comm});
+  result<ygm::container::bag<metadata_t>> to_return(m_comm);
   ygm::container::bag<metadata_t>&        selected_rows = to_return.value();
 
   std::vector<local_node_idx_type> filtered_ids;
