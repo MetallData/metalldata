@@ -1,12 +1,15 @@
 #undef NDEBUG
 
 #include <ygm/comm.hpp>
-#include <ygm_ext/graph/simple_edgelist.hpp>
+#include <ygm_ext/graph/directed_simple_edgelist.hpp>
+#include <ygm_ext/graph/undirected_simple_edgelist.hpp>
+#include <ygm_ext/graph/directed_multi_edgelist.hpp>
+#include <ygm_ext/graph/undirected_multi_edgelist.hpp>
 
 int main(int argc, char** argv) {
   ygm::comm world(&argc, &argv);
 
-  ygm_ext::graph::simple_edgelist<int> el(world);
+  ygm_ext::graph::undirected_simple_edgelist<int> el(world);
   el.async_insert(1, 2);
   el.async_insert(2, 3);
   el.async_insert(3, 4);
