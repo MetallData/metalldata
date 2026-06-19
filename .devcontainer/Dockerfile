@@ -16,3 +16,6 @@ RUN pip3 install --break-system-packages pandas pyarrow faker parquet-tools pyte
 # RUN apt -y upgrade
 RUN update-alternatives --install /usr/bin/clangd clangd /usr/bin/clangd-19 100
 RUN update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-19 100
+
+# Always build MetallData tests in devcontainer
+ENV METALLDATA_BUILD_TESTS=ON

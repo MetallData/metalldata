@@ -223,7 +223,8 @@ endfunction()
 
 add_subdirectory(src)
 
-if (METALLDATA_BUILD_TESTS)
+set(ENV_METALLDATA_BUILD_TESTS "$ENV{METALLDATA_BUILD_TESTS}")
+if (METALLDATA_BUILD_TESTS OR ENV_METALLDATA_BUILD_TESTS)
     enable_testing()
     add_subdirectory(test)
 endif ()
