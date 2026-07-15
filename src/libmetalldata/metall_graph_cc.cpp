@@ -44,24 +44,24 @@ result<> metall_graph::connected_components(const series_name&  out_name,
   }
 
   // TODO: convert to (rank, node row id) tuples.
-  ygm::container::map<std::string,
-                      std::pair<std::string, std::vector<std::string>>>
+  ygm::container::map<node_locator,
+                      std::pair<node_locator, std::vector<node_locator>>>
     adj_list(m_comm);
 
   priv_for_all_edges(
     [&](local_edge_idx_type eid) {
-      auto [u, v] = pl_get_edge_uv_labels(eid);
+      auto [u, v] = pl_get_edge_uv_locators(eid);
       bool is_directed = pl_edge_is_directed(eid);
       auto adj_inserter =
-        [](const std::string&                                ccid,
-           std::pair<std::string, std::vector<std::string>>& adj,
-           const std::string&                                vert) {
+        [](const node_locator                                  ccid,
+           std::pair<node_locator, std::vector<node_locator>>& adj,
+           const node_locator&                                 vert) {
           adj.second.push_back(vert);
           adj.first = ccid;
         };
-      adj_list.async_visit(std::string(u), adj_inserter, std::string(v));
+      adj_list.async_visit(u, adj_inserter, v);
       if (!is_directed) {
-        adj_list.async_visit(std::string(v), adj_inserter, std::string(u));
+        adj_list.async_visit(v, adj_inserter, u);
       }
     },
     where);
@@ -70,32 +70,32 @@ result<> metall_graph::connected_components(const series_name&  out_name,
     priv_for_all_nodes_nwhere(
       [&](local_node_idx_type nid) {
         // Do something with each node
-        auto nlb = pl_get_node_label(nid);
+        auto nloc = make_node_locator(m_comm.rank(), nid);
         adj_list.async_visit(
-          std::string(nlb),
-          [](const std::string&                                ccid,
-             std::pair<std::string, std::vector<std::string>>& adj) {
+          nloc, [](const node_locator&                                 ccid,
+                   std::pair<node_locator, std::vector<node_locator>>& adj) {
             adj.first = ccid;
           });
       },
       where);
   }
 
-  adj_list.for_all([&](const std::string&                                v,
-                       std::pair<std::string, std::vector<std::string>>& adj) {
-    adj.first = v;
-    for (const auto& n : adj.second) {
-      adj.first = std::min(adj.first, n);
-    }
-  });
+  adj_list.for_all(
+    [&](const node_locator&                                 v,
+        std::pair<node_locator, std::vector<node_locator>>& adj) {
+      adj.first = v;
+      for (const auto& n : adj.second) {
+        adj.first = std::min(adj.first, n);
+      }
+    });
 
   static auto* sp_adj_list = &adj_list;
   m_comm.barrier();
 
   struct cc_visitor {
-    void operator()(const std::string&                                v,
-                    std::pair<std::string, std::vector<std::string>>& adj,
-                    const std::string&                                cc_id) {
+    void operator()(const node_locator&                                 v,
+                    std::pair<node_locator, std::vector<node_locator>>& adj,
+                    const node_locator&                                 cc_id) {
       if (cc_id < adj.first) {
         adj.first = cc_id;
         for (const auto& n : adj.second) {
@@ -105,27 +105,45 @@ result<> metall_graph::connected_components(const series_name&  out_name,
     }
   };
 
-  adj_list.for_all([&](const std::string&                                v,
-                       std::pair<std::string, std::vector<std::string>>& adj) {
-    if (adj.first == v) {
-      for (const auto& n : adj.second) {
-        sp_adj_list->async_visit(n, cc_visitor{}, adj.first);
+  adj_list.for_all(
+    [&](const node_locator&                                 v,
+        std::pair<node_locator, std::vector<node_locator>>& adj) {
+      if (adj.first == v) {
+        for (const auto& n : adj.second) {
+          sp_adj_list->async_visit(n, cc_visitor{}, adj.first);
+        }
       }
-    }
-  });
+    });
 
-  // todo:  fix issue that requires string_view here
-  std::map<std::string, std::string_view> local_cc_map;
+  // // todo:  fix issue that requires string_view here
+  std::map<local_node_idx_type, std::string>         local_cc_map;
+  static std::map<local_node_idx_type, std::string>* sp_local_cc_map = nullptr;
+  sp_local_cc_map = &local_cc_map;
+  static metall_graph* spthis = nullptr;
+  spthis = this;
 
-  adj_list.for_all([&](const std::string&                                v,
-                       std::pair<std::string, std::vector<std::string>>& adj) {
-    adj.second.clear();
-    adj.second.shrink_to_fit();
-    local_cc_map[v] = adj.first;
-  });
+  adj_list.for_all(
+    [&](const node_locator&                                 v,
+        std::pair<node_locator, std::vector<node_locator>>& adj) {
+      adj.second.clear();
+      adj.second.shrink_to_fit();
+      node_locator        ccloc = adj.first;
+      local_node_idx_type nid = local(v);
+      int                 requester = m_comm.rank();
+      auto                fetch_label = [ccloc, nid, requester]() {
+        std::string label(spthis->pl_get_node_label(local(ccloc)));
+        auto        response = [nid](const std::string label) {
+          (*sp_local_cc_map)[nid] = label;
+        };
+        spthis->m_comm.async(requester, response, label);
+      };
+      m_comm.async(owner(ccloc), fetch_label);
+    });
 
-  // no warnings possible here, so just return the result directly.
-  return set_node_column(out_name, local_cc_map);
+  m_comm.barrier();
+
+  // // no warnings possible here, so just return the result directly.
+  return priv_set_node_column_by_idx(out_name, local_cc_map);
 }
 
 }  // namespace metalldata
