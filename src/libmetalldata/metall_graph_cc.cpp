@@ -60,9 +60,8 @@ result<> metall_graph::connected_components(const series_name&  out_name,
           adj.first = ccid;
         };
       adj_list.async_visit(std::string(u), adj_inserter, std::string(v));
-      if (!is_directed) {
-        adj_list.async_visit(std::string(v), adj_inserter, std::string(u));
-      }
+      adj_list.async_visit(std::string(v), adj_inserter, std::string(u));
+
     },
     where);
 
@@ -81,13 +80,14 @@ result<> metall_graph::connected_components(const series_name&  out_name,
       where);
   }
 
-  adj_list.for_all([&](const std::string&                                v,
-                       std::pair<std::string, std::vector<std::string>>& adj) {
-    adj.first = v;
-    for (const auto& n : adj.second) {
-      adj.first = std::min(adj.first, n);
-    }
-  });
+  // adj_list.for_all([&](const std::string&                                v,
+  //                      std::pair<std::string, std::vector<std::string>>& adj)
+  //                      {
+  //   adj.first = v;
+  //   for (const auto& n : adj.second) {
+  //     adj.first = std::min(adj.first, n);
+  //   }
+  // });
 
   static auto* sp_adj_list = &adj_list;
   m_comm.barrier();
