@@ -61,10 +61,8 @@ result<> metall_graph::connected_components(const series_name&  out_name,
         };
       adj_list.async_visit(std::string(u), adj_inserter, std::string(v));
       adj_list.async_visit(std::string(v), adj_inserter, std::string(u));
-
     },
     where);
-
   if (where.is_node_clause()) {
     priv_for_all_nodes_nwhere(
       [&](local_node_idx_type nid) {
@@ -113,7 +111,7 @@ result<> metall_graph::connected_components(const series_name&  out_name,
       }
     }
   });
-
+  m_comm.barrier();
   // todo:  fix issue that requires string_view here
   std::map<std::string, std::string_view> local_cc_map;
 
@@ -123,7 +121,6 @@ result<> metall_graph::connected_components(const series_name&  out_name,
     adj.second.shrink_to_fit();
     local_cc_map[v] = adj.first;
   });
-
   // no warnings possible here, so just return the result directly.
   return set_node_column(out_name, local_cc_map);
 }
