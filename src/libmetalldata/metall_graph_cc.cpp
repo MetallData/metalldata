@@ -19,7 +19,6 @@
 #include <ygm/io/parquet_parser.hpp>
 
 #include <metalldata/metall_graph.hpp>
-// #include <metall_jl/metall_jl.hpp>
 #include <fcntl.h>
 
 #include <boost/graph/graph_traits.hpp>
