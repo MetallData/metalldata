@@ -60,12 +60,9 @@ result<> metall_graph::connected_components(const series_name&  out_name,
           adj.first = ccid;
         };
       adj_list.async_visit(std::string(u), adj_inserter, std::string(v));
-      if (!is_directed) {
-        adj_list.async_visit(std::string(v), adj_inserter, std::string(u));
-      }
+      adj_list.async_visit(std::string(v), adj_inserter, std::string(u));
     },
     where);
-
   if (where.is_node_clause()) {
     priv_for_all_nodes_nwhere(
       [&](local_node_idx_type nid) {
@@ -80,14 +77,6 @@ result<> metall_graph::connected_components(const series_name&  out_name,
       },
       where);
   }
-
-  adj_list.for_all([&](const std::string&                                v,
-                       std::pair<std::string, std::vector<std::string>>& adj) {
-    adj.first = v;
-    for (const auto& n : adj.second) {
-      adj.first = std::min(adj.first, n);
-    }
-  });
 
   static auto* sp_adj_list = &adj_list;
   m_comm.barrier();
@@ -107,13 +96,18 @@ result<> metall_graph::connected_components(const series_name&  out_name,
 
   adj_list.for_all([&](const std::string&                                v,
                        std::pair<std::string, std::vector<std::string>>& adj) {
-    if (adj.first == v) {
+    auto min_id = v;
+    for (const auto& n : adj.second) {
+      min_id = std::min(min_id, n);
+    }
+
+    if (min_id == v) {
       for (const auto& n : adj.second) {
-        sp_adj_list->async_visit(n, cc_visitor{}, adj.first);
+        sp_adj_list->async_visit(n, cc_visitor{}, v);
       }
     }
   });
-
+  m_comm.barrier();
   // todo:  fix issue that requires string_view here
   std::map<std::string, std::string_view> local_cc_map;
 
@@ -123,7 +117,6 @@ result<> metall_graph::connected_components(const series_name&  out_name,
     adj.second.shrink_to_fit();
     local_cc_map[v] = adj.first;
   });
-
   // no warnings possible here, so just return the result directly.
   return set_node_column(out_name, local_cc_map);
 }
