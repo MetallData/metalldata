@@ -85,11 +85,7 @@ result<> metall_graph::connected_components(const series_name&  out_name,
     void operator()(const std::string&                                v,
                     std::pair<std::string, std::vector<std::string>>& adj,
                     const std::string&                                cc_id) {
-      auto min_id = adj.first;
-      for (const auto& n : adj.second) {
-        min_id = std::min(min_id, n);
-      }
-      if (adj.first == min_id) {
+      if (cc_id < adj.first) {
         adj.first = cc_id;
         for (const auto& n : adj.second) {
           sp_adj_list->async_visit(n, cc_visitor{}, cc_id);
@@ -100,9 +96,14 @@ result<> metall_graph::connected_components(const series_name&  out_name,
 
   adj_list.for_all([&](const std::string&                                v,
                        std::pair<std::string, std::vector<std::string>>& adj) {
-    if (adj.first == v) {
+    auto min_id = v;
+    for (const auto& n : adj.second) {
+      min_id = std::min(min_id, n);
+    }
+
+    if (min_id == v) {
       for (const auto& n : adj.second) {
-        sp_adj_list->async_visit(n, cc_visitor{}, adj.first);
+        sp_adj_list->async_visit(n, cc_visitor{}, v);
       }
     }
   });
