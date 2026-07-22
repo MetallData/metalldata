@@ -176,16 +176,6 @@ class metall_graph {
   std::map<metall_graph::data_types, size_t> value_counts_topk(
     metall_graph::series_name sname, int k, const where_clause& where);
 
-  // TODO:  Remove this, used by select...  See:  impl/metall_graph_series.ipp
-  template <typename Fn>
-  void visit_node_field(const series_name& name, size_t record_id,
-                        Fn func) const;
-
-  // TODO:  Remove this, used by select...  See:  impl/metall_graph_series.ipp
-  template <typename Fn>
-  void visit_edge_field(const series_name& name, size_t record_id,
-                        Fn func) const;
-
   result<ygm::container::bag<std::vector<metall_graph::data_types>>>
   select_edges(const std::vector<metall_graph::series_name>& series_set,
                size_t limit, const metall_graph::where_clause& where);
