@@ -33,20 +33,4 @@ bool metall_graph::add_series(
   return false;
 }
 
-// TODO:  Remove this, used by select...
-template <typename Fn>
-void metall_graph::visit_node_field(const metall_graph::series_name& name,
-                                    size_t record_id, Fn func) const {
-  assert(name.is_node_series());
-  m_pnodes->visit_field(name.unqualified(), record_id, func);
-}
-
-// TODO:  Remove this, used by select...
-template <typename Fn>
-void metall_graph::visit_edge_field(const metall_graph::series_name& name,
-                                    size_t record_id, Fn func) const {
-  assert(name.is_edge_series());
-  m_pedges->visit_field(name.unqualified(), record_id, func);
-}
-
 }  // namespace metalldata
