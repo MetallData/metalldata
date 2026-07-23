@@ -112,9 +112,11 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_node(
   priv_for_all_nodes([&](local_node_idx_type id) { nids.push_back(id); }, where);
 
   // map the series names to indices
+  // TODO: pl_find_node_series is overloaded to take a vector. We
+  // should use that instead.
   std::vector<series_index_type> sids;
   for (const auto &sname : series_names) {
-    auto sid_o = pl_find_node_series(sname.unqualified());
+    auto sid_o = pl_find_node_series(sname);
     if (!sid_o.has_value()) {
       continue;
     }

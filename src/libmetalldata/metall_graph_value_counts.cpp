@@ -43,7 +43,7 @@ metall_graph::value_counts(metall_graph::series_name sname,
       where);
 
   } else {
-    auto sid_o = pl_find_node_series(sname.unqualified());
+    auto sid_o = pl_find_node_series(sname);
     if (!sid_o.has_value()) {
       return counts;
     }
