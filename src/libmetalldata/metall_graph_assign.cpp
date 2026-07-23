@@ -38,7 +38,7 @@ result<> metall_graph::assign(series_name                       name,
       return std::unexpected("invalid type for value");
     }
 
-    auto name_idx_o = pl_find_edge_series(name.unqualified());
+    auto name_idx_o = pl_find_edge_series(name);
     if (!name_idx_o.has_value()) {
       return std::unexpected(
         std::format("series {} not found", name.qualified()));

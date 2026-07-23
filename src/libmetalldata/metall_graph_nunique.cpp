@@ -27,7 +27,7 @@ std::map<metall_graph::series_name, size_t> metall_graph::nunique_edge(
   // map the series names to indices
   std::vector<edge_series_idx_type> sids;
   for (const auto &sname : series_names) {
-    auto sid_o = pl_find_edge_series(sname.unqualified());
+    auto sid_o = pl_find_edge_series(sname);
     if (!sid_o.has_value()) {
       continue;
     }

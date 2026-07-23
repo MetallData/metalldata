@@ -16,7 +16,7 @@ result<> metall_graph::erase_edges(
   boost::unordered_flat_set<std::string> haystack) {
   result<> to_return;
 
-  auto idx_o = pl_find_edge_series(name.unqualified());
+  auto idx_o = pl_find_edge_series(name);
   if (!idx_o.has_value()) {
     return std::unexpected(
       std::format("series {} not found", name.unqualified()));
