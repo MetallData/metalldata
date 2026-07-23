@@ -114,22 +114,22 @@ result<> metall_graph::connected_components(const series_name&  out_name,
   static metall_graph* spthis = nullptr;
   spthis = this;
 
+  //
+  // convert locators into local_cc_map
   adj_list.for_all(
     [&](const node_locator&                                 v,
         std::pair<node_locator, std::vector<node_locator>>& adj) {
       adj.second.clear();
       adj.second.shrink_to_fit();
-      node_locator        ccloc = adj.first;
-      local_node_idx_type nid = local(v);
-      int                 requester = m_comm.rank();
-      auto                fetch_label = [ccloc, nid, requester]() {
+      node_locator ccloc = adj.first;
+      auto         move_label = [ccloc, v]() {
         std::string label(spthis->pl_get_node_label(local(ccloc)));
-        auto        response = [nid](const std::string label) {
-          (*sp_local_cc_map)[nid] = label;
+        auto        response = [v](const std::string label) {
+          (*sp_local_cc_map)[local(v)] = label;
         };
-        spthis->m_comm.async(requester, response, label);
+        spthis->m_comm.async(owner(v), response, label);
       };
-      m_comm.async(owner(ccloc), fetch_label);
+      m_comm.async(owner(ccloc), move_label);
     });
 
   m_comm.barrier();
