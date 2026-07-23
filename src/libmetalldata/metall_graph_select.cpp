@@ -54,7 +54,7 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_edges(
     if (!s.is_edge_series()) {
       return std::unexpected("all series must be of type edge");
     }
-    auto esidx_o = pl_find_edge_series(s.unqualified());
+    auto esidx_o = pl_find_edge_series(s);
     if (!esidx_o.has_value()) {
       return std::unexpected(std::format("series {} not found", s.qualified()));
     }
@@ -103,7 +103,7 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_nodes(
     if (!s.is_node_series()) {
       return std::unexpected("all series must be of type node");
     }
-    auto nsidx_o = pl_find_node_series(s.unqualified());
+    auto nsidx_o = pl_find_node_series(s);
     if (!nsidx_o.has_value()) {
       return std::unexpected(std::format("series {} not found", s.qualified()));
     }
