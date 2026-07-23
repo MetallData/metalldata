@@ -106,6 +106,15 @@ std::optional<metall_graph::series_types> metall_graph::pl_get_node_field(
                                std::to_underlying(nid));
 }
 
+std::optional<metall_graph::node_series_idx_type>
+metall_graph::pl_find_node_series(series_name name) const {
+  auto ret = m_pnodes->find_series(name.unqualified());
+  if (ret.has_value()) {
+    return node_series_idx_type{static_cast<node_series_idx_type>(ret.value())};
+  }
+  return std::nullopt;
+}
+
 std::vector<std::optional<metall_graph::node_series_idx_type>>
 metall_graph::pl_find_node_series(
   const std::vector<metall_graph::series_name>& names) const {
@@ -113,7 +122,7 @@ metall_graph::pl_find_node_series(
   ret.reserve(names.size());
 
   for (const auto& n : names) {
-    ret.emplace_back(pl_find_node_series(n.unqualified()));
+    ret.emplace_back(pl_find_node_series(n));
   }
   return ret;
 }
@@ -159,8 +168,8 @@ std::vector<metall_graph::series_name> metall_graph::get_edge_series_names()
 };
 
 std::optional<metall_graph::edge_series_idx_type>
-metall_graph::pl_find_edge_series(std::string_view name) const {
-  auto ret = m_pedges->find_series(name);
+metall_graph::pl_find_edge_series(series_name name) const {
+  auto ret = m_pedges->find_series(name.unqualified());
   if (ret.has_value()) {
     return edge_series_idx_type{static_cast<edge_series_idx_type>(ret.value())};
   }
@@ -174,7 +183,7 @@ metall_graph::pl_find_edge_series(
   ret.reserve(names.size());
 
   for (const auto& n : names) {
-    ret.emplace_back(pl_find_edge_series(n.unqualified()));
+    ret.emplace_back(pl_find_edge_series(n));
   }
 
   return ret;

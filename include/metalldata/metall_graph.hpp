@@ -367,21 +367,13 @@ class metall_graph {
   }
 
   std::optional<node_series_idx_type> pl_find_node_series(
-    std::string_view name) const {
-    auto ret = m_pnodes->find_series(name);
-    if (ret.has_value()) {
-      return node_series_idx_type{
-        static_cast<node_series_idx_type>(ret.value())};
-    }
-    return std::nullopt;
-  }
+    series_name name) const;
 
   std::vector<std::optional<node_series_idx_type>> pl_find_node_series(
     const std::vector<series_name>& names) const;
 
-  // TODO: this should probably take a series_name as an argument.
   std::optional<edge_series_idx_type> pl_find_edge_series(
-    std::string_view name) const;
+    series_name name) const;
 
   std::vector<std::optional<edge_series_idx_type>> pl_find_edge_series(
     const std::vector<series_name>& names) const;
