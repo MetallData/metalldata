@@ -107,7 +107,6 @@ result<> metall_graph::connected_components(const series_name&  out_name,
       }
     });
 
-  // // todo:  fix issue that requires string_view here
   std::map<local_node_idx_type, std::string>         local_cc_map;
   static std::map<local_node_idx_type, std::string>* sp_local_cc_map = nullptr;
   sp_local_cc_map = &local_cc_map;
