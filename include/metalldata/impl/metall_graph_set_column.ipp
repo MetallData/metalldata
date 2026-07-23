@@ -1,5 +1,7 @@
 #pragma once
 #include <metalldata/metall_graph.hpp>
+#include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
@@ -37,10 +39,19 @@ result<> metall_graph::priv_set_node_column_by_idx(
 
   result<> to_return;
   // create series
-  auto ser_idx = priv_add_node_series<val_type>(col_name.unqualified());
+  node_series_idx_type ser_idx;
+  if constexpr (std::is_same_v<val_type, std::string>) {
+    ser_idx = priv_add_node_series<std::string_view>(col_name.unqualified());
+  } else {
+    ser_idx = priv_add_node_series<val_type>(col_name.unqualified());
+  }
 
   for (const auto& [nid, value] : collection) {
-    pl_set_node_field(ser_idx, nid, value);
+    if constexpr (std::is_same_v<val_type, std::string>) {
+      pl_set_node_field(ser_idx, nid, std::string_view(value));
+    } else {
+      pl_set_node_field(ser_idx, nid, value);
+    }
   }
 
   return to_return;
