@@ -146,7 +146,7 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
       std::format("did not find v column: {}", std::string(col_v)));
   }
 
-  if (!has_edge_series(series_name::DIR_COL)) {
+  if (!has_series(series_name::DIR_COL)) {
     if (!add_series<bool>(series_name::DIR_COL)) {
       return std::unexpected("could not add directed column");
     }
