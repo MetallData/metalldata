@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
 
     // Remove the "edge.color" series if it exists
     series_name name("edge.color");
-    if (graph.has_edge_series(name)) {
+    if (graph.has_series(name)) {
       world.cout0("Removing existing series: ", name.qualified());
       if (!graph.drop_series(name)) {
         world.cerr0("Error: Failed to remove series ", name.qualified());

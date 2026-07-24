@@ -17,7 +17,7 @@ result<> metall_graph::add_faker_series(const metall_graph::series_name& name,
                 "Invalid type for data; cannot proceed");
 
   if (name.is_edge_series()) {
-    if (has_edge_series(name)) {
+    if (has_series(name)) {
       return std::unexpected(
         std::format("edge series {} already exists", name.qualified()));
     }
@@ -30,7 +30,7 @@ result<> metall_graph::add_faker_series(const metall_graph::series_name& name,
       },
       where);
   } else if (name.is_node_series()) {
-    if (has_node_series(name)) {
+    if (has_series(name)) {
       return std::unexpected(
         std::format("node series {} already exists", name.qualified()));
     }

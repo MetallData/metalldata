@@ -139,10 +139,6 @@ class metall_graph {
   result<> rename_series(const series_name& old_name,
                          const series_name& new_name);
 
-  bool has_node_series(const series_name& name) const;
-
-  bool has_edge_series(const series_name& name) const;
-
   bool has_series(const series_name& name) const;
 
   std::vector<series_name> get_node_series_names() const;
