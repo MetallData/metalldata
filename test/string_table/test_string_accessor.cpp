@@ -1,7 +1,7 @@
-// Copyright 2024 Lawrence Livermore National Security, LLC and other Metall
+// Copyright Lawrence Livermore National Security, LLC and other MetallData
 // Project Developers. See the top-level COPYRIGHT file for details.
 //
-// SPDX-License-Identifier: (Apache-2.0 OR MIT)
+// SPDX-License-Identifier: MIT
 
 #include <gtest/gtest.h>
 

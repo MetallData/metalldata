@@ -1,3 +1,8 @@
+# Copyright Lawrence Livermore National Security, LLC and other MetallData
+# Project Developers. See the top-level COPYRIGHT file for details.
+#
+# SPDX-License-Identifier: MIT
+
 import pytest
 from clippy import MetallGraph  # type: ignore
 from conftest import DATA_DIR, is_as_described, is_as_selected

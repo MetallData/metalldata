@@ -1,3 +1,8 @@
+# Copyright Lawrence Livermore National Security, LLC and other MetallData
+# Project Developers. See the top-level COPYRIGHT file for details.
+#
+# SPDX-License-Identifier: MIT
+
 cmake_minimum_required(VERSION 3.20)
 
 # pq2mg executable
