@@ -139,12 +139,7 @@ class metall_graph {
   result<> rename_series(const series_name& old_name,
                          const series_name& new_name);
 
-  // has_node_series requires an UNqualified (stripped) selector name.
-  bool has_node_series(std::string_view unqualified_name) const;
-
   bool has_node_series(const series_name& name) const;
-
-  bool has_edge_series(std::string_view unqualified_name) const;
 
   bool has_edge_series(const series_name& name) const;
 

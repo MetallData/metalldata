@@ -132,14 +132,6 @@ bool metall_graph::has_node_series(
   return name.is_node_series() && m_pnodes->contains_series(name.unqualified());
 }
 
-bool metall_graph::has_node_series(std::string_view unqualified_name) const {
-  return m_pnodes->contains_series(unqualified_name);
-};
-
-bool metall_graph::has_edge_series(std::string_view unqualified_name) const {
-  return m_pedges->contains_series(unqualified_name);
-};
-
 bool metall_graph::has_edge_series(
   const metall_graph::series_name& name) const {
   return name.is_edge_series() && m_pedges->contains_series(name.unqualified());
