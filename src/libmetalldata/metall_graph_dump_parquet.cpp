@@ -1,3 +1,8 @@
+// Copyright Lawrence Livermore National Security, LLC and other MetallData
+// Project Developers. See the top-level COPYRIGHT file for details.
+//
+// SPDX-License-Identifier: MIT
+
 #include <metalldata/metall_graph.hpp>
 #include <parquet_writer/parquet_writer.hpp>
 #include <format>

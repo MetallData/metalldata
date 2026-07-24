@@ -1,3 +1,8 @@
+# Copyright Lawrence Livermore National Security, LLC and other MetallData
+# Project Developers. See the top-level COPYRIGHT file for details.
+#
+# SPDX-License-Identifier: MIT
+
 def test_mg_value_counts_edge(metallgraph):
     results = metallgraph.value_counts(metallgraph.edge.graphnum, k=100)
     assert len(results) == 4
