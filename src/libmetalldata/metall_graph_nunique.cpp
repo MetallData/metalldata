@@ -1,7 +1,8 @@
-// Copyright 2026 Lawrence Livermore National Security, LLC and other CLIPPy
+// Copyright Lawrence Livermore National Security, LLC and other MetallData
 // Project Developers. See the top-level COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: MIT
+
 #include <ygm/comm.hpp>
 #include <ygm/io/parquet_parser.hpp>
 #include <ygm/container/counting_set.hpp>

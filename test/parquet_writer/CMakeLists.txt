@@ -1,3 +1,8 @@
+# Copyright Lawrence Livermore National Security, LLC and other MetallData
+# Project Developers. See the top-level COPYRIGHT file for details.
+#
+# SPDX-License-Identifier: MIT
+
 # Add test executable
 add_metalldata_executable(test_parquet_writer test_parquet_writer.cpp)
 setup_metall_target(test_parquet_writer)

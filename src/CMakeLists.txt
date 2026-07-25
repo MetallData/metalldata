@@ -1,4 +1,4 @@
-# Copyright 2025 Lawrence Livermore National Security, LLC and other CLIPPy
+# Copyright Lawrence Livermore National Security, LLC and other MetallData
 # Project Developers. See the top-level COPYRIGHT file for details.
 #
 # SPDX-License-Identifier: MIT
