@@ -107,6 +107,6 @@ result<> metall_graph::nhops(const series_name& out_name, size_t nhops,
     ++cur_level_dist;
   }
 
-  return set_node_column(out_name, local_nhop_map);
+  return priv_set_node_series(out_name, local_nhop_map);
 }
 }  // namespace metalldata
