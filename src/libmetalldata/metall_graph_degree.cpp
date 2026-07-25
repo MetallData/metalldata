@@ -122,7 +122,7 @@ result<> metall_graph::priv_in_out_degree(
   // }
 
   m_comm.barrier();
-  return set_node_column(name, degrees);
+  return priv_set_node_series(name, degrees);
 }
 
 result<> metall_graph::degrees(series_name in_name, series_name out_name,
@@ -190,7 +190,7 @@ result<> metall_graph::degrees(series_name in_name, series_name out_name,
   // explicit here.
   m_comm.barrier();
 
-  // TODO: we want to abstract this to set_node_column because this is a
+  // TODO: we want to abstract this to priv_set_node_series because this is a
   // common operation. Make this a private function inside metall_graph.
 
   // create a node_local map of record id to node value.
@@ -209,8 +209,8 @@ result<> metall_graph::degrees(series_name in_name, series_name out_name,
   // because it uses the same partitioning scheme as we used when we added the
   // nodes in ingest.
 
-  auto to_return = set_node_column(in_name, indegrees);
-  auto to_return2 = set_node_column(out_name, outdegrees);
+  auto to_return = priv_set_node_series(in_name, indegrees);
+  auto to_return2 = priv_set_node_series(out_name, outdegrees);
   to_return.merge_warnings(to_return2);
 
   return to_return;
@@ -269,9 +269,9 @@ result<> metall_graph::degrees2(series_name in_name, series_name out_name,
                                                     indegrees.end()};
   std::map<std::string, int64_t> local_outdeg_i64 = {indegrees.begin(),
                                                      indegrees.end()};
-  auto to_return = set_node_column(in_name, local_indeg_i64);
+  auto to_return = priv_set_node_series(in_name, local_indeg_i64);
 
-  auto to_return2 = set_node_column(out_name, local_outdeg_i64);
+  auto to_return2 = priv_set_node_series(out_name, local_outdeg_i64);
 
   to_return.merge_warnings(to_return2);
 

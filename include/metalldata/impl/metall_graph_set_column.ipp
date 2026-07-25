@@ -74,7 +74,7 @@ result<> metall_graph::priv_set_node_column_by_idx(
 // TODO: memoize / persist the node_to_id map so that we're not building it
 // every time.
 template <typename T>
-metalldata::result<> metall_graph::set_node_column(
+metalldata::result<> metall_graph::priv_set_node_series(
   const series_name& nodecol_name, const T& collection) {
   result<> to_return;
 

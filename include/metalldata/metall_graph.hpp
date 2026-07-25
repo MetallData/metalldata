@@ -434,8 +434,8 @@ class metall_graph {
   // TODO: memoize / persist the node_to_id map so that we're not building it
   // every time.
   template <typename T>
-  result<> set_node_column(const series_name& nodecol_name,
-                           const T&           collection);
+  result<> priv_set_node_series(const series_name& nodecol_name,
+                                const T&           collection);
 
   /**
    * @brief Retrieves without inserting node string label into reverse lookup.
