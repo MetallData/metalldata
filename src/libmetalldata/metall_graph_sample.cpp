@@ -12,7 +12,7 @@ using metadata_t = std::vector<metall_graph::data_types>;
 result<> metall_graph::sample_edges(
   const metall_graph::series_name& series_name, size_t k,
   std::optional<uint64_t> optseed, const metall_graph::where_clause& where) {
-  if (has_edge_series(series_name)) {
+  if (has_series(series_name)) {
     return std::unexpected(
       std::format("series {} already exists", series_name.qualified()));
   }
@@ -92,7 +92,7 @@ result<ygm::container::bag<metadata_t>> metall_graph::select_sample_edges(
 result<> metall_graph::sample_nodes(
   const metall_graph::series_name& series_name, size_t k,
   std::optional<uint64_t> optseed, const metall_graph::where_clause& where) {
-  if (has_node_series(series_name)) {
+  if (has_series(series_name)) {
     return std::unexpected(
       std::format("Series {} already exists", series_name.qualified()));
   }

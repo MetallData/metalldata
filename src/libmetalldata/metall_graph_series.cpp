@@ -127,18 +127,16 @@ metall_graph::pl_find_node_series(
   return ret;
 }
 
-bool metall_graph::has_node_series(
-  const metall_graph::series_name& name) const {
-  return name.is_node_series() && m_pnodes->contains_series(name.unqualified());
-}
-
-bool metall_graph::has_edge_series(
-  const metall_graph::series_name& name) const {
-  return name.is_edge_series() && m_pedges->contains_series(name.unqualified());
-}
-
 bool metall_graph::has_series(const metall_graph::series_name& name) const {
-  return has_edge_series(name) || has_node_series(name);
+  if (name.is_edge_series()) {
+    return m_pedges->contains_series(name.unqualified());
+  }
+
+  if (name.is_node_series()) {
+    return m_pnodes->contains_series(name.unqualified());
+  }
+
+  return false;
 }
 
 std::vector<metall_graph::series_name> metall_graph::get_node_series_names()

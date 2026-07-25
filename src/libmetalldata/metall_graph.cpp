@@ -92,10 +92,10 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
   }
 
   ///\todo Instead of hard crashing, need a nicer fail, maybe .good() method
-  YGM_ASSERT_RELEASE(has_node_series(series_name::NODE_COL));
-  YGM_ASSERT_RELEASE(has_edge_series(series_name::U_COL));
-  YGM_ASSERT_RELEASE(has_edge_series(series_name::V_COL));
-  YGM_ASSERT_RELEASE(has_edge_series(series_name::DIR_COL));
+  YGM_ASSERT_RELEASE(has_series(series_name::NODE_COL));
+  YGM_ASSERT_RELEASE(has_series(series_name::U_COL));
+  YGM_ASSERT_RELEASE(has_series(series_name::V_COL));
+  YGM_ASSERT_RELEASE(has_series(series_name::DIR_COL));
 
   //
   // Find required column names
