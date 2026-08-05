@@ -41,7 +41,6 @@ result<> metall_graph::connected_components(const series_name&  out_name,
       std::format("Series {} already exists", out_name.qualified()));
   }
 
-  // TODO: convert to (rank, node row id) tuples.
   ygm::container::map<node_locator,
                       std::pair<node_locator, std::vector<node_locator>>>
     adj_list(m_comm);
@@ -105,31 +104,55 @@ result<> metall_graph::connected_components(const series_name&  out_name,
         }
       }
     });
-
-  std::map<local_node_idx_type, std::string>         local_cc_map;
-  static std::map<local_node_idx_type, std::string>* sp_local_cc_map = nullptr;
-  sp_local_cc_map = &local_cc_map;
-  static metall_graph* spthis = nullptr;
-  spthis = this;
+  m_comm.barrier();
 
   //
-  // convert locators into local_cc_map
+  // Gather the connected component locators needed by this rank
+  std::set<node_locator> cc_locators_i_need;
   adj_list.for_all(
     [&](const node_locator&                                 v,
         std::pair<node_locator, std::vector<node_locator>>& adj) {
       adj.second.clear();
       adj.second.shrink_to_fit();
-      node_locator ccloc = adj.first;
-      auto         move_label = [ccloc, v]() {
-        std::string label(spthis->pl_get_node_label(local(ccloc)));
-        auto        response = [v](const std::string label) {
-          (*sp_local_cc_map)[local(v)] = label;
-        };
-        spthis->m_comm.async(owner(v), response, label);
-      };
-      m_comm.async(owner(ccloc), move_label);
+      cc_locators_i_need.insert(adj.first);
     });
 
+  //
+  // Convert the connected component locators into string labels
+  std::map<node_locator, std::string>         cc_labels;
+  static std::map<node_locator, std::string>* sp_cc_labels = nullptr;
+  sp_cc_labels = &cc_labels;
+  static metall_graph* spthis = nullptr;
+  spthis = this;
+  m_comm.barrier();
+  for (const auto& ccloc : cc_locators_i_need) {
+    auto move_label = [ccloc](int requesting_rank) {
+      std::string label(spthis->pl_get_node_label(local(ccloc)));
+      auto        response = [ccloc](const std::string label) {
+        (*sp_cc_labels)[ccloc] = label;
+      };
+      spthis->m_comm.async(requesting_rank, response, label);
+    };
+    m_comm.async(owner(ccloc), move_label, m_comm.rank());
+  }
+
+  //
+  // Build final cc map from local node id to connected component label
+  std::map<local_node_idx_type, std::string>         local_cc_map;
+  static std::map<local_node_idx_type, std::string>* sp_local_cc_map = nullptr;
+  sp_local_cc_map = &local_cc_map;
+  m_comm.barrier();
+  adj_list.for_all(
+    [&](const node_locator&                                 v,
+        std::pair<node_locator, std::vector<node_locator>>& adj) {
+      std::string cc_label = cc_labels.at(adj.first);
+      m_comm.async(
+        owner(v),
+        [](local_node_idx_type nid, std::string cc_label) {
+          (*sp_local_cc_map)[nid] = cc_label;
+        },
+        local(v), cc_label);
+    });
   m_comm.barrier();
 
   // // no warnings possible here, so just return the result directly.
