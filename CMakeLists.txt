@@ -27,6 +27,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(METALLDATA_FIND_PARQUET_IN_SYSTEM "Find Arrow Parquet installed in the system." ON)
 option(METALLDATA_INSTALL_PARQUET "Installs Arrow Parquet. If METALLDATA_FIND_PARQUET_IN_SYSTEM is also ON, this option is executed only if Arrow Parquet is not found in the system." ON)
 set(METALLDATA_PYTHON_VENV_ROOT CACHE PATH "Path to a Python virtual environment root. If set, MetallData will use this virtual environment for Python dependencies.")
+option(BUILD_ONLY_LIBMETALLDATA "Build only the MetallData library." OFF)
 
 #
 # FetchContent dependencies that can be overridden on the command line.
