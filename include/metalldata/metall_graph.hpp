@@ -230,6 +230,7 @@ class metall_graph {
     std::equal_to<compact_string::string_accessor>,
     metall::manager::allocator_type<
       std::pair<const compact_string::string_accessor, node_locator>>>;
+  const static size_t map_node_to_locator_bucket_count = 1024;
 
   std::string m_metall_path;  ///< Path to underlying metall storage
   ygm::comm&  m_comm;         ///< YGM Comm
