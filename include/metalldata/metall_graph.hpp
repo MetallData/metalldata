@@ -508,6 +508,9 @@ class metall_graph {
   /// Forward declared friend for testing internal state
   friend class metall_graph_test;
 
+  /// Forward declared friend for extenions
+  friend class metall_graph_extension;
+
 };  // class metall_graph
 
 }  // namespace metalldata
