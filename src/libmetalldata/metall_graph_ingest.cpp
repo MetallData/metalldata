@@ -175,6 +175,7 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
       }
 
       auto rec = m_pedges->add_record();
+      ++local_nedges;
       // first, set the directedness.
       pl_set_edge_field(m_dir_col_idx, local_edge_idx_type{rec}, directed);
       for (size_t i = 0; i < parquet_cols.size(); ++i) {
@@ -191,8 +192,6 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
         // memoization since we use this a few times.
         bool is_u_or_v = (metall_ser == series_name::U_COL ||
                           metall_ser == series_name::V_COL);
-        // an edge is invalid if we have a type coercion problem
-        bool                             invalid_edge = false;
         std::optional<series_index_type> metall_ser_idx_o =
           m_pedges->find_series(metall_ser.unqualified());
         if (!metall_ser_idx_o.has_value()) {
@@ -214,7 +213,6 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
             // if monostate, just skip and log.
             if constexpr (std::is_same_v<T, std::monostate>) {
               to_return.add_warning(uv_invalid);
-              invalid_edge = true;
             } else {
               try {
                 // first, stringify.
@@ -227,13 +225,9 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
 
                 // next, add to the distributed nodeset.
                 pasync_insert_node(stringified_val);
-
-                // finally, increase local_n_edges
-                ++local_nedges;
               } catch (const std::exception) {
                 // something went wrong with the try block. Skip.
                 to_return.add_warning(uv_invalid);
-                invalid_edge = true;
               }
             }
           } else {  // not u column or v column; these can be any type.
@@ -253,7 +247,6 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
               m_pedges->set(metall_ser_idx, rec, val);
             };
           };
-          if (!invalid_edge) ++local_nedges;
         };
         std::visit(add_val, parquet_val);
       }  // for loop
@@ -272,6 +265,226 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
   std::string_view col_v, bool directed) {
   return ingest_parquet_edges(path, recursive, col_u, col_v, directed,
                               std::nullopt);
+}
+
+result<std::map<std::string, size_t>> metall_graph::ingest_parquet_nodes(
+  std::string_view path, bool recursive, std::string_view col_node,
+  bool add_new, const std::optional<std::vector<series_name>>& meta) {
+  result<std::map<std::string, size_t>> to_return;
+
+  std::vector<std::string> paths{std::string(path)};
+  ygm::io::parquet_parser  parquetp(m_comm, paths, recursive);
+  const auto&              schema = parquetp.get_schema();
+
+  std::vector<std::string> parquet_cols;
+  parquet_cols.reserve(schema.size());
+  for (const auto& field : schema) {
+    parquet_cols.emplace_back(field.name);
+  }
+
+  std::set<series_name> metaset;
+  if (meta.has_value()) {
+    metaset.insert(meta->begin(), meta->end());
+  } else {
+    for (const auto& col : parquet_cols) {
+      if (col != col_node) {
+        metaset.emplace("node", col);
+      }
+    }
+  }
+
+  for (const auto& name : metaset) {
+    if (!name.is_node_series()) {
+      return std::unexpected(std::format(
+        "node metadata series must use the node prefix: {}",
+        name.qualified()));
+    }
+    if (name.is_reserved()) {
+      return std::unexpected(
+        std::format("reserved name {} found in metadata", name.qualified()));
+    }
+  }
+
+  std::optional<size_t> node_col_idx;
+  std::vector<std::optional<node_series_idx_type>> metadata_indices(
+    schema.size());
+
+  for (size_t i = 0; i < schema.size(); ++i) {
+    const std::string& pcol_name = schema[i].name;
+    const auto&        pcol_type = schema[i].type;
+
+    if (pcol_name == col_node) {
+      node_col_idx = i;
+      continue;
+    }
+
+    series_name mapped_name{"node", pcol_name};
+    if (!metaset.contains(mapped_name)) {
+      continue;
+    }
+
+    if (!has_series(mapped_name)) {
+      bool add_series_err = false;
+      if (pcol_type.equal(parquet::Type::BOOLEAN)) {
+        add_series_err = !add_series<bool>(mapped_name);
+      } else if (pcol_type.equal(parquet::Type::INT32) ||
+                 pcol_type.equal(parquet::Type::INT64)) {
+        add_series_err = !add_series<int64_t>(mapped_name);
+      } else if (pcol_type.equal(parquet::Type::FLOAT) ||
+                 pcol_type.equal(parquet::Type::DOUBLE)) {
+        add_series_err = !add_series<double>(mapped_name);
+      } else if (pcol_type.equal(parquet::Type::BYTE_ARRAY)) {
+        add_series_err = !add_series<std::string_view>(mapped_name);
+      } else {
+        std::stringstream ss;
+        ss << "Unsupported column type: " << pcol_type;
+        to_return.add_warning(ss.str());
+        continue;
+      }
+
+      if (add_series_err) {
+        return std::unexpected(
+          std::format("failed to add node metadata column: {}", pcol_name));
+      }
+    }
+
+    metadata_indices[i] = pl_find_node_series(mapped_name);
+    YGM_ASSERT_RELEASE(metadata_indices[i].has_value());
+    const auto series_idx = metadata_indices[i].value();
+    const bool compatible_type =
+      (pcol_type.equal(parquet::Type::BOOLEAN) &&
+       priv_is_node_series_type<bool>(series_idx)) ||
+      ((pcol_type.equal(parquet::Type::INT32) ||
+        pcol_type.equal(parquet::Type::INT64)) &&
+       priv_is_node_series_type<int64_t>(series_idx)) ||
+      ((pcol_type.equal(parquet::Type::FLOAT) ||
+        pcol_type.equal(parquet::Type::DOUBLE)) &&
+       priv_is_node_series_type<double>(series_idx)) ||
+      (pcol_type.equal(parquet::Type::BYTE_ARRAY) &&
+       priv_is_node_series_type<std::string_view>(series_idx));
+    if (!compatible_type) {
+      return std::unexpected(std::format(
+        "parquet type for column {} does not match existing series {}",
+        pcol_name, mapped_name.qualified()));
+    }
+  }
+
+  if (!node_col_idx.has_value()) {
+    return std::unexpected(
+      std::format("did not find node column: {}", std::string(col_node)));
+  }
+
+  // These counters have static storage because YGM remote callbacks cannot
+  // capture references to this stack frame. This method is collective, and
+  // the barrier below ensures all callbacks finish before the counters are
+  // read or reused.
+  static size_t local_nodes_ingested = 0;
+  static size_t local_nodes_skipped = 0;
+  static size_t local_new_nodes = 0;
+  local_nodes_ingested = 0;
+  local_nodes_skipped = 0;
+  local_new_nodes = 0;
+
+  parquetp.for_all(
+    parquet_cols,
+    [&](const std::vector<ygm::io::parquet_parser::parquet_type_variant>& row) {
+      const auto& node_val = row[node_col_idx.value()];
+      if (std::holds_alternative<std::monostate>(node_val)) {
+        to_return.add_warning("invalid node value skipped");
+        return;
+      }
+
+      std::string node_label;
+      std::visit(
+        [&](const auto& val) {
+          using T = std::decay_t<decltype(val)>;
+          if constexpr (!std::is_same_v<T, std::monostate>) {
+            node_label = std::format("{}", val);
+          }
+        },
+        node_val);
+
+      std::vector<std::pair<size_t, data_types>> values;
+      for (size_t i = 0; i < row.size(); ++i) {
+        if (!metadata_indices[i].has_value() ||
+            std::holds_alternative<std::monostate>(row[i])) {
+          continue;
+        }
+
+        data_types value;
+        std::visit(
+          [&](const auto& val) {
+            using T = std::decay_t<decltype(val)>;
+            if constexpr (std::is_same_v<T, int> ||
+                          std::is_same_v<T, long>) {
+              value = static_cast<int64_t>(val);
+            } else if constexpr (std::is_same_v<T, float>) {
+              value = static_cast<double>(val);
+            } else if constexpr (std::is_same_v<T, std::string>) {
+              value = val;
+            } else if constexpr (!std::is_same_v<T, std::monostate>) {
+              value = val;
+            }
+          },
+          row[i]);
+        values.emplace_back(
+          std::to_underlying(metadata_indices[i].value()), std::move(value));
+      }
+
+      auto set_metadata = [](ygm_ptr_type pthis, const std::string& label,
+                             bool add_missing,
+                             const std::vector<std::pair<size_t, data_types>>&
+                               metadata_values) {
+        auto node_id = pthis->pl_get_node_id(label);
+        if (!node_id.has_value()) {
+          if (!add_missing) {
+            ++local_nodes_skipped;
+            return;
+          }
+
+          auto [nid, inserted] = pthis->pl_insert_node(label);
+          node_id = nid;
+          local_new_nodes += inserted;
+        }
+
+        for (const auto& [series_idx, value] : metadata_values) {
+          std::visit(
+            [&](const auto& val) {
+              using T = std::decay_t<decltype(val)>;
+              if constexpr (std::is_same_v<T, std::string>) {
+                pthis->pl_set_node_field(node_series_idx_type{series_idx},
+                                         node_id.value(),
+                                         std::string_view{val});
+              } else if constexpr (!std::is_same_v<T, std::monostate>) {
+                pthis->pl_set_node_field(node_series_idx_type{series_idx},
+                                         node_id.value(), val);
+              }
+            },
+            value);
+        }
+        ++local_nodes_ingested;
+      };
+
+      m_comm.async(m_partitioner.owner(node_label), set_metadata, pthis,
+                   node_label, add_new, values);
+    });
+
+  m_comm.barrier();
+  const size_t nodes_skipped = ygm::sum(local_nodes_skipped, m_comm);
+  if (nodes_skipped > 0) {
+    to_return.add_warnings(nodes_skipped,
+                           "nodes not found in graph; metadata skipped");
+  }
+  to_return = std::map<std::string, size_t>{
+    {"num_nodes_ingested", ygm::sum(local_nodes_ingested, m_comm)},
+    {"num_new_nodes_ingested", ygm::sum(local_new_nodes, m_comm)}};
+  return to_return;
+}
+
+result<std::map<std::string, size_t>> metall_graph::ingest_parquet_nodes(
+  std::string_view path, bool recursive, std::string_view col_node,
+  bool add_new) {
+  return ingest_parquet_nodes(path, recursive, col_node, add_new, std::nullopt);
 }
 
 }  // namespace metalldata

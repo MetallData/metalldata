@@ -100,6 +100,17 @@ class metall_graph {
     std::string_view path, bool recursive, std::string_view col_u,
     std::string_view col_v, bool directed);
 
+  // Ingest node metadata from parquet. col_node identifies the node label
+  // column. If add_new is true, labels that are not already in the graph are
+  // inserted as disconnected nodes.
+  result<std::map<std::string, size_t>> ingest_parquet_nodes(
+    std::string_view path, bool recursive, std::string_view col_node,
+    bool add_new, const std::optional<std::vector<series_name>>& meta);
+
+  result<std::map<std::string, size_t>> ingest_parquet_nodes(
+    std::string_view path, bool recursive, std::string_view col_node,
+    bool add_new);
+
   result<std::map<std::string, std::any>> dump_parquet_verts(
     std::string_view path, const std::vector<series_name>& meta,
     bool overwrite);
@@ -447,6 +458,14 @@ class metall_graph {
    */
   std::optional<local_node_idx_type> pl_get_node_id(
     std::string_view label) const;
+
+  /**
+   * @brief Inserts a node on its owning rank if it does not already exist.
+   *
+   * @return The local node id and whether a new node was inserted.
+   */
+  std::pair<local_node_idx_type, bool> pl_insert_node(
+    std::string_view label);
 
   /**
    * @brief Asynchronously inserts a node label into the reverse index & node

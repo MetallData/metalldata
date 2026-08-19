@@ -12,6 +12,7 @@
   - [`dump_parquet_nodes`](#dump_parquet_nodes)
   - [`erase_edges`](#erase_edges)
   - [`ingest_parquet_edges`](#ingest_parquet_edges)
+  - [`ingest_parquet_nodes`](#ingest_parquet_nodes)
   - [`nhops`](#nhops)
   - [`rename_series`](#rename_series)
   - [`sample_edges`](#sample_edges)
@@ -149,6 +150,23 @@ Reads a parquet file of edge data
 | `col_v` | Edge V column name | 2 | *required* |
 | `directed` | True if edges are directed (default true) | keyword | `true` |
 | `metadata` | Column names of additional fields to ingest | keyword | `[]` |
+
+---
+
+### `ingest_parquet_nodes`
+
+Reads node metadata from a parquet file. Rows whose node label is not already
+in the graph are skipped unless `add_new` is true; newly added nodes are
+disconnected.
+
+#### Arguments
+
+| Name | Description | Position | Default |
+|------|-------------|----------|---------|
+| `input_path` | Path to parquet input | 0 | *required* |
+| `col_node` | Node label column name | 1 | *required* |
+| `add_new` | Add unknown labels as disconnected nodes | keyword | `false` |
+| `metadata` | Column names of node metadata fields to ingest | keyword | `[]` |
 
 ---
 
@@ -302,4 +320,3 @@ Removes Metall storage across processors
 Prints YGM's welcome message
 
 ---
-
