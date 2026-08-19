@@ -389,26 +389,20 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_nodes(
     parquet_cols,
     [&](const std::vector<ygm::io::parquet_parser::parquet_type_variant>& row) {
       const auto& node_val = row[node_col_idx.value()];
-      std::string node_label;
-      // we only allow ints and strings as node indices. If int,
-      // we convert to string.
-      if (std::holds_alternative<int>(node_val)) {
-        node_label = std::format("{}", std::get<int>(node_val));
-      } else if (std::holds_alternative<std::string>(node_val)) {
-        node_label = std::get<std::string>(node_val);
-      } else {
+      if (std::holds_alternative<std::monostate>(node_val)) {
         to_return.add_warning("invalid node value skipped");
         return;
       }
 
-      // std::visit(
-      //   [&](const auto& val) {
-      //     using T = std::decay_t<decltype(val)>;
-      //     if constexpr (!std::is_same_v<T, std::monostate>) {
-      //       node_label = std::format("{}", val);
-      //     }
-      //   },
-      //   node_val);
+      std::string node_label;
+      std::visit(
+        [&](const auto& val) {
+          using T = std::decay_t<decltype(val)>;
+          if constexpr (!std::is_same_v<T, std::monostate>) {
+            node_label = std::format("{}", val);
+          }
+        },
+        node_val);
 
       std::vector<std::pair<size_t, data_types>> values;
       for (size_t i = 0; i < row.size(); ++i) {
