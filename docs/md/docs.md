@@ -6,14 +6,18 @@
   - [`__init__`](#__init__)
   - [`add_faker`](#add_faker)
   - [`assign`](#assign)
+  - [`connected_components`](#connected_components)
   - [`describe`](#describe)
   - [`drop_series`](#drop_series)
   - [`dump_parquet_edges`](#dump_parquet_edges)
   - [`dump_parquet_nodes`](#dump_parquet_nodes)
   - [`erase_edges`](#erase_edges)
+  - [`in_degree`](#in_degree)
   - [`ingest_parquet_edges`](#ingest_parquet_edges)
   - [`ingest_parquet_nodes`](#ingest_parquet_nodes)
   - [`nhops`](#nhops)
+  - [`nunique`](#nunique)
+  - [`out_degree`](#out_degree)
   - [`rename_series`](#rename_series)
   - [`sample_edges`](#sample_edges)
   - [`sample_nodes`](#sample_nodes)
@@ -22,7 +26,9 @@
   - [`select_sample_edges`](#select_sample_edges)
   - [`select_sample_nodes`](#select_sample_nodes)
   - [`topk`](#topk)
+  - [`value_counts`](#value_counts)
 - [MetallUtils](#metallutils)
+  - [`copy`](#copy)
   - [`remove`](#remove)
   - [`welcome`](#welcome)
 
@@ -67,6 +73,19 @@ Creates a series and assigns a value based on where clause
 |------|-------------|----------|---------|
 | `series_name` | series name to create | 0 | *required* |
 | `value` | value to set | 1 | *required* |
+| `where` | where clause | keyword | `{}` |
+
+---
+
+### `connected_components`
+
+Computes the connected components of a graph
+
+#### Arguments
+
+| Name | Description | Position | Default |
+|------|-------------|----------|---------|
+| `output` | Output node series name | 0 | *required* |
 | `where` | where clause | keyword | `{}` |
 
 ---
@@ -137,6 +156,19 @@ Erases edges based on where clause or haystack with index series
 
 ---
 
+### `in_degree`
+
+Computes the indegree for all nodes matching an optional where clause
+
+#### Arguments
+
+| Name | Description | Position | Default |
+|------|-------------|----------|---------|
+| `output` | Output node series name | 0 | *required* |
+| `where` | where clause | keyword | `{}` |
+
+---
+
 ### `ingest_parquet_edges`
 
 Reads a parquet file of edge data
@@ -155,9 +187,7 @@ Reads a parquet file of edge data
 
 ### `ingest_parquet_nodes`
 
-Reads node metadata from a parquet file. Rows whose node label is not already
-in the graph are skipped unless `add_new` is true; newly added nodes are
-disconnected.
+Reads node metadata from a parquet file
 
 #### Arguments
 
@@ -165,7 +195,7 @@ disconnected.
 |------|-------------|----------|---------|
 | `input_path` | Path to parquet input | 0 | *required* |
 | `col_node` | Node label column name | 1 | *required* |
-| `add_new` | Add unknown labels as disconnected nodes | keyword | `false` |
+| `add_new` | Add unknown labels as disconnected nodes (default false) | keyword | `false` |
 | `metadata` | Column names of node metadata fields to ingest | keyword | `[]` |
 
 ---
@@ -181,6 +211,32 @@ Computes the nhops from a set of seed nodes
 | `output` | Output node series name | 0 | *required* |
 | `nhops` | Number of hops to compute | 1 | *required* |
 | `seeds` | List of source node ids | 2 | *required* |
+| `where` | where clause | keyword | `{}` |
+
+---
+
+### `nunique`
+
+Returns the number of unique items for each series
+
+#### Arguments
+
+| Name | Description | Position | Default |
+|------|-------------|----------|---------|
+| `series_names` | Series names to include (default: all). All series must be edge series. | keyword | `[]` |
+| `where` | where clause | keyword | `{}` |
+
+---
+
+### `out_degree`
+
+Computes the outdegree for all nodes matching an optional where clause
+
+#### Arguments
+
+| Name | Description | Position | Default |
+|------|-------------|----------|---------|
+| `output` | Output node series name | 0 | *required* |
 | `where` | where clause | keyword | `{}` |
 
 ---
@@ -301,7 +357,34 @@ Returns the top k nodes or edges.
 
 ---
 
+### `value_counts`
+
+Returns the number of times each value appears in a series
+
+#### Arguments
+
+| Name | Description | Position | Default |
+|------|-------------|----------|---------|
+| `series_name` | Series name to use | 0 | *required* |
+| `k` | Restrict to the (top if positive; bottom if negative) k values | keyword | `100` |
+| `where` | where clause | keyword | `{}` |
+
+---
+
 ## MetallUtils
+
+### `copy`
+
+Copies Metall storage across processors
+
+#### Arguments
+
+| Name | Description | Position | Default |
+|------|-------------|----------|---------|
+| `srcpath` | Path to source Metall storage | 0 | *required* |
+| `dstpath` | Path to destination Metall storage | 1 | *required* |
+
+---
 
 ### `remove`
 
@@ -320,3 +403,4 @@ Removes Metall storage across processors
 Prints YGM's welcome message
 
 ---
+
