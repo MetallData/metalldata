@@ -24,8 +24,8 @@
 #include <multiseries/multiseries_record.hpp>
 #include <ygm/container/set.hpp>
 #include <ygm/container/counting_set.hpp>
-#include "metall/tags.hpp"
-#include "ygm/utility/assert.hpp"
+#include <ygm/container/array.hpp>
+#include "boost/unordered/unordered_flat_set.hpp"
 
 namespace metalldata {
 
@@ -107,55 +107,69 @@ result<> metall_graph::connected_components(const series_name&  out_name,
   m_comm.barrier();
 
   //
-  // Gather the connected component locators needed by this rank
-  std::set<node_locator> cc_locators_i_need;
-  adj_list.for_all(
-    [&](const node_locator&                                 v,
-        std::pair<node_locator, std::vector<node_locator>>& adj) {
-      adj.second.clear();
-      adj.second.shrink_to_fit();
-      cc_locators_i_need.insert(adj.first);
-    });
-
-  //
-  // Convert the connected component locators into string labels
-  std::map<node_locator, std::string>         cc_labels;
-  static std::map<node_locator, std::string>* sp_cc_labels = nullptr;
-  sp_cc_labels = &cc_labels;
-  static metall_graph* spthis = nullptr;
-  spthis = this;
-  m_comm.barrier();
-  for (const auto& ccloc : cc_locators_i_need) {
-    auto move_label = [ccloc](int requesting_rank) {
-      std::string label(spthis->pl_get_node_label(local(ccloc)));
-      auto        response = [ccloc](const std::string label) {
-        (*sp_cc_labels)[ccloc] = label;
-      };
-      spthis->m_comm.async(requesting_rank, response, label);
-    };
-    m_comm.async(owner(ccloc), move_label, m_comm.rank());
+  // Count the number of nodes in each connected component
+  ygm::container::counting_set<node_locator> cc_sizes(m_comm);
+  for (auto& adj : adj_list) {
+    adj.second.second.clear();
+    adj.second.second.shrink_to_fit();
+    cc_sizes.async_insert(adj.second.first);
   }
 
   //
-  // Build final cc map from local node id to connected component label
-  std::map<local_node_idx_type, std::string>         local_cc_map;
-  static std::map<local_node_idx_type, std::string>* sp_local_cc_map = nullptr;
+  // Create sorted array of compoents
+  ygm::container::array<std::pair<std::size_t, node_locator>> sorted_cc_sizes(
+    m_comm, std::views::transform(cc_sizes, [](const auto& p) {
+      return std::make_pair(p.second, p.first);
+    }));
+  // becsue array::sort is missing a custom comparator, we will sort the array
+  // of pairs in reverse order
+  sorted_cc_sizes.sort();
+  size_t num_components = sorted_cc_sizes.size();
+
+  //
+  // Create a map from connected component locator to its rank in the sorted
+  // array
+  ygm::container::map<node_locator, std::size_t> cc_index_map(m_comm);
+  for (const auto& [index, cc] : sorted_cc_sizes) {
+    cc_index_map.async_insert(cc.second, num_components - index - 1);
+  }
+  sorted_cc_sizes.clear();
+
+  //
+  // Gather the connected component locators needed by this rank
+  boost::unordered::unordered_flat_set<node_locator> cc_locators_i_need;
+  for (const auto& adj : adj_list) {
+    cc_locators_i_need.insert(adj.second.first);
+  }
+  auto my_cc_locators = cc_index_map.gather_keys<
+    boost::unordered::unordered_flat_map<node_locator, std::size_t>>(
+    cc_locators_i_need);
+  boost::unordered::unordered_flat_set<node_locator>().swap(cc_locators_i_need);
+
+  //
+  // Build output map from node_locator to connected component index
+  ygm::container::map<node_locator, std::size_t> cc_index_map_out(m_comm);
+  for (const auto& adj : adj_list) {
+    cc_index_map_out.async_insert(adj.first,
+                                  my_cc_locators.at(adj.second.first));
+  }
+
+  //
+  // Build final cc map from local node id to connected component index
+  std::map<local_node_idx_type, int64_t>         local_cc_map;
+  static std::map<local_node_idx_type, int64_t>* sp_local_cc_map = nullptr;
   sp_local_cc_map = &local_cc_map;
-  m_comm.barrier();
-  adj_list.for_all(
-    [&](const node_locator&                                 v,
-        std::pair<node_locator, std::vector<node_locator>>& adj) {
-      std::string cc_label = cc_labels.at(adj.first);
-      m_comm.async(
-        owner(v),
-        [](local_node_idx_type nid, std::string cc_label) {
-          (*sp_local_cc_map)[nid] = cc_label;
-        },
-        local(v), cc_label);
-    });
+  for (const auto& [nl, cc_index] : cc_index_map_out) {
+    m_comm.async(
+      owner(nl),
+      [](local_node_idx_type nid, std::size_t cc_index) {
+        (*sp_local_cc_map)[nid] = cc_index;
+      },
+      local(nl), cc_index);
+  }
   m_comm.barrier();
 
-  // // no warnings possible here, so just return the result directly.
+  // no warnings possible here, so just return the result directly.
   return priv_set_node_column_by_idx(out_name, local_cc_map);
 }
 
