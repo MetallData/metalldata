@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <utility>
 #include <variant>
-#include <vector>
+#include <forward_list>
 #include <set>
 #include <map>
 #include <filesystem>
@@ -42,7 +42,7 @@ result<> metall_graph::connected_components(const series_name&  out_name,
   }
 
   ygm::container::map<node_locator,
-                      std::pair<node_locator, std::vector<node_locator>>>
+                      std::pair<node_locator, std::forward_list<node_locator>>>
     adj_list(m_comm);
 
   priv_for_all_edges(
@@ -50,10 +50,10 @@ result<> metall_graph::connected_components(const series_name&  out_name,
       auto [u, v] = pl_get_edge_uv_locators(eid);
       bool is_directed = pl_edge_is_directed(eid);
       auto adj_inserter =
-        [](const node_locator                                  ccid,
-           std::pair<node_locator, std::vector<node_locator>>& adj,
-           const node_locator&                                 vert) {
-          adj.second.push_back(vert);
+        [](const node_locator                                        ccid,
+           std::pair<node_locator, std::forward_list<node_locator>>& adj,
+           const node_locator&                                       vert) {
+          adj.second.push_front(vert);
           adj.first = ccid;
         };
       adj_list.async_visit(u, adj_inserter, v);
@@ -66,8 +66,9 @@ result<> metall_graph::connected_components(const series_name&  out_name,
         // Do something with each node
         auto nloc = make_node_locator(m_comm.rank(), nid);
         adj_list.async_visit(
-          nloc, [](const node_locator&                                 ccid,
-                   std::pair<node_locator, std::vector<node_locator>>& adj) {
+          nloc,
+          [](const node_locator&                                       ccid,
+             std::pair<node_locator, std::forward_list<node_locator>>& adj) {
             adj.first = ccid;
           });
       },
@@ -78,9 +79,10 @@ result<> metall_graph::connected_components(const series_name&  out_name,
   m_comm.barrier();
 
   struct cc_visitor {
-    void operator()(const node_locator&                                 v,
-                    std::pair<node_locator, std::vector<node_locator>>& adj,
-                    const node_locator&                                 cc_id) {
+    void operator()(
+      const node_locator&                                       v,
+      std::pair<node_locator, std::forward_list<node_locator>>& adj,
+      const node_locator&                                       cc_id) {
       if (cc_id < adj.first) {
         adj.first = cc_id;
         for (const auto& n : adj.second) {
@@ -91,8 +93,8 @@ result<> metall_graph::connected_components(const series_name&  out_name,
   };
 
   adj_list.for_all(
-    [&](const node_locator&                                 v,
-        std::pair<node_locator, std::vector<node_locator>>& adj) {
+    [&](const node_locator&                                       v,
+        std::pair<node_locator, std::forward_list<node_locator>>& adj) {
       auto min_id = v;
       for (const auto& n : adj.second) {
         min_id = std::min(min_id, n);
@@ -111,7 +113,6 @@ result<> metall_graph::connected_components(const series_name&  out_name,
   ygm::container::counting_set<node_locator> cc_sizes(m_comm);
   for (auto& adj : adj_list) {
     adj.second.second.clear();
-    adj.second.second.shrink_to_fit();
     cc_sizes.async_insert(adj.second.first);
   }
 
