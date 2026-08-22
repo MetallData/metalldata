@@ -178,6 +178,9 @@ class metall_graph {
   std::map<metall_graph::data_types, size_t> value_counts_topk(
     metall_graph::series_name sname, int k, const where_clause& where);
 
+  ygm::container::counting_set<size_t> value_counts2(
+    metall_graph::series_name sname, const where_clause& where);
+
   result<ygm::container::bag<std::vector<metall_graph::data_types>>>
   select_edges(const std::vector<metall_graph::series_name>& series_set,
                size_t limit, const metall_graph::where_clause& where);
@@ -464,8 +467,7 @@ class metall_graph {
    *
    * @return The local node id and whether a new node was inserted.
    */
-  std::pair<local_node_idx_type, bool> pl_insert_node(
-    std::string_view label);
+  std::pair<local_node_idx_type, bool> pl_insert_node(std::string_view label);
 
   /**
    * @brief Asynchronously inserts a node label into the reverse index & node
