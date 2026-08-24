@@ -53,7 +53,7 @@ set(PRIVATEER_FETCH_GIT
     "https://github.com/LLNL/privateer.git"
     CACHE STRING "GIT to fetch Privateer")
 set(PRIVATEER_FETCH_TAG
-    "main"
+    "feature/auto_deps"
     CACHE STRING "Git tag, branch, or commit to fetch for Privateer")
 set(SPDLOG_FETCH_GIT
     "https://github.com/gabime/spdlog.git"
@@ -142,6 +142,14 @@ FetchContent_Declare(Privateer
     GIT_TAG ${PRIVATEER_FETCH_TAG}
 )
 FetchContent_MakeAvailable(Privateer)
+if (TARGET privateer)
+    get_target_property(_privateer_compile_definitions privateer INTERFACE_COMPILE_DEFINITIONS)
+    if (_privateer_compile_definitions)
+        list(REMOVE_ITEM _privateer_compile_definitions SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
+        set_target_properties(privateer PROPERTIES INTERFACE_COMPILE_DEFINITIONS "${_privateer_compile_definitions}")
+    endif ()
+    target_compile_definitions(privateer PUBLIC SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_OFF)
+endif ()
 set(PRIVATEER_ROOT ${privateer_SOURCE_DIR} CACHE PATH "Path to the fetched Privateer source" FORCE)
 FetchContent_Declare(Metall
         GIT_REPOSITORY ${METALL_FETCH_GIT}
