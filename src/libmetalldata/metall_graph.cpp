@@ -58,7 +58,8 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
     m_pedges = manager.construct<record_store_type>("edges")(
       m_pstring_store, manager.get_allocator());
     m_pnode_to_locator = manager.construct<map_node_to_locator_type>(
-      "globalnodeindex")(manager.get_allocator());
+      "globalnodeindex")[map_node_to_locator_bucket_count](
+      manager.get_allocator());
 
     // add the default series for the indices.
     add_series<std::string_view>(series_name::NODE_COL);
@@ -76,8 +77,9 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
       manager.find<string_store_type>(metall::unique_instance).first;
     m_pnodes = manager.find<record_store_type>("nodes").first;
     m_pedges = manager.find<record_store_type>("edges").first;
-    m_pnode_to_locator =
-      manager.find<map_node_to_locator_type>("globalnodeindex").first;
+    auto gni_ret = manager.find<map_node_to_locator_type>("globalnodeindex");
+    m_pnode_to_locator = gni_ret.first;
+    YGM_ASSERT_RELEASE(gni_ret.second == map_node_to_locator_bucket_count);
 
     if (!m_pnodes || !m_pedges) {
       m_comm.cerr0(

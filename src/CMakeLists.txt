@@ -4,5 +4,7 @@
 # SPDX-License-Identifier: MIT
 
 add_subdirectory(libmetalldata)
-add_subdirectory(clippy)
-add_subdirectory(cli_utils)
+if(NOT BUILD_ONLY_LIBMETALLDATA)
+  add_subdirectory(clippy)
+  add_subdirectory(cli_utils)
+endif()

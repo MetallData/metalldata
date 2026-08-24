@@ -100,6 +100,17 @@ class metall_graph {
     std::string_view path, bool recursive, std::string_view col_u,
     std::string_view col_v, bool directed);
 
+  // Ingest node metadata from parquet. col_node identifies the node label
+  // column. If add_new is true, labels that are not already in the graph are
+  // inserted as disconnected nodes.
+  result<std::map<std::string, size_t>> ingest_parquet_nodes(
+    std::string_view path, bool recursive, std::string_view col_node,
+    bool add_new, const std::optional<std::vector<series_name>>& meta);
+
+  result<std::map<std::string, size_t>> ingest_parquet_nodes(
+    std::string_view path, bool recursive, std::string_view col_node,
+    bool add_new);
+
   result<std::map<std::string, std::any>> dump_parquet_verts(
     std::string_view path, const std::vector<series_name>& meta,
     bool overwrite);
@@ -167,6 +178,9 @@ class metall_graph {
   std::map<metall_graph::data_types, size_t> value_counts_topk(
     metall_graph::series_name sname, int k, const where_clause& where);
 
+  ygm::container::counting_set<size_t> value_counts2(
+    metall_graph::series_name sname, const where_clause& where);
+
   result<ygm::container::bag<std::vector<metall_graph::data_types>>>
   select_edges(const std::vector<metall_graph::series_name>& series_set,
                size_t limit, const metall_graph::where_clause& where);
@@ -230,6 +244,7 @@ class metall_graph {
     std::equal_to<compact_string::string_accessor>,
     metall::manager::allocator_type<
       std::pair<const compact_string::string_accessor, node_locator>>>;
+  const static size_t map_node_to_locator_bucket_count = 1024;
 
   std::string m_metall_path;  ///< Path to underlying metall storage
   ygm::comm&  m_comm;         ///< YGM Comm
@@ -448,6 +463,13 @@ class metall_graph {
     std::string_view label) const;
 
   /**
+   * @brief Inserts a node on its owning rank if it does not already exist.
+   *
+   * @return The local node id and whether a new node was inserted.
+   */
+  std::pair<local_node_idx_type, bool> pl_insert_node(std::string_view label);
+
+  /**
    * @brief Asynchronously inserts a node label into the reverse index & node
    * table.
    *
@@ -507,6 +529,9 @@ class metall_graph {
 
   /// Forward declared friend for testing internal state
   friend class metall_graph_test;
+
+  /// Forward declared friend for extenions
+  friend class metall_graph_extension;
 
 };  // class metall_graph
 

@@ -27,6 +27,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(METALLDATA_FIND_PARQUET_IN_SYSTEM "Find Arrow Parquet installed in the system." ON)
 option(METALLDATA_INSTALL_PARQUET "Installs Arrow Parquet. If METALLDATA_FIND_PARQUET_IN_SYSTEM is also ON, this option is executed only if Arrow Parquet is not found in the system." ON)
 set(METALLDATA_PYTHON_VENV_ROOT CACHE PATH "Path to a Python virtual environment root. If set, MetallData will use this virtual environment for Python dependencies.")
+option(BUILD_ONLY_LIBMETALLDATA "Build only the MetallData library." OFF)
 
 #
 # FetchContent dependencies that can be overridden on the command line.
@@ -95,7 +96,7 @@ set(YGM_FIND_PARQUET_IN_SYSTEM OFF)
 set(YGM_INSTALL_PARQUET OFF)
 FetchContent_Declare(YGM
     GIT_REPOSITORY ${YGM_FETCH_GIT}
-    GIT_TAG a66df3e3c51d9b58df7641894062c9fdb782b571
+    GIT_TAG 0e18c992255eeac3fd9b4c84878cff939602575d
         )
 FetchContent_MakeAvailable(YGM)
 
@@ -118,7 +119,7 @@ set(JSONLOGIC_ENABLE_BENCH OFF)
 set(JSONLOGIC_ENABLE_TESTS OFF)
 FetchContent_Declare(CLIPPy
         GIT_REPOSITORY ${CLIPPY_FETCH_GIT}
-        GIT_TAG v0.5.5
+        GIT_TAG v0.5.7
         SOURCE_SUBDIR cpp
         )
         FetchContent_MakeAvailable(CLIPPy)

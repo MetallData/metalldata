@@ -96,4 +96,17 @@ std::map<metall_graph::data_types, size_t> metall_graph::value_counts_topk(
   }
   return topk;
 }
+
+ygm::container::counting_set<size_t> metall_graph::value_counts2(
+  metall_graph::series_name sname, const where_clause &where) {
+  ygm::container::counting_set<metall_graph::data_types> vc =
+    value_counts(sname, where);
+
+  ygm::container::counting_set<size_t> vc2(m_comm);
+  for (const auto &[val, count] : vc) {
+    vc2.async_insert(count);
+  }
+  m_comm.barrier();
+  return vc2;
+}
 }  // namespace metalldata

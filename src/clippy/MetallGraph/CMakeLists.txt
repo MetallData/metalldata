@@ -30,6 +30,7 @@ endfunction()
 
 add_metallgraph_executable(__init__ __init__.cpp)
 add_metallgraph_executable(ingest_parquet_edges ingest_parquet_edges.cpp)
+add_metallgraph_executable(ingest_parquet_nodes ingest_parquet_nodes.cpp)
 add_metallgraph_executable(describe describe.cpp)
 # add_metallgraph_executable(debug debug.cpp)
 add_metallgraph_executable(drop_series drop_series.cpp)
@@ -52,6 +53,7 @@ add_metallgraph_executable(select_sample_nodes select_sample_nodes.cpp)
 add_metallgraph_executable(connected_components connected_components.cpp)
 add_metallgraph_executable(nunique nunique.cpp)
 add_metallgraph_executable(value_counts value_counts.cpp)
+add_metallgraph_executable(value_counts2 value_counts2.cpp)
 
 add_custom_command(
         TARGET __init__ POST_BUILD

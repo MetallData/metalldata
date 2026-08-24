@@ -7,15 +7,47 @@
 #include <string_table/string_store.hpp>
 #include <ygm/detail/collective.hpp>
 #include <ygm/utility/assert.hpp>
-#include "metalldata/detail/generic_locator.hpp"
+#include <boost/container_hash/hash.hpp>
+#include <metalldata/detail/generic_locator.hpp>
 
 namespace metalldata {
+
+namespace detail {
+struct ss_bank_hash {
+  std::size_t operator()(const compact_string::string_accessor& str) const {
+    std::size_t seed = 0x243f6a8885a308d3ULL;
+    boost::hash_combine(
+      seed, boost::hash_range(str.c_str(), str.c_str() + str.length()));
+    return seed;
+  }
+};
+}  // namespace detail
+
+std::pair<metall_graph::local_node_idx_type, bool>
+metall_graph::pl_insert_node(std::string_view label) {
+  YGM_ASSERT_RELEASE(m_partitioner.owner(label) == m_comm.rank());
+  auto node_id = pl_get_node_id(label);
+  if (node_id.has_value()) {
+    return {node_id.value(), false};
+  }
+
+  auto nid = local_node_idx_type{m_pnodes->add_record()};
+  pl_set_node_field(m_node_col_idx, nid, label);
+  auto label_accessor = compact_string::add_string(label, *m_pstring_store);
+  auto locator = make_node_locator(m_comm.rank(), nid);
+  m_pnode_to_locator[detail::ss_bank_hash{}(label_accessor) %
+                     map_node_to_locator_bucket_count]
+    .insert_or_assign(label_accessor, locator);
+  return {nid, true};
+}
 
 void metall_graph::pasync_insert_node(std::string_view nlbv) {
   // 1. Check if we already have the node in our reverse index. If so, do
   // nothing.
   auto nlb_sa = compact_string::add_string(nlbv, *m_pstring_store);
-  if (m_pnode_to_locator->contains(nlb_sa)) {
+  if (m_pnode_to_locator[detail::ss_bank_hash{}(nlb_sa) %
+                         map_node_to_locator_bucket_count]
+        .contains(nlb_sa)) {
     return;
   }
 
@@ -24,25 +56,21 @@ void metall_graph::pasync_insert_node(std::string_view nlbv) {
   auto request = [](ygm_ptr_type pthis, detail::rank_type requester,
                     const std::string& nlb) {
     YGM_ASSERT_RELEASE(pthis->m_partitioner.owner(nlb) == pthis->m_comm.rank());
-    auto nloc_o = pthis->pl_get_node_locator(nlb);
-    if (!nloc_o.has_value()) {
-      auto nid = local_node_idx_type{pthis->m_pnodes->add_record()};
-      pthis->pl_set_node_field(pthis->m_node_col_idx, nid,
-                               std::string_view{nlb});
-      auto lb_sa = compact_string::add_string(nlb, *(pthis->m_pstring_store));
-      nloc_o = make_node_locator(pthis->m_comm.rank(), nid);
-      pthis->m_pnode_to_locator->insert_or_assign(lb_sa, nloc_o.value());
-    }
+    auto nid = pthis->pl_insert_node(nlb).first;
+    auto nloc = make_node_locator(pthis->m_comm.rank(), nid);
 
     auto response = [](ygm_ptr_type pthis, const std::string& nlb,
                        node_locator nl) {
       auto nlb_sa = compact_string::add_string(nlb, *(pthis->m_pstring_store));
-      pthis->m_pnode_to_locator->insert_or_assign(nlb_sa, nl);
+      pthis
+        ->m_pnode_to_locator[detail::ss_bank_hash{}(nlb_sa) %
+                             map_node_to_locator_bucket_count]
+        .insert_or_assign(nlb_sa, nl);
     };
 
     // 3. Send response back to requester so they can update their reverse
     // index.
-    pthis->m_comm.async(requester, response, pthis, nlb, nloc_o.value());
+    pthis->m_comm.async(requester, response, pthis, nlb, nloc);
   };
   m_comm.async(owner, request, pthis, m_comm.rank(), std::string{nlbv});
 }
@@ -60,8 +88,12 @@ std::optional<metall_graph::node_locator> metall_graph::pl_get_node_locator(
   std::string_view label) const {
   auto label_osa = compact_string::find_string(label, *m_pstring_store);
   if (label_osa.has_value()) {
-    if (m_pnode_to_locator->contains(label_osa.value())) {
-      return m_pnode_to_locator->at(label_osa.value());
+    if (m_pnode_to_locator[detail::ss_bank_hash{}(label_osa.value()) %
+                           map_node_to_locator_bucket_count]
+          .contains(label_osa.value())) {
+      return m_pnode_to_locator[detail::ss_bank_hash{}(label_osa.value()) %
+                                map_node_to_locator_bucket_count]
+        .at(label_osa.value());
     }
   }
   return std::nullopt;

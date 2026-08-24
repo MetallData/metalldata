@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <utility>
 #include <variant>
-#include <vector>
+#include <forward_list>
 #include <set>
 #include <map>
 #include <filesystem>
@@ -24,8 +24,8 @@
 #include <multiseries/multiseries_record.hpp>
 #include <ygm/container/set.hpp>
 #include <ygm/container/counting_set.hpp>
-#include "metall/tags.hpp"
-#include "ygm/utility/assert.hpp"
+#include <ygm/container/array.hpp>
+#include "boost/unordered/unordered_flat_set.hpp"
 
 namespace metalldata {
 
@@ -41,9 +41,8 @@ result<> metall_graph::connected_components(const series_name&  out_name,
       std::format("Series {} already exists", out_name.qualified()));
   }
 
-  // TODO: convert to (rank, node row id) tuples.
   ygm::container::map<node_locator,
-                      std::pair<node_locator, std::vector<node_locator>>>
+                      std::pair<node_locator, std::forward_list<node_locator>>>
     adj_list(m_comm);
 
   priv_for_all_edges(
@@ -51,10 +50,10 @@ result<> metall_graph::connected_components(const series_name&  out_name,
       auto [u, v] = pl_get_edge_uv_locators(eid);
       bool is_directed = pl_edge_is_directed(eid);
       auto adj_inserter =
-        [](const node_locator                                  ccid,
-           std::pair<node_locator, std::vector<node_locator>>& adj,
-           const node_locator&                                 vert) {
-          adj.second.push_back(vert);
+        [](const node_locator                                        ccid,
+           std::pair<node_locator, std::forward_list<node_locator>>& adj,
+           const node_locator&                                       vert) {
+          adj.second.push_front(vert);
           adj.first = ccid;
         };
       adj_list.async_visit(u, adj_inserter, v);
@@ -67,8 +66,9 @@ result<> metall_graph::connected_components(const series_name&  out_name,
         // Do something with each node
         auto nloc = make_node_locator(m_comm.rank(), nid);
         adj_list.async_visit(
-          nloc, [](const node_locator&                                 ccid,
-                   std::pair<node_locator, std::vector<node_locator>>& adj) {
+          nloc,
+          [](const node_locator&                                       ccid,
+             std::pair<node_locator, std::forward_list<node_locator>>& adj) {
             adj.first = ccid;
           });
       },
@@ -79,9 +79,10 @@ result<> metall_graph::connected_components(const series_name&  out_name,
   m_comm.barrier();
 
   struct cc_visitor {
-    void operator()(const node_locator&                                 v,
-                    std::pair<node_locator, std::vector<node_locator>>& adj,
-                    const node_locator&                                 cc_id) {
+    void operator()(
+      const node_locator&                                       v,
+      std::pair<node_locator, std::forward_list<node_locator>>& adj,
+      const node_locator&                                       cc_id) {
       if (cc_id < adj.first) {
         adj.first = cc_id;
         for (const auto& n : adj.second) {
@@ -92,8 +93,8 @@ result<> metall_graph::connected_components(const series_name&  out_name,
   };
 
   adj_list.for_all(
-    [&](const node_locator&                                 v,
-        std::pair<node_locator, std::vector<node_locator>>& adj) {
+    [&](const node_locator&                                       v,
+        std::pair<node_locator, std::forward_list<node_locator>>& adj) {
       auto min_id = v;
       for (const auto& n : adj.second) {
         min_id = std::min(min_id, n);
@@ -105,34 +106,71 @@ result<> metall_graph::connected_components(const series_name&  out_name,
         }
       }
     });
-
-  std::map<local_node_idx_type, std::string>         local_cc_map;
-  static std::map<local_node_idx_type, std::string>* sp_local_cc_map = nullptr;
-  sp_local_cc_map = &local_cc_map;
-  static metall_graph* spthis = nullptr;
-  spthis = this;
-
-  //
-  // convert locators into local_cc_map
-  adj_list.for_all(
-    [&](const node_locator&                                 v,
-        std::pair<node_locator, std::vector<node_locator>>& adj) {
-      adj.second.clear();
-      adj.second.shrink_to_fit();
-      node_locator ccloc = adj.first;
-      auto         move_label = [ccloc, v]() {
-        std::string label(spthis->pl_get_node_label(local(ccloc)));
-        auto        response = [v](const std::string label) {
-          (*sp_local_cc_map)[local(v)] = label;
-        };
-        spthis->m_comm.async(owner(v), response, label);
-      };
-      m_comm.async(owner(ccloc), move_label);
-    });
-
   m_comm.barrier();
 
-  // // no warnings possible here, so just return the result directly.
+  //
+  // Count the number of nodes in each connected component
+  ygm::container::counting_set<node_locator> cc_sizes(m_comm);
+  for (auto& adj : adj_list) {
+    adj.second.second.clear();
+    cc_sizes.async_insert(adj.second.first);
+  }
+
+  //
+  // Create sorted array of compoents
+  ygm::container::array<std::pair<std::size_t, node_locator>> sorted_cc_sizes(
+    m_comm, std::views::transform(cc_sizes, [](const auto& p) {
+      return std::make_pair(p.second, p.first);
+    }));
+  // becsue array::sort is missing a custom comparator, we will sort the array
+  // of pairs in reverse order
+  sorted_cc_sizes.sort();
+  size_t num_components = sorted_cc_sizes.size();
+
+  //
+  // Create a map from connected component locator to its rank in the sorted
+  // array
+  ygm::container::map<node_locator, std::size_t> cc_index_map(m_comm);
+  for (const auto& [index, cc] : sorted_cc_sizes) {
+    cc_index_map.async_insert(cc.second, num_components - index - 1);
+  }
+  sorted_cc_sizes.clear();
+
+  //
+  // Gather the connected component locators needed by this rank
+  boost::unordered::unordered_flat_set<node_locator> cc_locators_i_need;
+  for (const auto& adj : adj_list) {
+    cc_locators_i_need.insert(adj.second.first);
+  }
+  auto my_cc_locators = cc_index_map.gather_keys<
+    boost::unordered::unordered_flat_map<node_locator, std::size_t>>(
+    cc_locators_i_need);
+  boost::unordered::unordered_flat_set<node_locator>().swap(cc_locators_i_need);
+
+  //
+  // Build output map from node_locator to connected component index
+  ygm::container::map<node_locator, std::size_t> cc_index_map_out(m_comm);
+  for (const auto& adj : adj_list) {
+    cc_index_map_out.async_insert(adj.first,
+                                  my_cc_locators.at(adj.second.first));
+  }
+
+  //
+  // Build final cc map from local node id to connected component index
+  std::map<local_node_idx_type, int64_t>         local_cc_map;
+  static std::map<local_node_idx_type, int64_t>* sp_local_cc_map = nullptr;
+  sp_local_cc_map = &local_cc_map;
+  for (const auto& [nl, cc_index] : cc_index_map_out) {
+    m_comm.async(
+      owner(nl),
+      [](local_node_idx_type nid, std::size_t cc_index) {
+        (*sp_local_cc_map)[nid] = cc_index;
+      },
+      local(nl), cc_index);
+  }
+  m_comm.barrier();
+
+  // no warnings possible here, so just return the result directly.
   return priv_set_node_column_by_idx(out_name, local_cc_map);
 }
 
