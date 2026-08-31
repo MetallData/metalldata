@@ -154,8 +154,8 @@ int main(int argc, char** argv) {
       meta.emplace_back("edge", m);
     }
 
-    auto result = graph.ingest_parquet_edges(parquet_path, recursive, col_u,
-                                             col_v, directed, meta);
+    auto result = graph.ingest_parquet_edges(
+      parquet_path, recursive, col_u, col_v, directed, meta, std::nullopt);
 
     if (!result) {
       world.cerr0("Error during ingestion: ", result.error());

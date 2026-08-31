@@ -29,6 +29,9 @@ int main(int argc, char **argv) try {
                           "True if edges are directed (default true)", true);
   clip.add_optional<std::vector<std::string>>(
     "metadata", "Column names of additional fields to ingest", {});
+  clip
+    .add_optional<std::map<std::string, metalldata::metall_graph::data_types>>(
+      "tags", "Map of tags to values", {});
 
   // no object-state requirements in constructor
   if (clip.parse(argc, argv, comm)) {
@@ -46,6 +49,9 @@ int main(int argc, char **argv) try {
   auto col_v = clip.get<std::string>("col_v");
   auto directed = clip.get<bool>("directed");
   auto meta_str = clip.get<std::vector<std::string>>("metadata");
+  auto tags_str =
+    clip.get<std::map<std::string, metalldata::metall_graph::data_types>>(
+      "tags");
 
   metalldata::metall_graph mg(comm, path, false);
 
@@ -53,15 +59,28 @@ int main(int argc, char **argv) try {
   meta.reserve(meta_str.size());
 
   bool has_meta = clip.has_argument("metadata");
+  bool has_tags = clip.has_argument("tags");
+
+  metalldata::result<std::map<std::string, size_t>> rc;
 
   for (const auto &m : meta_str) {
     meta.emplace_back("edge", m);
   }
 
-  auto rc =
-    has_meta
-      ? mg.ingest_parquet_edges(input_path, true, col_u, col_v, directed, meta)
-      : mg.ingest_parquet_edges(input_path, true, col_u, col_v, directed);
+  auto meta_opt = has_meta ? std::make_optional(std::move(meta)) : std::nullopt;
+
+  std::map<metalldata::metall_graph::series_name,
+           metalldata::metall_graph::data_types>
+    tags;
+  for (const auto &[tag_str, val] : tags_str) {
+    auto tag = metalldata::metall_graph::series_name("edge", tag_str);
+    tags[tag] = val;
+  }
+
+  auto tags_opt = has_tags ? std::make_optional(std::move(tags)) : std::nullopt;
+
+  rc = mg.ingest_parquet_edges(input_path, true, col_u, col_v, directed,
+                               meta_opt, tags_opt);
 
   if (!rc) {
     comm.cerr0(rc.error());

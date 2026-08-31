@@ -30,8 +30,8 @@ int main(int argc, char** argv) {
 
   {
     metalldata::metall_graph graph(world, metall_path);
-    auto edge_result = graph.ingest_parquet_edges(
-      edge_path.string(), false, "s", "t", true, std::vector<series_name>{});
+    auto                     edge_result =
+      graph.ingest_parquet_edges(edge_path.string(), false, "s", "t", true);
     YGM_ASSERT_RELEASE(edge_result);
     YGM_ASSERT_RELEASE(graph.num_nodes({}) == 7);
 

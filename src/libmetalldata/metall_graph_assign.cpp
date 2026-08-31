@@ -30,6 +30,8 @@ result<> metall_graph::assign(series_name                       name,
           pedges_->add_series<std::string_view>(name.unqualified());
         } else if constexpr (std::is_same_v<T, int64_t>) {
           pedges_->add_series<int64_t>(name.unqualified());
+        } else if constexpr (std::is_same_v<T, double>) {
+          pedges_->add_series<double>(name.unqualified());
         } else if constexpr (std::is_same_v<T, bool>) {
           pedges_->add_series<bool>(name.unqualified());
         } else {
@@ -74,6 +76,8 @@ result<> metall_graph::assign(series_name                       name,
           pnodes_->add_series<std::string_view>(name.unqualified());
         } else if constexpr (std::is_same_v<T, int64_t>) {
           pnodes_->add_series<int64_t>(name.unqualified());
+        } else if constexpr (std::is_same_v<T, double>) {
+          pnodes_->add_series<double>(name.unqualified());
         } else if constexpr (std::is_same_v<T, bool>) {
           pnodes_->add_series<bool>(name.unqualified());
         } else {
