@@ -44,7 +44,10 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
   bool path_exists = std::filesystem::exists(path);
   if (!path_exists || overwrite) {
     if (overwrite) {
-      std::filesystem::remove_all(path);
+      // only need the first core of each rank to do this.
+      if (comm.layout().local_id() == 0) {
+        std::filesystem::remove_all(path);
+      }
     }
     comm.barrier();
     m_pmetall_mpi = new metall::utility::metall_mpi_adaptor(
