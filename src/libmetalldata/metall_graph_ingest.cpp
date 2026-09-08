@@ -34,7 +34,8 @@ namespace metalldata {
 result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
   std::string_view path, bool recursive, std::string_view col_u,
   std::string_view col_v, bool directed,
-  const std::optional<std::vector<series_name>>& meta) {
+  const std::optional<std::vector<series_name>>&          meta,
+  const std::optional<std::map<series_name, data_types>>& tags) {
   result<std::map<std::string, size_t>> to_return;
   // Note: meta is exclusive of col_u and col_v. The metaset should
   // consist of qualified selector names (start with node. or edge.)
@@ -253,18 +254,42 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
     });  // for_all
 
   m_comm.barrier();
+
+  // process tags now. Skip (and warn) any that are disallowed or already exist.
+  if (tags.has_value()) {
+    const auto& tagdata = *tags;
+    for (const auto& [tagname, value] : tagdata) {
+      auto edgetag = series_name("edge", tagname.unqualified());
+      if (metaset.contains(tagname)) {
+        to_return.add_warning(std::format("duplicate or invalid tag name: {}",
+                                          edgetag.qualified()));
+        continue;
+      }
+      std::visit(
+        [&](const auto& v) {
+          using T = std::decay_t<decltype(v)>;
+          if constexpr (std::is_same_v<T, std::string>) {
+            assign(edgetag, std::string_view(v), {});
+          } else {
+            assign(edgetag, v, {});
+          }
+        },
+        value);
+    }
+  }
   std::map<std::string, size_t> retdict{
     {"num_edges_ingested", ygm::sum(local_nedges, m_comm)},
     {"num_new_nodes_ingested",
      ygm::sum(pl_num_nodes(), m_comm) - prior_global_nnodes}};
-  return retdict;
+  to_return = std::move(retdict);
+  return to_return;
 }
 
 result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
   std::string_view path, bool recursive, std::string_view col_u,
   std::string_view col_v, bool directed) {
   return ingest_parquet_edges(path, recursive, col_u, col_v, directed,
-                              std::nullopt);
+                              std::nullopt, std::nullopt);
 }
 
 result<std::map<std::string, size_t>> metall_graph::ingest_parquet_nodes(

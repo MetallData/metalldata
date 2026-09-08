@@ -25,6 +25,44 @@ def test_mg_ingest_parquet(empty_graph):
     )
 
 
+def test_mg_ingest_parquet_edges_with_tags(empty_graph):
+    result = empty_graph.ingest_parquet_edges(
+        DATA_DIR + "/pq/two_triangles_0.parquet",
+        "s",
+        "t",
+        tags={
+            "source": "two_triangles",
+            "batch": 7,
+            "reviewed": True,
+            "confidence": 0.75,
+        },
+    )
+
+    assert result == {
+        "num_edges_ingested": 6,
+        "num_new_nodes_ingested": 5,
+    }
+    edges = empty_graph.select_edges(
+        series_names=[
+            empty_graph.edge.source,
+            empty_graph.edge.batch,
+            empty_graph.edge.reviewed,
+            empty_graph.edge.confidence,
+        ]
+    )
+    assert len(edges) == 6
+    assert all(
+        edge
+        == {
+            "edge.source": "two_triangles",
+            "edge.batch": 7,
+            "edge.reviewed": True,
+            "edge.confidence": 0.75,
+        }
+        for edge in edges
+    )
+
+
 def test_mg_ingest_parquet_nodes(empty_graph):
     edge_result = empty_graph.ingest_parquet_edges(
         DATA_DIR + "/pq/two_triangles_0.parquet", "s", "t"

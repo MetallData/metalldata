@@ -94,7 +94,8 @@ class metall_graph {
   result<std::map<std::string, size_t>> ingest_parquet_edges(
     std::string_view path, bool recursive, std::string_view col_u,
     std::string_view col_v, bool directed,
-    const std::optional<std::vector<series_name>>& meta);
+    const std::optional<std::vector<series_name>>&          meta,
+    const std::optional<std::map<series_name, data_types>>& tags);
 
   result<std::map<std::string, size_t>> ingest_parquet_edges(
     std::string_view path, bool recursive, std::string_view col_u,
