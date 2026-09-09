@@ -149,29 +149,16 @@ result<> metall_graph::connected_components(const series_name&  out_name,
 
   //
   // Build output map from node_locator to connected component index
-  ygm::container::map<node_locator, std::size_t> cc_index_map_out(m_comm);
+  ygm::container::map<node_locator, int64_t> cc_index_map_out(m_comm);
   for (const auto& adj : adj_list) {
-    cc_index_map_out.async_insert(adj.first,
-                                  my_cc_locators.at(adj.second.first));
-  }
-
-  //
-  // Build final cc map from local node id to connected component index
-  std::map<local_node_idx_type, int64_t>         local_cc_map;
-  static std::map<local_node_idx_type, int64_t>* sp_local_cc_map = nullptr;
-  sp_local_cc_map = &local_cc_map;
-  for (const auto& [nl, cc_index] : cc_index_map_out) {
-    m_comm.async(
-      owner(nl),
-      [](local_node_idx_type nid, std::size_t cc_index) {
-        (*sp_local_cc_map)[nid] = cc_index;
-      },
-      local(nl), cc_index);
+    auto ccid = my_cc_locators.at(adj.second.first);
+    auto ccid_int = int64_t(ccid);
+    cc_index_map_out.async_insert(adj.first, ccid_int);
   }
   m_comm.barrier();
 
   // no warnings possible here, so just return the result directly.
-  return priv_set_node_column_by_idx(out_name, local_cc_map);
+  return pasync_set_node_column_by_locator(out_name, cc_index_map_out);
 }
 
 }  // namespace metalldata

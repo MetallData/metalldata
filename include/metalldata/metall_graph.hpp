@@ -511,6 +511,11 @@ class metall_graph {
                                        const T&           collection)
     requires std::is_same_v<typename T::key_type, local_node_idx_type>;
 
+  template <typename T>
+  result<> pasync_set_node_column_by_locator(const series_name& col_name,
+                                             const T&           collection)
+    requires std::is_same_v<typename T::key_type, node_locator>;
+
   static data_types priv_series_to_data_type(
     const record_store_type::series_type& sv);
 

@@ -6,6 +6,7 @@
 // TODO: we could probably implement this with a counting set instead
 // of a map.
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <variant>
@@ -58,15 +59,6 @@ result<> metall_graph::priv_in_out_degree(
   series_name name, const metall_graph::where_clause& where, bool outdeg) {
   using record_id_type = record_store_type::record_id_type;
 
-  edge_series_idx_type degcol, otherdegcol;
-  if (outdeg) {
-    degcol = m_u_col_idx;
-    otherdegcol = m_v_col_idx;
-  } else {
-    degcol = m_v_col_idx;
-    otherdegcol = m_u_col_idx;
-  }
-
   if (!name.is_node_series()) {
     return std::unexpected(
       std::format("invalid series name: {}", name.qualified()));
@@ -78,16 +70,19 @@ result<> metall_graph::priv_in_out_degree(
   }
 
   auto                                      edges_ = m_pedges;
-  ygm::container::map<std::string, int64_t> degrees(m_comm);
+  ygm::container::map<node_locator, int64_t> degrees(m_comm);
+  // static auto*                               sp_degrees = &degrees;
 
-  std::vector<std::string> nodes;
   priv_for_all_nodes(
     [&](local_node_idx_type nid) {
       std::string_view node_name = pl_get_node_label(nid);
+      auto             nloc = make_node_locator(m_comm.rank(), nid);
 
-      degrees.async_insert(std::string(node_name), 0);
+      degrees.async_insert(nloc, 0);
     },
     where);
+
+  m_comm.cerr0("past set to zero, before barrier");
 
   m_comm.barrier();
   // ygm::container::counting_set<std::string> found_degrees(m_comm, nodes);
@@ -95,23 +90,20 @@ result<> metall_graph::priv_in_out_degree(
     [&](local_edge_idx_type eid) {
       // Note: clangd may report a false positive error on the next line
       // The code compiles and runs correctly
-      auto edge_name_o = pl_get_edge_field<std::string_view>(degcol, eid);
-      YGM_ASSERT_RELEASE(edge_name_o.has_value());
-      std::string_view edge_name = edge_name_o.value();
-      degrees.async_visit(std::string(edge_name),
-                          [](const auto& key, auto& val) { val++; });
+      auto [u, v] = pl_get_edge_uv_locators(eid);
+      if (!outdeg) {
+        std::swap(u, v);
+      }
+      degrees.async_visit(u, [](const auto& key, auto& val) { val++; });
       // for undirected edges, add the reverse.
       bool is_directed = pl_edge_is_directed(eid);
       if (!is_directed) {
-        auto reverseedge_name_o =
-          pl_get_edge_field<std::string_view>(otherdegcol, eid);
-        YGM_ASSERT_RELEASE(reverseedge_name_o.has_value());
-        degrees.async_visit(std::string(reverseedge_name_o.value()),
-                            [](const auto& key, auto& val) { val++; });
+        degrees.async_visit(v, [](const auto& key, auto& val) { val++; });
       }
     },
     where);
 
+  m_comm.cerr0("past set degree");
   // not strictly required because the subsequent loop over degrees begins
   // with a barrier. But that's spooky action at a distance, so we will be
   // explicit here.
@@ -121,8 +113,7 @@ result<> metall_graph::priv_in_out_degree(
   //   degrees.async_insert_or_assign(node_name, deg_ct);
   // }
 
-  m_comm.barrier();
-  return priv_set_node_series(name, degrees);
+  return pasync_set_node_column_by_locator(name, degrees);
 }
 
 result<> metall_graph::degrees(series_name in_name, series_name out_name,

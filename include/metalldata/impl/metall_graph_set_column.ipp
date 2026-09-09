@@ -36,8 +36,8 @@ result<> metall_graph::priv_set_edge_column_by_idx(
 }
 
 template <typename T>
-result<> metall_graph::priv_set_node_column_by_idx(
-  const metall_graph::series_name& col_name, const T& collection)
+result<> metall_graph::priv_set_node_column_by_idx(const series_name& col_name,
+                                                   const T& collection)
   requires std::is_same_v<typename T::key_type, local_node_idx_type>
 {
   using val_type = typename T::mapped_type;
@@ -97,6 +97,34 @@ metalldata::result<> metall_graph::priv_set_node_series(
     to_return.add_warnings(invalid_nodes, "invalid nodes");
   }
 
+  return to_return;
+}
+
+// Sets a node column based on a ygm container where the keys are node locators.
+template <typename T>
+metalldata::result<> metall_graph::pasync_set_node_column_by_locator(
+  const metall_graph::series_name& col_name, const T& collection)
+  requires std::is_same_v<typename T::key_type, metall_graph::node_locator>
+{
+  using val_type = typename T::mapped_type;
+  result<> to_return;
+
+  node_series_idx_type ser_idx;
+  if constexpr (std::is_same_v<val_type, std::string>) {
+    ser_idx = priv_add_node_series<std::string_view>(col_name.unqualified());
+  } else {
+    ser_idx = priv_add_node_series<val_type>(col_name.unqualified());
+  }
+
+  for (const auto& [nl, val] : collection) {
+    m_comm.async(
+      owner(nl),
+      [ser_idx](ygm_ptr_type pthis, local_node_idx_type nid_local, val_type v) {
+        pthis->pl_set_node_field(ser_idx, nid_local, v);
+      },
+      pthis, local(nl), val);
+  }
+  m_comm.barrier();
   return to_return;
 }
 
