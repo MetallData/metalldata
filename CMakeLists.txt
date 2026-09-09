@@ -48,7 +48,7 @@ set(METALL_FETCH_GIT
     "https://github.com/karimyoussef91/metall-1.git"
     CACHE STRING "GIT to fetch Metall")
 set(METALL_FETCH_TAG
-    "feature/privateer_deps"
+    "feature/privateer_deps_v032"
     CACHE STRING "Git tag, branch, or commit to fetch for Metall")
 set(PRIVATEER_FETCH_GIT
     "https://github.com/LLNL/privateer.git"
