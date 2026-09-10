@@ -84,6 +84,9 @@ class metall_graph {
   /// Forward declared, see impl/metall_graph_where.hpp
   struct where_clause;
 
+  /// Forward declared, see impl/metall_graph_describe.hpp
+  struct graph_stats;
+
   metall_graph(ygm::comm& comm, std::string_view path, bool overwrite = false);
 
   ~metall_graph();
@@ -164,6 +167,8 @@ class metall_graph {
   size_t num_node_series() const { return m_pnodes->num_series(); };
 
   size_t num_edge_series() const { return m_pedges->num_series(); };
+
+  result<graph_stats> describe(const where_clause& where);
 
   std::map<metall_graph::series_name, size_t> nunique_edge(
     std::unordered_set<metall_graph::series_name> series_names,
@@ -325,11 +330,11 @@ class metall_graph {
                                      local_node_idx_type  nid) const;
 
   std::vector<std::optional<series_types>> pl_get_node_fields(
-    std::vector<node_series_idx_type> sids, local_node_idx_type eid) const {
+    std::vector<node_series_idx_type> sids, local_node_idx_type nid) const {
     std::vector<std::optional<series_types>> fields;
     fields.reserve(sids.size());
     for (const auto& s : sids) {
-      fields.emplace_back(pl_get_node_field(s, eid));
+      fields.emplace_back(pl_get_node_field(s, nid));
     }
     return fields;
   }
@@ -560,6 +565,7 @@ struct std::hash<metalldata::metall_graph::series_types> {
 #include <metalldata/impl/metall_graph_node_locator_set.hpp>
 #include <metalldata/impl/metall_graph_series_name.hpp>
 #include <metalldata/impl/metall_graph_where.hpp>
+#include <metalldata/impl/metall_graph_describe.hpp>
 #include <metalldata/impl/metall_graph_faker.ipp>
 #include <metalldata/impl/metall_graph_priv_for_all.ipp>
 #include <metalldata/impl/metall_graph_set_column.ipp>
