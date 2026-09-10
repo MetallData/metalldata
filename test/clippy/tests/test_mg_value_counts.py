@@ -7,7 +7,7 @@ def test_mg_value_counts_edge(metallgraph):
     results = metallgraph.value_counts(metallgraph.edge.graphnum, k=100)
     assert len(results) == 4
     assert sum(r[1] for r in results) == 28
-    counts = {r[0]: r[1] for r in results}
+    counts = dict(results)
     assert counts[2] == 10
 
 
@@ -36,13 +36,13 @@ def test_mg_value_counts_where(metallgraph):
 def test_mg_value_counts_bool(metallgraph):
     results = metallgraph.value_counts(metallgraph.edge.relevant, k=100)
     assert len(results) == 2
-    counts = {r[0]: r[1] for r in results}
+    counts = dict(results)
     assert counts[True] == 12
     assert counts[False] == 16
 
 
 def test_mg_value_counts_node(metallgraph):
     results = metallgraph.value_counts(metallgraph.node.gnum, k=100)
-    counts = {r[0]: r[1] for r in results}
+    counts = dict(results)
     assert counts[3] == 7
     assert counts[None] == 14
