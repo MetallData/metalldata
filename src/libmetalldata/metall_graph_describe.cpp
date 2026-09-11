@@ -19,9 +19,6 @@ result<metall_graph::graph_stats> metall_graph::describe(
   stats.nv = subnode.size();
   stats.ne = subedge.size();
 
-  auto subnode_set = std::set(subnode.begin(), subnode.end());
-  auto subedge_set = std::set(subedge.begin(), subedge.end());
-
   auto                              node_series = get_node_series_names();
   std::vector<node_series_idx_type> node_ser_idx;
 
@@ -34,25 +31,20 @@ result<metall_graph::graph_stats> metall_graph::describe(
     node_ser_idx.emplace_back(nsidx_o.value());
   }
 
-  priv_for_all_nodes(
-    [&](const auto &nid) {
-      if (!subnode_set.contains(nid)) {
-        return;
+  for (const auto &nid : subnode) {
+    auto row = pl_get_node_fields(node_ser_idx, nid);
+    for (auto i = 0; i < row.size(); ++i) {
+      auto col = row[i];
+      if (!col.has_value()) {
+        continue;
       }
-      auto row = pl_get_node_fields(node_ser_idx, nid);
-      for (auto i = 0; i < row.size(); ++i) {
-        auto col = row[i];
-        if (!col.has_value()) {
-          continue;
-        }
-        if (std::holds_alternative<std::monostate>(col.value())) {
-          continue;
-        }
-        auto series_name = node_series[i];
-        stats.non_null_node_ct[series_name]++;
+      if (std::holds_alternative<std::monostate>(col.value())) {
+        continue;
       }
-    },
-    where);
+      auto series_name = node_series[i];
+      stats.non_null_node_ct[series_name]++;
+    }
+  }
 
   auto                              edge_series = get_edge_series_names();
   std::vector<edge_series_idx_type> edge_ser_idx;
@@ -66,25 +58,20 @@ result<metall_graph::graph_stats> metall_graph::describe(
     edge_ser_idx.emplace_back(esidx_o.value());
   }
 
-  priv_for_all_edges(
-    [&](const auto &eid) {
-      if (!subedge_set.contains(eid)) {
-        return;
+  for (const auto &eid : subedge) {
+    auto row = pl_get_edge_fields(edge_ser_idx, eid);
+    for (auto i = 0; i < row.size(); ++i) {
+      auto col = row[i];
+      if (!col.has_value()) {
+        continue;
       }
-      auto row = pl_get_edge_fields(edge_ser_idx, eid);
-      for (auto i = 0; i < row.size(); ++i) {
-        auto col = row[i];
-        if (!col.has_value()) {
-          continue;
-        }
-        if (std::holds_alternative<std::monostate>(col.value())) {
-          continue;
-        }
-        auto series_name = edge_series[i];
-        stats.non_null_edge_ct[series_name]++;
+      if (std::holds_alternative<std::monostate>(col.value())) {
+        continue;
       }
-    },
-    where);
+      auto series_name = edge_series[i];
+      stats.non_null_edge_ct[series_name]++;
+    }
+  }
 
   size_t global_nv = ygm::sum(stats.nv, m_comm);
   size_t global_ne = ygm::sum(stats.ne, m_comm);
