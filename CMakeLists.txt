@@ -45,8 +45,17 @@ set(CLIPPY_FETCH_GIT
     "https://github.com/LLNL/clippy.git"
     CACHE STRING "GIT to fetch CLIPPy")
 set(METALL_FETCH_GIT
-    "https://github.com/LLNL/metall.git"
+    "https://github.com/karimyoussef91/metall-1.git"
     CACHE STRING "GIT to fetch Metall")
+set(METALL_FETCH_TAG
+    "feature/privateer_deps_v032"
+    CACHE STRING "Git tag, branch, or commit to fetch for Metall")
+set(PRIVATEER_FETCH_GIT
+    "https://github.com/LLNL/privateer.git"
+    CACHE STRING "GIT to fetch Privateer")
+set(PRIVATEER_FETCH_TAG
+    "feature/auto_deps"
+    CACHE STRING "Git tag, branch, or commit to fetch for Privateer")
 set(SPDLOG_FETCH_GIT
     "https://github.com/gabime/spdlog.git"
     CACHE STRING "GIT to fetch SPDLOG")
@@ -124,9 +133,34 @@ message(STATUS "jsonlogic include dir: ${jsonlogic_INCLUDE_DIR}")
 #  Metall
 #
 set(JUST_INSTALL_METALL_HEADER TRUE)
+set(USE_PRIVATEER ON CACHE BOOL "Enable Privateer support in Metall")
+set(FETCH_PRIVATEER_MAIN OFF CACHE BOOL "Let MetallData provide the Privateer source" FORCE)
+set(PRIVATEER_BUILD_TESTS OFF CACHE BOOL "Disable Privateer tests when fetched by MetallData" FORCE)
+set(BUILD_TESTING OFF CACHE BOOL "Disable dependency test suites when fetched by MetallData" FORCE)
+set(ENABLE_PRIVATEER_TEST OFF CACHE BOOL "Disable Privateer tests when fetched by MetallData" FORCE)
+if (USE_PRIVATEER)
+    set(FETCH_PRIVATEER_MAIN OFF CACHE BOOL "Let MetallData provide the Privateer source" FORCE)
+    FetchContent_Declare(Privateer
+        GIT_REPOSITORY ${PRIVATEER_FETCH_GIT}
+        GIT_TAG ${PRIVATEER_FETCH_TAG}
+    )
+    FetchContent_MakeAvailable(Privateer)
+    if (TARGET privateer)
+        get_target_property(_privateer_compile_definitions privateer INTERFACE_COMPILE_DEFINITIONS)
+        if (_privateer_compile_definitions)
+            list(REMOVE_ITEM _privateer_compile_definitions SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
+            set_target_properties(privateer PROPERTIES INTERFACE_COMPILE_DEFINITIONS "${_privateer_compile_definitions}")
+        endif ()
+        target_compile_definitions(privateer PUBLIC SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_OFF)
+    endif ()
+    set(PRIVATEER_ROOT ${privateer_SOURCE_DIR} CACHE PATH "Path to the fetched Privateer source" FORCE)
+else ()
+    set(FETCH_PRIVATEER_MAIN OFF CACHE BOOL "Disable Metall internal Privateer fetch" FORCE)
+    unset(PRIVATEER_ROOT CACHE)
+endif ()
 FetchContent_Declare(Metall
         GIT_REPOSITORY ${METALL_FETCH_GIT}
-        GIT_TAG v0.32
+    GIT_TAG ${METALL_FETCH_TAG}
 )
 FetchContent_MakeAvailable(Metall)
 
@@ -211,6 +245,11 @@ function(setup_metall_target exe_name)
     #target_link_libraries(${exe_name} PRIVATE Threads::Threads)
 
     target_link_libraries(${exe_name} PRIVATE Metall)
+    if (USE_PRIVATEER AND TARGET privateer)
+        target_compile_definitions(${exe_name} PRIVATE METALL_USE_PRIVATEER)
+        target_include_directories(${exe_name} PRIVATE ${privateer_SOURCE_DIR}/include)
+        target_link_libraries(${exe_name} PRIVATE privateer)
+    endif ()
 
     if (FOUND_CXX17_FILESYSTEM_LIB)
         if (REQUIRE_LIB_STDCXX_FS)
