@@ -60,6 +60,7 @@ metall_graph::priv_where_subgraph(
     node_locator_set nodesalive(m_comm);
     priv_for_all_edges_ewhere(
       [&](local_edge_idx_type eid) {
+        to_return.second.push_back(eid);
         auto [uloc, vloc] = pl_get_edge_uv_locators(eid);
         nodesalive.async_insert(uloc);
         nodesalive.async_insert(vloc);

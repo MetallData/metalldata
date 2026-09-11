@@ -71,6 +71,12 @@ struct metall_graph::series_name {
 
   static std::pair<std::string_view, std::string_view> priv_split_series_str(
     std::string_view str);
+
+  friend class cereal::access;
+  template <typename Archive>
+  void serialize(Archive& ar) {
+    ar(m_prefix, m_unqualified);
+  }
 };  // series_name
 
 inline const metall_graph::series_name metall_graph::series_name::U_COL{
