@@ -163,13 +163,28 @@ bool store_as(const owned_value& v, Setter&& setter) {
     v);
 }
 
+/// The table-specific operations assign_jsonlogic needs, bound to either the
+/// node or the edge helpers. Keeps the typed node/edge series and row indices
+/// all the way through a single table-generic implementation.
+///   find(series_name)                -> optional<series idx>
+///   get(series idx, row idx)         -> optional<series_types>
+///   add(std::type_identity<T>)       -> series idx of the new series
+///   set(series idx, row idx, value)
+///   for_all(fn)                      -> fn(row idx) for rows matching where
+template <class Find, class Get, class Add, class Set, class ForAll>
+struct table_ops {
+  Find   find;
+  Get    get;
+  Add    add;
+  Set    set;
+  ForAll for_all;
+};
+
 }  // namespace
 
 result<> metall_graph::assign_jsonlogic(
   series_name name, const bjsn::value& jl_rule,
   const metall_graph::where_clause& where) {
-  result<> to_return;
-
   if (!name.is_node_series() && !name.is_edge_series()) {
     return std::unexpected(
       std::format("unknown series name: {}", name.qualified()));
@@ -192,131 +207,163 @@ result<> metall_graph::assign_jsonlogic(
       "supported");
   }
 
-  // Variables must live in the same table as the target series.
-  auto* store = name.is_node_series() ? m_pnodes : m_pedges;
-  std::vector<series_index_type> var_idxs;
-  var_idxs.reserve(expr.vars.size());
-  for (const auto& v : expr.vars) {
-    series_name vname(v);
-    if (vname.prefix() != name.prefix()) {
-      return std::unexpected(std::format(
-        "variable {} is not {} series; the expression may only reference "
-        "series in the same table as {}",
-        v, name.is_node_series() ? "a node" : "an edge", name.qualified()));
-    }
-    auto idx_o = store->find_series(vname.unqualified());
-    if (!idx_o.has_value()) {
-      return std::unexpected(std::format("series {} not found", v));
-    }
-    var_idxs.push_back(idx_o.value());
-  }
+  // Everything below is written once against `t`, a table_ops bound to either
+  // the node or the edge helpers, so series and row indices keep their typed
+  // node_*/edge_* index types.
+  auto run = [&](auto t) -> result<> {
+    result<> to_return;
 
-  std::array<size_t, w_count> local_warnings{};
+    // Variables must live in the same table as the target series.
+    using series_idx_type =
+      typename decltype(t.find(name))::value_type;  // node_ or edge_series_idx
+    std::vector<series_idx_type> var_idxs;
+    var_idxs.reserve(expr.vars.size());
+    for (const auto& v : expr.vars) {
+      series_name vname(v);
+      if (vname.prefix() != name.prefix()) {
+        return std::unexpected(std::format(
+          "variable {} is not {} series; the expression may only reference "
+          "series in the same table as {}",
+          v, name.is_node_series() ? "a node" : "an edge", name.qualified()));
+      }
+      auto idx_o = t.find(vname);
+      if (!idx_o.has_value()) {
+        return std::unexpected(std::format("series {} not found", v));
+      }
+      var_idxs.push_back(idx_o.value());
+    }
 
-  // Evaluates the expression on one local row. Returns monostate if the row
-  // produces no value (a warning is recorded when appropriate).
-  std::vector<series_types> row;
-  row.reserve(var_idxs.size());
-  auto eval = [&](size_t row_index) -> owned_value {
-    row.clear();
-    for (auto sidx : var_idxs) {
-      if (store->is_none(sidx, row_index)) {
-        ++local_warnings[w_missing_var];
+    std::array<size_t, w_count> local_warnings{};
+
+    // Evaluates the expression on one local row. Returns monostate if the row
+    // produces no value (a warning is recorded when appropriate).
+    std::vector<series_types> row;
+    row.reserve(var_idxs.size());
+    auto eval = [&](auto row_idx) -> owned_value {
+      row.clear();
+      for (auto sidx : var_idxs) {
+        // A missing cell comes back as monostate.
+        auto field = t.get(sidx, row_idx);
+        if (!field.has_value() ||
+            std::holds_alternative<std::monostate>(field.value())) {
+          ++local_warnings[w_missing_var];
+          return std::monostate{};
+        }
+        row.push_back(field.value());
+      }
+      // jsonlogic throws on some inputs (e.g. "red" + 1). The row loops are
+      // collective, so an exception escaping on one rank would leave the other
+      // ranks waiting in a barrier; skip the row instead.
+      try {
+        return to_owned(expr.fn(row), local_warnings);
+      } catch (...) {
+        ++local_warnings[w_eval_error];
         return std::monostate{};
       }
-      row.push_back(store->get_dynamic(sidx, row_index).value());
-    }
-    // jsonlogic throws on some inputs (e.g. "red" + 1). The row loops are
-    // collective, so an exception escaping on one rank would leave the other
-    // ranks waiting in a barrier; skip the row instead.
-    try {
-      return to_owned(expr.fn(row), local_warnings);
-    } catch (...) {
-      ++local_warnings[w_eval_error];
-      return std::monostate{};
-    }
-  };
+    };
 
-  // Runs `fn(row_index)` for every local row matching the where clause.
-  auto for_all_matching = [&](auto fn) {
-    if (name.is_node_series()) {
-      priv_for_all_nodes(
-        [&](local_node_idx_type nid) { fn(std::to_underlying(nid)); }, where);
-    } else {
-      priv_for_all_edges(
-        [&](local_edge_idx_type eid) { fn(std::to_underlying(eid)); }, where);
-    }
-  };
-
-  // Pass 1: find the kind of the first non-null result on this rank. The
-  // probe's warnings are discarded; pass 2 re-evaluates these rows.
-  value_kind local_kind = value_kind::none;
-  for_all_matching([&](size_t row_index) {
-    if (local_kind == value_kind::none) {
-      local_kind = kind_of(eval(row_index));
-    }
-  });
-  local_warnings.fill(0);
-
-  // Agree on one kind across ranks.
-  bool any_string = ygm::logical_or(local_kind == value_kind::string, m_comm);
-  int  max_numeric = ygm::max(
-    local_kind == value_kind::string ? 0 : std::to_underlying(local_kind),
-    m_comm);
-  if (any_string && max_numeric > 0) {
-    return std::unexpected(std::format(
-      "expression produces both string and {} values; cannot choose a type "
-      "for {}",
-      kind_name(value_kind(max_numeric)), name.qualified()));
-  }
-  value_kind kind = any_string ? value_kind::string : value_kind(max_numeric);
-  if (kind == value_kind::none) {
-    return std::unexpected(std::format(
-      "expression produced no values; {} was not created", name.qualified()));
-  }
-
-  // Pass 2: create the series and write the values.
-  auto write_all = [&]<typename T>(warning_idx mismatch_warning) {
-    auto sidx = store->template add_series<T>(name.unqualified());
-    for_all_matching([&](size_t row_index) {
-      auto v = eval(row_index);
-      if (std::holds_alternative<std::monostate>(v)) {
-        return;
-      }
-      bool stored = store_as<T>(
-        v, [&](const auto& x) { store->set(sidx, row_index, x); });
-      if (!stored) {
-        ++local_warnings[mismatch_warning];
+    // Pass 1: find the kind of the first non-null result on this rank. The
+    // probe's warnings are discarded; pass 2 re-evaluates these rows.
+    value_kind local_kind = value_kind::none;
+    t.for_all([&](auto row_idx) {
+      if (local_kind == value_kind::none) {
+        local_kind = kind_of(eval(row_idx));
       }
     });
+    local_warnings.fill(0);
+
+    // Agree on one kind across ranks.
+    bool any_string =
+      ygm::logical_or(local_kind == value_kind::string, m_comm);
+    int max_numeric = ygm::max(
+      local_kind == value_kind::string ? 0 : std::to_underlying(local_kind),
+      m_comm);
+    if (any_string && max_numeric > 0) {
+      return std::unexpected(std::format(
+        "expression produces both string and {} values; cannot choose a type "
+        "for {}",
+        kind_name(value_kind(max_numeric)), name.qualified()));
+    }
+    value_kind kind =
+      any_string ? value_kind::string : value_kind(max_numeric);
+    if (kind == value_kind::none) {
+      return std::unexpected(
+        std::format("expression produced no values; {} was not created",
+                    name.qualified()));
+    }
+
+    // Pass 2: create the series and write the values.
+    auto write_all = [&]<typename T>(warning_idx mismatch_warning) {
+      auto sidx = t.add(std::type_identity<T>{});
+      t.for_all([&](auto row_idx) {
+        auto v = eval(row_idx);
+        if (std::holds_alternative<std::monostate>(v)) {
+          return;
+        }
+        bool stored =
+          store_as<T>(v, [&](const auto& x) { t.set(sidx, row_idx, x); });
+        if (!stored) {
+          ++local_warnings[mismatch_warning];
+        }
+      });
+    };
+
+    switch (kind) {
+      case value_kind::boolean:
+        write_all.template operator()<bool>(w_mismatch_to_bool);
+        break;
+      case value_kind::integer:
+        write_all.template operator()<int64_t>(w_mismatch_to_int);
+        break;
+      case value_kind::floating:
+        write_all.template operator()<double>(w_mismatch_to_double);
+        break;
+      case value_kind::string:
+        write_all.template operator()<std::string_view>(w_mismatch_to_string);
+        break;
+      case value_kind::none:
+        break;  // unreachable, handled above
+    }
+
+    // Report global warning counts on every rank.
+    for (size_t i = 0; i < w_count; ++i) {
+      size_t n = ygm::sum(local_warnings[i], m_comm);
+      if (n > 0) {
+        to_return.add_warnings(n, std::string(warning_msgs[i]));
+      }
+    }
+
+    return to_return;
   };
 
-  switch (kind) {
-    case value_kind::boolean:
-      write_all.template operator()<bool>(w_mismatch_to_bool);
-      break;
-    case value_kind::integer:
-      write_all.template operator()<int64_t>(w_mismatch_to_int);
-      break;
-    case value_kind::floating:
-      write_all.template operator()<double>(w_mismatch_to_double);
-      break;
-    case value_kind::string:
-      write_all.template operator()<std::string_view>(w_mismatch_to_string);
-      break;
-    case value_kind::none:
-      break;  // unreachable, handled above
+  if (name.is_node_series()) {
+    return run(table_ops{
+      .find = [&](const series_name& n) { return pl_find_node_series(n); },
+      .get =
+        [&](node_series_idx_type sid, local_node_idx_type nid) {
+          return pl_get_node_field(sid, nid);
+        },
+      .add =
+        [&]<typename T>(std::type_identity<T>) {
+          return priv_add_node_series<T>(name.unqualified());
+        },
+      .set = [&](node_series_idx_type sid, local_node_idx_type nid,
+                 const auto& v) { pl_set_node_field(sid, nid, v); },
+      .for_all = [&](auto fn) { priv_for_all_nodes(fn, where); }});
   }
-
-  // Report global warning counts on every rank.
-  for (size_t i = 0; i < w_count; ++i) {
-    size_t n = ygm::sum(local_warnings[i], m_comm);
-    if (n > 0) {
-      to_return.add_warnings(n, std::string(warning_msgs[i]));
-    }
-  }
-
-  return to_return;
+  return run(table_ops{
+    .find = [&](const series_name& n) { return pl_find_edge_series(n); },
+    .get =
+      [&](edge_series_idx_type sid, local_edge_idx_type eid) {
+        return pl_get_edge_field(sid, eid);
+      },
+    .add =
+      [&]<typename T>(std::type_identity<T>) {
+        return priv_add_edge_series<T>(name.unqualified());
+      },
+    .set = [&](edge_series_idx_type sid, local_edge_idx_type eid,
+               const auto& v) { pl_set_edge_field(sid, eid, v); },
+    .for_all = [&](auto fn) { priv_for_all_edges(fn, where); }});
 }
 
 }  // namespace metalldata

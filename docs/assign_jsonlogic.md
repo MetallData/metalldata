@@ -65,6 +65,7 @@ This is the **single** jsonlogic compile path, and both jsonlogic users share it
 
 - **[`value_kind`](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L36)**: `none < boolean < integer < floating`, plus `string`. The numeric kinds are ordered from narrowest to widest, so "widest numeric kind" is just `max`, which the cross-rank agreement in §3.6 relies on.
 - **[`warning_idx`](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L61) / `warning_msgs`**: a fixed list of reasons a row can be skipped. The counts go in a `std::array` rather than directly into `result<>`, so they can be summed across ranks with one `ygm::sum` per entry (§3.7).
+- **[`table_ops`](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L175)**: the table-specific operations (`find`, `get`, `add`, `set`, `for_all`), bound at the bottom of `assign_jsonlogic` to either the node helpers (`pl_find_node_series`, `pl_get_node_field`, `priv_add_node_series`, `pl_set_node_field`, `priv_for_all_nodes`) or the edge ones. The rest of the implementation is one generic lambda, `run(t)`, written against these operations. Series and row indices therefore keep their typed `node_*`/`edge_*` index types throughout, and mixing a node index with an edge index is a compile error.
 - **`owned_value`**: an alias for `metall_graph::data_types` (`monostate, bool, int64_t, double, std::string`). It is the owned, row-independent form of a result.
 
 ### 3.2 Converting a jsonlogic result: `to_owned`
@@ -93,30 +94,30 @@ The string copy is required. A string that jsonlogic builds during evaluation (f
 
 ### 3.4 Validation (errors, before the series is created)
 
-[`assign_jsonlogic`](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L168) first rejects each of these cases. Every check depends only on the rule and on the series list, which is the same on every rank, so all ranks fail together and none is left waiting in a collective.
+[`assign_jsonlogic`](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L185) first rejects each of these cases. Every check depends only on the rule and on the series list, which is the same on every rank, so all ranks fail together and none is left waiting in a collective.
 
 | Check | Error message contains |
 |---|---|
 | target is not `node.`/`edge.` | `unknown series name` |
 | target already exists | `already exists` |
-| jsonlogic can't parse the rule ([line 183](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L183)) | `invalid jsonlogic expression` |
+| jsonlogic can't parse the rule ([line 198](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L198)) | `invalid jsonlogic expression` |
 | rule builds variable names at runtime | `computed variable names` |
-| a variable's table differs from the target's ([line 195](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L195)) | `is not a node series` / `is not an edge series` |
+| a variable's table differs from the target's ([line 216](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L216)) | `is not a node series` / `is not an edge series` |
 | a variable names a missing series | `series <name> not found` |
 
-After these checks, `store` points to `m_pnodes` or `m_pedges`, and `var_idxs` holds the column index of each variable.
+After these checks, `var_idxs` holds the typed index (`node_series_idx_type` or `edge_series_idx_type`) of each variable, found with `t.find` (`pl_find_node_series` / `pl_find_edge_series`).
 
-### 3.5 Per-row evaluation: `eval` and `for_all_matching`
+### 3.5 Per-row evaluation: `eval` and `t.for_all`
 
-- [`eval(row_index)`](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L220) reads each variable's value with `store->get_dynamic`, runs `expr.fn`, and passes the result through `to_owned`. If any input cell is None (`is_none`), it counts "an input variable is missing" and returns unset without evaluating. This is the same rule the where clause uses. The `row` vector is reused across calls to avoid a heap allocation per row.
-- **Evaluation exceptions are caught per row** ([line 232](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L232)). jsonlogic throws on some inputs, for example `"red" + 1`. The row loops are collective, so an exception on one rank would leave the other ranks waiting in a barrier forever. Early versions of this code did exactly that and hung. Now the row is skipped and counted as "expression raised an error".
-- [`for_all_matching(fn)`](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L241) calls `priv_for_all_nodes(…, where)` or `priv_for_all_edges(…, where)` with local row indices. This reuses all the existing where-clause handling, including node clauses on edge targets and edge clauses on node targets. These helpers are **collective**, so every rank has to call them the same number of times.
+- [`eval(row_idx)`](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L242) reads each variable's value with `t.get` (`pl_get_node_field` / `pl_get_edge_field`), runs `expr.fn`, and passes the result through `to_owned`. A missing cell comes back as `monostate` (a missing series as `nullopt`); in either case it counts "an input variable is missing" and returns unset without evaluating. This is the same rule the where clause uses. The `row` vector is reused across calls to avoid a heap allocation per row.
+- **Evaluation exceptions are caught per row** ([line 257](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L257)). jsonlogic throws on some inputs, for example `"red" + 1`. The row loops are collective, so an exception on one rank would leave the other ranks waiting in a barrier forever. Early versions of this code did exactly that and hung. Now the row is skipped and counted as "expression raised an error".
+- `t.for_all(fn)` calls `priv_for_all_nodes(fn, where)` or `priv_for_all_edges(fn, where)`, passing typed row indices (`local_node_idx_type` / `local_edge_idx_type`). This reuses all the existing where-clause handling, including node clauses on edge targets and edge clauses on node targets. These helpers are **collective**, so every rank has to call them the same number of times.
 
 ### 3.6 Type inference: the two-pass design
 
-**Pass 1, probe ([line 251](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L251)).** Each rank walks its matching rows and evaluates only until it gets the first non-null result. `local_kind` is that result's kind. Once it's set, the remaining rows are still visited, because the helper is collective, but not evaluated, so this pass costs little. Warnings from this pass are discarded (`local_warnings.fill(0)`) because pass 2 re-evaluates the same rows and would otherwise count them twice.
+**Pass 1, probe ([line 265](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L265)).** Each rank walks its matching rows and evaluates only until it gets the first non-null result. `local_kind` is that result's kind. Once it's set, the remaining rows are still visited, because the helper is collective, but not evaluated, so this pass costs little. Warnings from this pass are discarded (`local_warnings.fill(0)`) because pass 2 re-evaluates the same rows and would otherwise count them twice.
 
-**Agreement across ranks ([line 261](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L261)).** Two collectives:
+**Agreement across ranks ([line 275](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L275)).** Two collectives:
 
 - `any_string = ygm::logical_or(local_kind == string)`
 - `max_numeric = ygm::max(local numeric kind, or 0 for string/none)`
@@ -135,7 +136,7 @@ For example, if rank 0's first value is an int and rank 1's is a double, the ser
 - every row returns null or an array;
 - every row raises an error.
 
-**Pass 2, write ([line 278](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L278)).** The generic lambda `write_all<T>` creates the series with `store->add_series<T>` and walks the matching rows again. For each row it calls `eval` and then `store_as<T>` to write the value. The [`switch (kind)`](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L294) turns the runtime `value_kind` into the compile-time `T`.
+**Pass 2, write ([line 295](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L295)).** The generic lambda `write_all<T>` creates the series with `t.add` (`priv_add_node_series<T>` / `priv_add_edge_series<T>`) and walks the matching rows again. For each row it calls `eval` and then `store_as<T>`, which writes through `t.set` (`pl_set_node_field` / `pl_set_edge_field`). The [`switch (kind)`](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L311) turns the runtime `value_kind` into the compile-time `T`.
 
 **A caveat of "first value wins."** A rank picks its type from its *first* value only. If a later row on the same rank produces a wider type (a double after the type was settled as int64), that row can't be stored and is counted as a "could not be stored in an int64 series" warning. For the same reason, an expression that returns strings for some rows and numbers for others either errors (ranks disagree) or stores one kind and warns about the rest (ranks agree). Which one happens depends on how rows are partitioned. To avoid all this, write expressions whose result type is stable across rows (for example, multiply by `1.0` to force a double).
 
@@ -143,7 +144,7 @@ Why two passes instead of buffering every result from pass 1? Pass 1 stops evalu
 
 ### 3.7 Warnings
 
-Each rank counts warnings in `local_warnings`. At the end ([line 311](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L311)), each count is summed with `ygm::sum` and nonzero totals are added with `add_warnings(n, msg)`. Every rank therefore returns the same **global** counts, and clippy prints them once as `<message> : <count>`.
+Each rank counts warnings in `local_warnings`. At the end ([line 328](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L328)), each count is summed with `ygm::sum` and nonzero totals are added with `add_warnings(n, msg)`. Every rank therefore returns the same **global** counts, and clippy prints them once as `<message> : <count>`.
 
 | Warning | Cause |
 |---|---|
