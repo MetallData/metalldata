@@ -56,7 +56,6 @@ int main(int argc, char** argv) try {
     rc = mg.assign_jsonlogic(name, obj.contains("rule") ? obj["rule"] : val,
                              where_c);
   } else {
-    // `val` must outlive the call: a string alternative views into it.
     auto sval =
       boost::json::value_to<metalldata::metall_graph::series_types>(val);
     rc = mg.assign_value(name, sval, where_c);

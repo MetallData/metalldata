@@ -40,7 +40,7 @@ The rule itself:
 - It may only reference series in the **same table** (node or edge) as `name`.
 - `where` can be any `where_clause`, a node clause or an edge clause, whatever the target's table.
 
-`assign_jsonlogic` returns `result<>`. Hard failures are errors (`std::unexpected`), and no series is created. Rows that are skipped are reported as **warnings** with counts totaled across all ranks.
+`assign_jsonlogic` returns `result<>`. **All error checks happen before the series is created, so a returned error (`std::unexpected`) never leaves a series behind.** Once the series exists, nothing can return an error: per-row problems, including exceptions thrown by jsonlogic, are skipped and reported as **warnings** with counts totaled across all ranks. See §3.8 for the one exception (failures outside jsonlogic, such as running out of storage).
 
 ## 2. Compiling the expression: `metall_graph_jl.hpp`
 
@@ -91,7 +91,7 @@ The string copy is required. A string that jsonlogic builds during evaluation (f
 
   Anything else returns `false`: narrowing `double → int64_t`, or mixing strings and numbers. The caller then counts a "could not be stored" warning and leaves the cell unset. Nothing is silently truncated.
 
-### 3.4 Validation (errors, nothing is created)
+### 3.4 Validation (errors, before the series is created)
 
 [`assign_jsonlogic`](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L168) first rejects each of these cases. Every check depends only on the rule and on the series list, which is the same on every rank, so all ranks fail together and none is left waiting in a collective.
 
@@ -101,7 +101,7 @@ The string copy is required. A string that jsonlogic builds during evaluation (f
 | target already exists | `already exists` |
 | jsonlogic can't parse the rule ([line 183](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L183)) | `invalid jsonlogic expression` |
 | rule builds variable names at runtime | `computed variable names` |
-| a variable's table differs from the target's ([line 195](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L195)) | `is not a node series` / `is not a edge series` |
+| a variable's table differs from the target's ([line 195](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp#L195)) | `is not a node series` / `is not an edge series` |
 | a variable names a missing series | `series <name> not found` |
 
 After these checks, `store` points to `m_pnodes` or `m_pedges`, and `var_idxs` holds the column index of each variable.
@@ -153,6 +153,20 @@ Each rank counts warnings in `local_warnings`. At the end ([line 311](../src/lib
 | `row skipped: unsigned result does not fit in int64` | `uint64` > `INT64_MAX` |
 | `row skipped: result could not be stored in a <type> series` | row's type doesn't widen to the inferred type |
 
+### 3.8 Error guarantee
+
+Every `return std::unexpected(...)` in `assign_jsonlogic` comes before `add_series` in pass 2 (validation in §3.4, type agreement in §3.6). After the series is created there are no error returns, so **a returned error never leaves a series behind.**
+
+Failures inside jsonlogic can't break this, because each one is caught before the series exists or turned into a per-row warning. Regex is a good example:
+
+| Case | Handling |
+|---|---|
+| Invalid regex pattern written in the rule | Compiled up front by `create_logic`; the `regex_error` becomes `invalid jsonlogic expression`, before the series exists |
+| Invalid regex pattern taken from a series value | Compiled per row; the exception is caught in `eval` → "expression raised an error" warning |
+| Out-of-range index into a `regex_strings` result | jsonlogic's `elem_at` catches `std::out_of_range` and returns `null` → "expression returned null" warning |
+
+**Not covered:** exceptions thrown outside jsonlogic during pass 2, such as Metall running out of space in `add_series`/`set`/`add_string`, `std::bad_alloc`, or a failure inside the where-clause helpers. These escape with the series already created and partly filled. Under MPI, the other ranks would also probably hang in the next collective. They're treated as fatal: recovering cleanly would need all ranks to agree that something failed mid-loop. Constant `assign_value` has the same exposure.
+
 ## 4. Clippy entry point: `src/clippy/MetallGraph/assign.cpp`
 
 The `value` parameter is now a `boost::json::value` instead of `series_types`. Dispatch ([line 52](../src/clippy/MetallGraph/assign.cpp#L52)):
@@ -160,7 +174,7 @@ The `value` parameter is now a `boost::json::value` instead of `series_types`. D
 - **Object** → `assign_jsonlogic`. It accepts two forms:
   - a clippy expression (`mg.edge.randint > 50`), which Python serializes as `{"expression_type": "jsonlogic", "rule": …}`. `obj["rule"]` is used.
   - a raw jsonlogic dict (`{"+": [...]}`), which is used as-is. This form is needed because the Python `jsonlogic.Operand` only overloads comparison operators, so arithmetic, `cat`, `if` and similar have to be written as dicts.
-- **Anything else** → `value_to<series_types>` → `assign_value`, exactly as before. `val` stays alive for the whole call because a string constant is a `string_view` into it.
+- **Anything else** → `value_to<series_types>` → `assign_value`, exactly as before. A string constant is interned into the Metall string store when it is written.
 
 Behavior changes in this wrapper, which apply to constant assignments too:
 

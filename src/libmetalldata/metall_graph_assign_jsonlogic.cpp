@@ -200,9 +200,9 @@ result<> metall_graph::assign_jsonlogic(
     series_name vname(v);
     if (vname.prefix() != name.prefix()) {
       return std::unexpected(std::format(
-        "variable {} is not a {} series; the expression may only reference "
+        "variable {} is not {} series; the expression may only reference "
         "series in the same table as {}",
-        v, name.prefix(), name.qualified()));
+        v, name.is_node_series() ? "a node" : "an edge", name.qualified()));
     }
     auto idx_o = store->find_series(vname.unqualified());
     if (!idx_o.has_value()) {

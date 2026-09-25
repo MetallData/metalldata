@@ -134,7 +134,7 @@ def test_mg_assign_jsonlogic_error_cross_table(metallgraph):
     with pytest.raises(NonZeroReturnCodeError, match="is not a node series"):
         mg.assign("node.bad", {"+": [{"var": "edge.randint"}, 1]})
     assert_not_created(mg, "node.bad")
-    with pytest.raises(NonZeroReturnCodeError, match="is not a edge series"):
+    with pytest.raises(NonZeroReturnCodeError, match="is not an edge series"):
         mg.assign("edge.bad", {"+": [{"var": "node.gnum"}, 1]})
     assert_not_created(mg, "edge.bad")
 
