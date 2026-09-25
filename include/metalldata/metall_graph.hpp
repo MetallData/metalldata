@@ -222,9 +222,17 @@ class metall_graph {
   result<> connected_components(const series_name&  out_node_series,
                                 const where_clause& where);
 
-  // TODO: also allow val a function
-  result<> assign(series_name series_name, const series_types& val,
-                  const where_clause& where);
+  /// Creates series `name` and sets it to the constant `val` for every row
+  /// matching `where`.
+  result<> assign_value(series_name series_name, const series_types& val,
+                        const where_clause& where);
+
+  /// Creates series `name` and, for every row matching `where`, sets it to the
+  /// result of evaluating jsonlogic `jl_rule` on that row. `jl_rule` may only
+  /// reference series in the same table (node or edge) as `name`. The series
+  /// type is inferred from the results; see metall_graph_assign_jsonlogic.cpp.
+  result<> assign_jsonlogic(series_name series_name, const bjsn::value& jl_rule,
+                            const where_clause& where);
 
   result<> sample_edges(const series_name& series_name, size_t k,
                         std::optional<uint64_t> optseed,

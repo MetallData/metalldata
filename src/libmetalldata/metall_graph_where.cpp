@@ -5,21 +5,26 @@
 
 #include <metalldata/metall_graph.hpp>
 #include <metall_jl/metall_jl.hpp>
+#include "metall_graph_jl.hpp"
 
-namespace {
-static auto priv_compile_jl_rule(bjsn::value jl_rule) {
+namespace metalldata::detail {
+// Defined here because this is the one translation unit that includes the
+// jsonlogic implementation (see metall_graph_jl.hpp).
+compiled_jl_expr compile_jl_expr(const bjsn::value& jl_rule) {
   // pack rule into a shared_ptr since it is not copyable.
   std::shared_ptr<jsonlogic::logic_rule> rule =
     std::make_shared<jsonlogic::logic_rule>(jsonlogic::create_logic(jl_rule));
-  std::vector<std::string> vars;
 
-  vars.reserve(rule->variable_names().size());
-  std::ranges::transform(rule->variable_names(), std::back_inserter(vars),
+  compiled_jl_expr to_return;
+  to_return.has_computed_vars = rule->has_computed_variable_names();
+  to_return.vars.reserve(rule->variable_names().size());
+  std::ranges::transform(rule->variable_names(),
+                         std::back_inserter(to_return.vars),
                          [](std::string_view sv) { return std::string{sv}; });
 
-  auto compiled =
-    [jlexpr = std::move(rule)](
-      const std::vector<metalldata::metall_graph::series_types>& row) -> bool {
+  to_return.fn = [jlexpr = std::move(rule)](
+                   const std::vector<metall_graph::series_types>& row)
+    -> jsonlogic::value_variant {
     // Convert series_types to value_variant
     std::vector<jsonlogic::value_variant> jl_row;
     jl_row.reserve(row.size());
@@ -38,10 +43,24 @@ static auto priv_compile_jl_rule(bjsn::value jl_rule) {
         val);
     }
 
-    return truthy(jlexpr->apply(jl_row));
+    return jlexpr->apply(jl_row);
   };
 
-  return std::make_tuple(compiled, vars);
+  return to_return;
+}
+}  // namespace metalldata::detail
+
+namespace {
+static auto priv_compile_jl_rule(bjsn::value jl_rule) {
+  auto expr = metalldata::detail::compile_jl_expr(jl_rule);
+
+  auto compiled =
+    [fn = std::move(expr.fn)](
+      const std::vector<metalldata::metall_graph::series_types>& row) -> bool {
+    return truthy(fn(row));
+  };
+
+  return std::make_tuple(compiled, std::move(expr.vars));
 }
 
 }  // namespace
