@@ -269,9 +269,9 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
         [&](const auto& v) {
           using T = std::decay_t<decltype(v)>;
           if constexpr (std::is_same_v<T, std::string>) {
-            assign(edgetag, std::string_view(v), {});
+            assign_value(edgetag, std::string_view(v), {});
           } else {
-            assign(edgetag, v, {});
+            assign_value(edgetag, v, {});
           }
         },
         value);

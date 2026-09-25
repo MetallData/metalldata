@@ -7,9 +7,9 @@
 
 namespace metalldata {
 
-result<> metall_graph::assign(series_name                       name,
-                              const metall_graph::series_types& val,
-                              const metall_graph::where_clause& where) {
+result<> metall_graph::assign_value(series_name                       name,
+                                    const metall_graph::series_types& val,
+                                    const metall_graph::where_clause& where) {
   using record_id_type = record_store_type::record_id_type;
   result<> to_return;
 
