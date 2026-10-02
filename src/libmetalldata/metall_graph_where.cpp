@@ -5,11 +5,11 @@
 
 #include <metalldata/metall_graph.hpp>
 #include <metall_jl/metall_jl.hpp>
-#include "metall_graph_jl.hpp"
+#include <metalldata/detail/metall_graph_jl.hpp>
 
 namespace metalldata::detail {
 // Defined here because this is the one translation unit that includes the
-// jsonlogic implementation (see metall_graph_jl.hpp).
+// jsonlogic implementation (see metalldata/detail/metall_graph_jl.hpp).
 compiled_jl_expr compile_jl_expr(const bjsn::value& jl_rule) {
   // pack rule into a shared_ptr since it is not copyable.
   std::shared_ptr<jsonlogic::logic_rule> rule =

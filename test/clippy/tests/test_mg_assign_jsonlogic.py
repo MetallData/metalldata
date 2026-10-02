@@ -11,6 +11,11 @@ import pytest
 from clippy.backends.fs.execution import NonZeroReturnCodeError  # type: ignore
 
 
+def jl(rule) -> dict:
+    """Wraps a raw jsonlogic rule the way clippy serializes expressions."""
+    return {"rule": rule}
+
+
 def warning_count(output: str, msg: str) -> int:
     """Returns the global count reported for warning `msg`, or 0 if absent."""
     m = re.search(re.escape(msg) + r" : (\d+)", output)
@@ -30,7 +35,7 @@ def assert_not_created(mg, name: str):
 
 def test_mg_assign_jsonlogic_int(metallgraph):
     mg = metallgraph
-    mg.assign("edge.isum", {"+": [{"var": "edge.graphnum"}, {"var": "edge.randint"}]})
+    mg.assign("edge.isum", jl({"+": [{"var": "edge.graphnum"}, {"var": "edge.randint"}]}))
     edges = mg.select_edges()
     assert len(edges) > 0
     for e in edges:
@@ -41,7 +46,7 @@ def test_mg_assign_jsonlogic_int(metallgraph):
 def test_mg_assign_jsonlogic_double(metallgraph):
     mg = metallgraph
     # edge.weight is a double series, so int + double infers a double series
-    mg.assign("edge.wsum", {"+": [{"var": "edge.weight"}, {"var": "edge.randint"}]})
+    mg.assign("edge.wsum", jl({"+": [{"var": "edge.weight"}, {"var": "edge.randint"}]}))
     for e in mg.select_edges():
         assert e["edge.wsum"] == pytest.approx(e["edge.weight"] + e["edge.randint"])
         assert isinstance(e["edge.wsum"], float)
@@ -49,14 +54,14 @@ def test_mg_assign_jsonlogic_double(metallgraph):
 
 def test_mg_assign_jsonlogic_double_literal(metallgraph):
     mg = metallgraph
-    mg.assign("edge.half", {"*": [{"var": "edge.randint"}, 0.5]})
+    mg.assign("edge.half", jl({"*": [{"var": "edge.randint"}, 0.5]}))
     for e in mg.select_edges():
         assert e["edge.half"] == pytest.approx(e["edge.randint"] * 0.5)
 
 
 def test_mg_assign_jsonlogic_string(metallgraph):
     mg = metallgraph
-    mg.assign("edge.label", {"cat": [{"var": "edge.color"}, "-", {"var": "edge.name"}]})
+    mg.assign("edge.label", jl({"cat": [{"var": "edge.color"}, "-", {"var": "edge.name"}]}))
     edges = mg.select_edges()
     assert any("edge.label" in e for e in edges)
     for e in edges:
@@ -77,7 +82,7 @@ def test_mg_assign_jsonlogic_bool_from_expression(metallgraph):
 
 def test_mg_assign_jsonlogic_where(metallgraph):
     mg = metallgraph
-    mg.assign("edge.w2", {"*": [{"var": "edge.weight"}, 2]}, where=mg.edge.graphnum == 3)
+    mg.assign("edge.w2", jl({"*": [{"var": "edge.weight"}, 2]}), where=mg.edge.graphnum == 3)
     edges = mg.select_edges()
     assert any("edge.w2" in e for e in edges)
     for e in edges:
@@ -90,7 +95,7 @@ def test_mg_assign_jsonlogic_where(metallgraph):
 def test_mg_assign_jsonlogic_node(metallgraph):
     mg = metallgraph
     # node.gnum is only set on some nodes (see conftest); the others stay unset.
-    mg.assign("node.gnum1", {"+": [{"var": "node.gnum"}, 1]})
+    mg.assign("node.gnum1", jl({"+": [{"var": "node.gnum"}, 1]}))
     nodes = mg.select_nodes()
     assert any("node.gnum" in n for n in nodes)
     assert any("node.gnum" not in n for n in nodes)
@@ -118,45 +123,53 @@ def test_mg_assign_constant_still_works(metallgraph):
 #
 
 
+def test_mg_assign_jsonlogic_error_object_without_rule(metallgraph):
+    # Objects must be clippy expressions ({"rule": ...}); raw rules are rejected.
+    mg = metallgraph
+    with pytest.raises(NonZeroReturnCodeError, match="Invalid JSONLogic rule"):
+        mg.assign("edge.bad", {"+": [{"var": "edge.randint"}, 1]})
+    assert_not_created(mg, "edge.bad")
+
+
 def test_mg_assign_jsonlogic_error_series_exists(metallgraph):
     with pytest.raises(NonZeroReturnCodeError, match="already exists"):
-        metallgraph.assign("edge.weight", {"+": [{"var": "edge.weight"}, 1]})
+        metallgraph.assign("edge.weight", jl({"+": [{"var": "edge.weight"}, 1]}))
 
 
 @pytest.mark.parametrize("name", ["nodot", "foo.bar"])
 def test_mg_assign_jsonlogic_error_bad_target(metallgraph, name):
     with pytest.raises(NonZeroReturnCodeError, match="unknown series name"):
-        metallgraph.assign(name, {"+": [{"var": "edge.randint"}, 1]})
+        metallgraph.assign(name, jl({"+": [{"var": "edge.randint"}, 1]}))
 
 
 def test_mg_assign_jsonlogic_error_cross_table(metallgraph):
     mg = metallgraph
     with pytest.raises(NonZeroReturnCodeError, match="is not a node series"):
-        mg.assign("node.bad", {"+": [{"var": "edge.randint"}, 1]})
+        mg.assign("node.bad", jl({"+": [{"var": "edge.randint"}, 1]}))
     assert_not_created(mg, "node.bad")
     with pytest.raises(NonZeroReturnCodeError, match="is not an edge series"):
-        mg.assign("edge.bad", {"+": [{"var": "node.gnum"}, 1]})
+        mg.assign("edge.bad", jl({"+": [{"var": "node.gnum"}, 1]}))
     assert_not_created(mg, "edge.bad")
 
 
 def test_mg_assign_jsonlogic_error_unknown_variable(metallgraph):
     mg = metallgraph
     with pytest.raises(NonZeroReturnCodeError, match="edge.does_not_exist not found"):
-        mg.assign("edge.bad", {"var": "edge.does_not_exist"})
+        mg.assign("edge.bad", jl({"var": "edge.does_not_exist"}))
     assert_not_created(mg, "edge.bad")
 
 
 def test_mg_assign_jsonlogic_error_invalid_operator(metallgraph):
     mg = metallgraph
     with pytest.raises(NonZeroReturnCodeError, match="invalid jsonlogic expression"):
-        mg.assign("edge.bad", {"no_such_operator": [{"var": "edge.randint"}, 1]})
+        mg.assign("edge.bad", jl({"no_such_operator": [{"var": "edge.randint"}, 1]}))
     assert_not_created(mg, "edge.bad")
 
 
 def test_mg_assign_jsonlogic_error_computed_variable(metallgraph):
     mg = metallgraph
     with pytest.raises(NonZeroReturnCodeError, match="computed variable names"):
-        mg.assign("edge.bad", {"var": {"cat": ["edge.", "color"]}})
+        mg.assign("edge.bad", jl({"var": {"cat": ["edge.", "color"]}}))
     assert_not_created(mg, "edge.bad")
 
 
@@ -164,7 +177,7 @@ def test_mg_assign_jsonlogic_error_where_matches_nothing(metallgraph):
     mg = metallgraph
     with pytest.raises(NonZeroReturnCodeError, match="produced no values"):
         mg.assign(
-            "edge.bad", {"+": [{"var": "edge.randint"}, 1]}, where=mg.edge.graphnum == 999
+            "edge.bad", jl({"+": [{"var": "edge.randint"}, 1]}), where=mg.edge.graphnum == 999
         )
     assert_not_created(mg, "edge.bad")
 
@@ -173,7 +186,7 @@ def test_mg_assign_jsonlogic_error_where_unknown_series(metallgraph):
     mg = metallgraph
     where = {"rule": {"==": [{"var": "edge.does_not_exist"}, 1]}}
     with pytest.raises(NonZeroReturnCodeError, match="produced no values"):
-        mg.assign("edge.bad", {"+": [{"var": "edge.randint"}, 1]}, where=where)
+        mg.assign("edge.bad", jl({"+": [{"var": "edge.randint"}, 1]}), where=where)
     assert_not_created(mg, "edge.bad")
 
 
@@ -182,14 +195,14 @@ def test_mg_assign_jsonlogic_error_every_row_raises(metallgraph):
     # inferred. (This used to deadlock the ranks.)
     mg = metallgraph
     with pytest.raises(NonZeroReturnCodeError, match="produced no values"):
-        mg.assign("edge.bad", {"+": [{"var": "edge.color"}, 1]})
+        mg.assign("edge.bad", jl({"+": [{"var": "edge.color"}, 1]}))
     assert_not_created(mg, "edge.bad")
 
 
 def test_mg_assign_jsonlogic_error_every_row_array(metallgraph):
     mg = metallgraph
     with pytest.raises(NonZeroReturnCodeError, match="produced no values"):
-        mg.assign("edge.bad", {"merge": [[{"var": "edge.randint"}], [2]]})
+        mg.assign("edge.bad", jl({"merge": [[{"var": "edge.randint"}], [2]]}))
     assert_not_created(mg, "edge.bad")
 
 
@@ -200,7 +213,7 @@ def test_mg_assign_jsonlogic_error_every_row_array(metallgraph):
 
 def test_mg_assign_jsonlogic_warn_missing_input(metallgraph, capsys):
     mg = metallgraph
-    mg.assign("node.gnum1", {"+": [{"var": "node.gnum"}, 1]})
+    mg.assign("node.gnum1", jl({"+": [{"var": "node.gnum"}, 1]}))
     out = capsys.readouterr().out
     missing = sum(1 for n in mg.select_nodes() if "node.gnum" not in n)
     assert missing > 0
@@ -209,7 +222,7 @@ def test_mg_assign_jsonlogic_warn_missing_input(metallgraph, capsys):
 
 def test_mg_assign_jsonlogic_warn_null_result(metallgraph, capsys):
     mg = metallgraph
-    mg.assign("edge.maybe", {"if": [{"var": "edge.relevant"}, 1, None]})
+    mg.assign("edge.maybe", jl({"if": [{"var": "edge.relevant"}, 1, None]}))
     out = capsys.readouterr().out
     edges = mg.select_edges()
     nulls = sum(1 for e in edges if "edge.relevant" in e and not e["edge.relevant"])
@@ -222,10 +235,30 @@ def test_mg_assign_jsonlogic_warn_null_result(metallgraph, capsys):
             assert "edge.maybe" not in e
 
 
+def test_mg_assign_jsonlogic_warn_uint_out_of_range(metallgraph, capsys):
+    # A literal above INT64_MAX is parsed as uint64 and can't be stored in an
+    # int64 series; those rows are skipped and the rest are written.
+    mg = metallgraph
+    mg.assign("edge.big", jl({"if": [{"var": "edge.relevant"}, 18446744073709551615, 1]}))
+    out = capsys.readouterr().out
+    edges = mg.select_edges()
+    too_big = sum(1 for e in edges if e.get("edge.relevant") is True)
+    assert too_big > 0
+    assert (
+        warning_count(out, "row skipped: unsigned result does not fit in int64")
+        == too_big
+    )
+    for e in edges:
+        if e.get("edge.relevant") is True:
+            assert "edge.big" not in e
+        elif "edge.relevant" in e:
+            assert e["edge.big"] == 1
+
+
 def test_mg_assign_jsonlogic_warn_some_rows_raise(metallgraph, capsys):
     mg = metallgraph
     rule = {"if": [{"var": "edge.relevant"}, 1, {"+": [{"var": "edge.color"}, 1]}]}
-    mg.assign("edge.partial", rule)
+    mg.assign("edge.partial", jl(rule))
     out = capsys.readouterr().out
     edges = mg.select_edges()
     complete = [e for e in edges if "edge.relevant" in e and "edge.color" in e]
@@ -248,7 +281,7 @@ def test_mg_assign_jsonlogic_mixed_string_and_number(metallgraph, capsys):
     mg = metallgraph
     rule = {"if": [{"var": "edge.relevant"}, "yes", 1]}
     try:
-        mg.assign("edge.mixed", rule)
+        mg.assign("edge.mixed", jl(rule))
     except NonZeroReturnCodeError as ex:
         assert "both string and int64" in str(ex)
         assert_not_created(mg, "edge.mixed")

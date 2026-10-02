@@ -3,11 +3,12 @@
 Python's `assign` creates a new node or edge series and writes a value to every row that matches an optional `where` clause. The value can be a **constant**, which is the original behavior, or a **jsonlogic expression**. An expression is evaluated separately on each row, and the result is stored in that row:
 
 ```python
-mg.assign("edge.flag", True)                                                       # constant
-mg.assign("edge.total", {"+": [{"var": "edge.graphnum"}, {"var": "edge.randint"}]})  # raw jsonlogic
-mg.assign("edge.label", {"cat": [{"var": "edge.color"}, "-", {"var": "edge.name"}]},
+mg.assign("edge.flag", True)                                    # constant
+mg.assign("edge.big", mg.edge.randint > 50)                     # clippy expression -> bool series
+# arithmetic and string operators: wrap the jsonlogic rule as {"rule": ...}
+mg.assign("edge.total", {"rule": {"+": [{"var": "edge.graphnum"}, {"var": "edge.randint"}]}})
+mg.assign("edge.label", {"rule": {"cat": [{"var": "edge.color"}, "-", {"var": "edge.name"}]}},
           where=mg.edge.graphnum == 3)
-mg.assign("edge.big", mg.edge.randint > 50)            # clippy expression -> bool series
 ```
 
 The main difficulty is that **the output type is not known in advance**. A jsonlogic result can be bool, int64, double, string, null or an array, and the type can change from row to row. For example, `+` gives int64 for two ints and double if either input is a double. On top of that, each MPI rank sees only its own rows, so every rank has to agree on one type before any of them creates the series.
@@ -17,19 +18,19 @@ The main difficulty is that **the output type is not known in advance**. A jsonl
 | File | Role |
 |---|---|
 | [include/metalldata/metall_graph.hpp](../include/metalldata/metall_graph.hpp#L225-L235) | Declarations of `assign_value` (renamed from `assign`) and the new `assign_jsonlogic` |
-| [src/libmetalldata/metall_graph_jl.hpp](../src/libmetalldata/metall_graph_jl.hpp) | Private helper that compiles a jsonlogic rule into a callable that returns a value |
+| [include/metalldata/detail/metall_graph_jl.hpp](../include/metalldata/detail/metall_graph_jl.hpp) | Internal (`detail`) helper that compiles a jsonlogic rule into a callable that returns a value |
 | [src/libmetalldata/metall_graph_assign_jsonlogic.cpp](../src/libmetalldata/metall_graph_assign_jsonlogic.cpp) | The implementation |
 | [src/clippy/MetallGraph/assign.cpp](../src/clippy/MetallGraph/assign.cpp) | Clippy `assign` entry point. Calls `assign_value` or `assign_jsonlogic` depending on the type of `value` |
 | [test/clippy/tests/test_mg_assign_jsonlogic.py](../test/clippy/tests/test_mg_assign_jsonlogic.py) | pytest coverage: results, errors, warnings |
 | `CMakeLists.txt` in `src/libmetalldata` | Registers the new source file |
 | [metall_graph_ingest.cpp](../src/libmetalldata/metall_graph_ingest.cpp#L272-L274), [test_assign.cpp](../test/metall_graph/test_assign.cpp#L88) | Call sites updated for the rename (`test_assign.cpp` is disabled in CMake) |
 
-`metall_graph_where.cpp` now defines the shared `compile_jl_expr` (§2), and its `priv_compile_jl_rule` is a thin wrapper around it. The where clause behaves exactly as before. The only change to the constant path in `metall_graph_assign.cpp` is the rename.
+`metall_graph_where.cpp` now defines the shared `compile_jl_expr` (§2), and its `priv_compile_jl_rule` is a thin wrapper around it. The where clause behaves exactly as before. The constant path moved from `metall_graph_assign.cpp` to `metall_graph_assign_value.cpp`; its only code change is the rename to `assign_value`.
 
 ## 1. Public API
 
 ```cpp
-result<> assign_value(series_name name, const series_types& val,   const where_clause& where); // was assign()
+result<> assign_value(series_name name, const data_types& val,     const where_clause& where); // was assign()
 result<> assign_jsonlogic(series_name name, const bjsn::value& jl_rule, const where_clause& where);
 ```
 
@@ -44,7 +45,7 @@ The rule itself:
 
 ## 2. Compiling the expression: `metall_graph_jl.hpp`
 
-[`compile_jl_expr`](../src/libmetalldata/metall_graph_jl.hpp#L39) turns a `boost::json` rule into a [`compiled_jl_expr`](../src/libmetalldata/metall_graph_jl.hpp#L30) with three members:
+[`compile_jl_expr`](../include/metalldata/detail/metall_graph_jl.hpp#L39) turns a `boost::json` rule into a [`compiled_jl_expr`](../include/metalldata/detail/metall_graph_jl.hpp#L30) with three members:
 
 - `fn`: takes `std::vector<series_types>` (the row values, in the same order as `vars`) and returns the raw `jsonlogic::value_variant`. `string_view` inputs are wrapped as `managed_string_view` with `no_lifetime_management`, so row strings are passed to jsonlogic without being copied.
 - `vars`: the variable names the rule references, such as `"edge.randint"`.
@@ -172,10 +173,10 @@ Failures inside jsonlogic can't break this, because each one is caught before th
 
 The `value` parameter is now a `boost::json::value` instead of `series_types`. Dispatch ([line 52](../src/clippy/MetallGraph/assign.cpp#L52)):
 
-- **Object** → `assign_jsonlogic`. It accepts two forms:
-  - a clippy expression (`mg.edge.randint > 50`), which Python serializes as `{"expression_type": "jsonlogic", "rule": …}`. `obj["rule"]` is used.
-  - a raw jsonlogic dict (`{"+": [...]}`), which is used as-is. This form is needed because the Python `jsonlogic.Operand` only overloads comparison operators, so arithmetic, `cat`, `if` and similar have to be written as dicts.
-- **Anything else** → `value_to<series_types>` → `assign_value`, exactly as before. A string constant is interned into the Metall string store when it is written.
+- **Object** → `assign_jsonlogic` with `obj["rule"]`. The object must have a `"rule"` key; any other object is rejected with `Invalid JSONLogic rule`. Two ways to supply one:
+  - a clippy expression (`mg.edge.randint > 50`), which Python serializes as `{"expression_type": "jsonlogic", "rule": …}`;
+  - a dict written by hand, `{"rule": {"+": [...]}}`. This is needed because the Python `jsonlogic.Operand` only overloads comparison operators, so arithmetic, `cat`, `if` and similar have to be written as jsonlogic dicts.
+- **Anything else** → `value_to<data_types>` → `assign_value`. A string constant arrives as `std::string`; `assign_value` passes it to the record store as a `string_view`, and the store interns it into the Metall string store when it is written.
 
 Behavior changes in this wrapper, which apply to constant assignments too:
 
@@ -185,12 +186,12 @@ Behavior changes in this wrapper, which apply to constant assignments too:
 
 ## 5. Tests: `test/clippy/tests/test_mg_assign_jsonlogic.py`
 
-Helpers: `warning_count(out, msg)` parses `msg : N` from the captured clippy output, and `assert_not_created(mg, name)` checks that a failed call left no series behind.
+Helpers: `jl(rule)` wraps a raw jsonlogic rule as `{"rule": rule}`, `warning_count(out, msg)` parses `msg : N` from the captured clippy output, and `assert_not_created(mg, name)` checks that a failed call left no series behind.
 
 | Group | Tests |
 |---|---|
 | **Results and type inference** | int+int → int64; double column + int → double; int × 0.5 → double; `cat` → string, with missing inputs left unset; clippy expression → bool; `where` limits which rows are written; node-table expression; constants still work (string with `where`, int) |
-| **Errors** (specific message, no series created) | target exists; bad target name (`nodot`, `foo.bar`); cross-table variable (both directions); unknown variable; invalid operator; computed variable name; `where` matches nothing; `where` names a missing series; every row raises (the former deadlock); every row returns an array |
+| **Errors** (specific message, no series created) | object without a `"rule"` key; target exists; bad target name (`nodot`, `foo.bar`); cross-table variable (both directions); unknown variable; invalid operator; computed variable name; `where` matches nothing; `where` names a missing series; every row raises (the former deadlock); every row returns an array |
 | **Warnings** (exact counts checked against the data) | missing input; null result, where the non-null rows still get written; some rows raise, counting raised and missing rows separately; mixed string/number, which accepts either the cross-rank error or the per-row warnings depending on partitioning |
 
 Run the tests (`CLIPPY_CMD_PREFIX=mpirun` runs every call on multiple ranks):

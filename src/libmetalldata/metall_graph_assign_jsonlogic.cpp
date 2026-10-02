@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <limits>
 #include <metalldata/metall_graph.hpp>
-#include "metall_graph_jl.hpp"
+#include <metalldata/detail/metall_graph_jl.hpp>
 
 /*
  * assign_jsonlogic: create a series whose values are computed per row by a

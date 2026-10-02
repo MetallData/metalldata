@@ -51,13 +51,16 @@ int main(int argc, char** argv) try {
   metalldata::result<> rc;
   if (val.is_object()) {
     // A clippy expression serializes as {"expression_type": ..., "rule": ...};
-    // any other object is taken to be a raw jsonlogic rule.
+    // any other object results in an error.
     auto& obj = val.as_object();
-    rc = mg.assign_jsonlogic(name, obj.contains("rule") ? obj["rule"] : val,
-                             where_c);
+    if (!obj.contains("rule")) {
+      comm.cerr0("Invalid JSONLogic rule; aborting");
+      return -1;
+    }
+    rc = mg.assign_jsonlogic(name, obj["rule"], where_c);
   } else {
     auto sval =
-      boost::json::value_to<metalldata::metall_graph::series_types>(val);
+      boost::json::value_to<metalldata::metall_graph::data_types>(val);
     rc = mg.assign_value(name, sval, where_c);
   }
 

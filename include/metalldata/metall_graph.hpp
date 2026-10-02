@@ -224,7 +224,7 @@ class metall_graph {
 
   /// Creates series `name` and sets it to the constant `val` for every row
   /// matching `where`.
-  result<> assign_value(series_name series_name, const series_types& val,
+  result<> assign_value(series_name series_name, const data_types& val,
                         const where_clause& where);
 
   /// Creates series `name` and, for every row matching `where`, sets it to the
