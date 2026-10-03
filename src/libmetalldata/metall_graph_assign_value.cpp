@@ -7,9 +7,9 @@
 
 namespace metalldata {
 
-result<> metall_graph::assign(series_name                       name,
-                              const metall_graph::series_types& val,
-                              const metall_graph::where_clause& where) {
+result<> metall_graph::assign_value(series_name                       name,
+                                    const metall_graph::data_types&   val,
+                                    const metall_graph::where_clause& where) {
   using record_id_type = record_store_type::record_id_type;
   result<> to_return;
 
@@ -26,7 +26,7 @@ result<> metall_graph::assign(series_name                       name,
         using T = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<T, std::monostate>) {
           // do nothing
-        } else if constexpr (std::is_same_v<T, std::string_view>) {
+        } else if constexpr (std::is_same_v<T, std::string>) {
           pedges_->add_series<std::string_view>(name.unqualified());
         } else if constexpr (std::is_same_v<T, int64_t>) {
           pedges_->add_series<int64_t>(name.unqualified());
@@ -57,6 +57,9 @@ result<> metall_graph::assign(series_name                       name,
           using T = std::decay_t<decltype(v)>;
           if constexpr (std::is_same_v<T, std::monostate>) {
             // do nothing
+          } else if constexpr (std::is_same_v<T, std::string>) {
+            // String series store string_view; set() interns the string.
+            pl_set_edge_field(name_idx, eid, std::string_view(v));
           } else {
             pl_set_edge_field(name_idx, eid, v);
           }
@@ -72,7 +75,7 @@ result<> metall_graph::assign(series_name                       name,
         using T = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<T, std::monostate>) {
           // do nothing
-        } else if constexpr (std::is_same_v<T, std::string_view>) {
+        } else if constexpr (std::is_same_v<T, std::string>) {
           pnodes_->add_series<std::string_view>(name.unqualified());
         } else if constexpr (std::is_same_v<T, int64_t>) {
           pnodes_->add_series<int64_t>(name.unqualified());
@@ -102,6 +105,9 @@ result<> metall_graph::assign(series_name                       name,
           using T = std::decay_t<decltype(v)>;
           if constexpr (std::is_same_v<T, std::monostate>) {
             // Skip monostate
+          } else if constexpr (std::is_same_v<T, std::string>) {
+            // String series store string_view; set() interns the string.
+            pl_set_node_field(name_idx, nid, std::string_view(v));
           } else {
             pl_set_node_field(name_idx, nid, v);
           }

@@ -16,7 +16,8 @@ add_library(libmetalldata STATIC
             metall_graph_nhops.cpp
             metall_graph_degree.cpp
             metall_graph_describe.cpp
-            metall_graph_assign.cpp
+            metall_graph_assign_value.cpp
+            metall_graph_assign_jsonlogic.cpp
             metall_graph_where.cpp
             metall_graph_dump_parquet.cpp
             metall_graph_erase.cpp
