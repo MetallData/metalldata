@@ -15,18 +15,33 @@ jobs:
       CXX: g++-13
     steps:
       - uses: actions/checkout@v3
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', '**/CMakeLists.txt', '**/*.cmake') }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', '**/CMakeLists.txt', '**/*.cmake') }}-
+            ccache-${{ runner.os }}-
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('test/clippy/requirements*.txt') }}
       - name: Display versions
         run: |
           cmake --version
           g++ --version
       - name: Install OpenMPI
-        run: sudo apt-get install openmpi-bin libopenmpi-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openmpi-bin libopenmpi-dev ccache
       - name: Build and test
         run: |
           cd $GITHUB_WORKSPACE
           mkdir build
           cd build
-          cmake ../ -DMETALLDATA_BUILD_TESTS=ON BOOST_FETCH_URL=https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.bz2
+          cmake ../ -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DMETALLDATA_BUILD_TESTS=ON BOOST_FETCH_URL=https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.bz2
           make -j6
           make test
       - name: end-to-end testing
