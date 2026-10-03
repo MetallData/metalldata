@@ -25,7 +25,7 @@ int main(int argc, char** argv) try {
   clip.add_required<boost::json::value>(
     "value",
     "value to set: a constant (bool, int, float, string), or a jsonlogic "
-    "expression given as a clippy expression or a raw jsonlogic object");
+    "expression (a clippy expression or an object containing a 'rule' key)");
   clip.add_optional<boost::json::object>("where", "where clause",
                                          boost::json::object{});
 
