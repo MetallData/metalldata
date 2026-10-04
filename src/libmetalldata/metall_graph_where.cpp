@@ -130,6 +130,31 @@ bool metall_graph::where_clause::is_edge_clause() const {
          good();
 }
 
+bool metall_graph::where_clause::is_subgraph_clause() const {
+  return !m_series_names.empty() &&
+         m_series_names.front().is_subgraph_series() && good();
+}
+
+metall_graph::where_clause
+metall_graph::where_clause::subgraph_as_node_clause() const {
+  std::vector<series_name> names;
+  names.reserve(m_series_names.size());
+  for (const auto& n : m_series_names) {
+    names.emplace_back(n.subgraph_node_series());
+  }
+  return where_clause(names, m_predicate);
+}
+
+metall_graph::where_clause
+metall_graph::where_clause::subgraph_as_edge_clause() const {
+  std::vector<series_name> names;
+  names.reserve(m_series_names.size());
+  for (const auto& n : m_series_names) {
+    names.emplace_back(n.subgraph_edge_series());
+  }
+  return where_clause(names, m_predicate);
+}
+
 const auto& metall_graph::where_clause::predicate() const {
   return m_predicate;
 }

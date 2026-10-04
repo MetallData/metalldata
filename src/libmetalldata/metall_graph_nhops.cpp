@@ -37,6 +37,10 @@ result<> metall_graph::nhops(const series_name& out_name, size_t nhops,
       std::format("invalid series name: {}", out_name.qualified()));
   }
 
+  if (auto chk = priv_check_not_hidden(out_name); !chk) {
+    return chk;
+  }
+
   if (m_pnodes->contains_series(out_name.unqualified())) {
     return std::unexpected(
       std::format("series {} already exists", out_name.qualified()));

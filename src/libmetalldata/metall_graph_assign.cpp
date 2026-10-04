@@ -13,6 +13,10 @@ result<> metall_graph::assign(series_name                       name,
   using record_id_type = record_store_type::record_id_type;
   result<> to_return;
 
+  if (auto chk = priv_check_not_hidden(name); !chk) {
+    return chk;
+  }
+
   if (has_series(name)) {
     return std::unexpected(
       std::format("series {} already exists", name.qualified()));

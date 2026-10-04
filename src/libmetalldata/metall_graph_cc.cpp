@@ -36,6 +36,10 @@ result<> metall_graph::connected_components(const series_name&  out_name,
       std::format("Invalid series name: {}", out_name.qualified()));
   }
 
+  if (auto chk = priv_check_not_hidden(out_name); !chk) {
+    return chk;
+  }
+
   if (m_pnodes->contains_series(out_name.unqualified())) {
     return std::unexpected(
       std::format("Series {} already exists", out_name.qualified()));
@@ -60,8 +64,8 @@ result<> metall_graph::connected_components(const series_name&  out_name,
       adj_list.async_visit(v, adj_inserter, u);
     },
     where);
-  if (where.is_node_clause()) {
-    priv_for_all_nodes_nwhere(
+  if (where.is_node_clause() || where.is_subgraph_clause()) {
+    priv_for_all_nodes(
       [&](local_node_idx_type nid) {
         // Do something with each node
         auto nloc = make_node_locator(m_comm.rank(), nid);

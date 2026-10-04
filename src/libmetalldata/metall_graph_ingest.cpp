@@ -73,6 +73,9 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
       return std::unexpected(
         std::format("reserved name {} found in meta data", name.qualified()));
     }
+    if (auto chk = priv_check_not_hidden(name); !chk) {
+      return std::unexpected(chk.error());
+    }
   }
 
   metaset.emplace(series_name{"edge", col_u});
@@ -260,7 +263,7 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
     const auto& tagdata = *tags;
     for (const auto& [tagname, value] : tagdata) {
       auto edgetag = series_name("edge", tagname.unqualified());
-      if (metaset.contains(tagname)) {
+      if (metaset.contains(tagname) || edgetag.is_hidden()) {
         to_return.add_warning(std::format("duplicate or invalid tag name: {}",
                                           edgetag.qualified()));
         continue;
@@ -327,6 +330,9 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_nodes(
     if (name.is_reserved()) {
       return std::unexpected(
         std::format("reserved name {} found in metadata", name.qualified()));
+    }
+    if (auto chk = priv_check_not_hidden(name); !chk) {
+      return std::unexpected(chk.error());
     }
   }
 

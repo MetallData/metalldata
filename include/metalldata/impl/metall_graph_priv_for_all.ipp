@@ -5,6 +5,7 @@
 
 #pragma once
 #include <metalldata/metall_graph.hpp>
+#include <stdexcept>
 #include <unordered_set>
 #include <ygm/utility/assert.hpp>
 
@@ -103,10 +104,15 @@ template <typename Fn>
 void metall_graph::priv_for_all_edges(
   Fn func, const metall_graph::where_clause& where) const {
   m_comm.barrier();
+  if (auto chk = priv_check_where(where); !chk) {
+    throw std::runtime_error(chk.error());
+  }
   if (where.is_node_clause()) {
     priv_for_all_edges_nwhere(func, where);
   } else if (where.is_edge_clause()) {
     priv_for_all_edges_ewhere(func, where);
+  } else if (where.is_subgraph_clause()) {
+    priv_for_all_edges_ewhere(func, where.subgraph_as_edge_clause());
   } else {  // defaults to empty
     priv_for_all_edges(func);
   }
@@ -185,10 +191,15 @@ template <typename Fn>
 void metall_graph::priv_for_all_nodes(
   Fn func, const metall_graph::where_clause& where) const {
   m_comm.barrier();
+  if (auto chk = priv_check_where(where); !chk) {
+    throw std::runtime_error(chk.error());
+  }
   if (where.is_node_clause()) {
     priv_for_all_nodes_nwhere(func, where);
   } else if (where.is_edge_clause()) {
     priv_for_all_nodes_ewhere(func, where);
+  } else if (where.is_subgraph_clause()) {
+    priv_for_all_nodes_nwhere(func, where.subgraph_as_node_clause());
   } else {  // defaults to empty
     priv_for_all_nodes(func);
   }

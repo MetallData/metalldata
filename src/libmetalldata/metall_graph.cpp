@@ -142,6 +142,18 @@ bool metall_graph::drop_series(const series_name& name) {
     m_comm.cerr0("Cannot remove reserved column ", name.qualified());
     return false;
   }
+  if (name.is_subgraph_series()) {
+    if (!has_series(name)) {
+      return false;
+    }
+    m_pnodes->remove_series(name.subgraph_node_series().unqualified());
+    m_pedges->remove_series(name.subgraph_edge_series().unqualified());
+    return true;
+  }
+  if (auto chk = priv_check_not_hidden(name); !chk) {
+    m_comm.cerr0(chk.error());
+    return false;
+  }
   if (name.is_node_series()) {
     return m_pnodes->remove_series(name.unqualified());
   }
@@ -162,6 +174,14 @@ result<> metall_graph::rename_series(const series_name& old_name,
   if (new_name.is_reserved()) {
     return std::unexpected(std::format("{} is a reserved name; cannot rename",
                                        new_name.qualified()));
+  }
+
+  if (auto chk = priv_check_not_hidden(old_name); !chk) {
+    return chk;
+  }
+
+  if (auto chk = priv_check_not_hidden(new_name); !chk) {
+    return chk;
   }
 
   if (old_name.prefix() != new_name.prefix()) {

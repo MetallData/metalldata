@@ -147,8 +147,8 @@ class metall_graph {
   template <typename T>
   bool add_series(const series_name& name);
 
-  // drop_series requires a qualified selector name (starts with node. or
-  // edge.)
+  // drop_series requires a qualified selector name (starts with node., edge.
+  // or subgraph.)
   bool drop_series(const series_name& name);
 
   result<> rename_series(const series_name& old_name,
@@ -159,6 +159,12 @@ class metall_graph {
   std::vector<series_name> get_node_series_names() const;
 
   std::vector<series_name> get_edge_series_names() const;
+
+  // Creates the subgraph "subgraph.<name>" from the nodes and edges selected
+  // by the where clause.
+  result<> create_subgraph(std::string_view name, const where_clause& where);
+
+  std::vector<series_name> get_subgraph_names() const;
 
   size_t num_edges(const where_clause& where) const;
 
@@ -442,6 +448,14 @@ class metall_graph {
 
   std::pair<std::vector<local_node_idx_type>, std::vector<local_edge_idx_type>>
   priv_where_subgraph(const where_clause& where) const;
+
+  // Checks that a where clause is empty or a node, edge or subgraph clause,
+  // and that any subgraphs it references exist.
+  result<> priv_check_where(const where_clause& where) const;
+
+  // Hidden series (names starting with '_') cannot be created, renamed or
+  // dropped by users.
+  static result<> priv_check_not_hidden(const series_name& name);
 
   // Sets a node metadata column based on a lookup from an associative data
   // structure.

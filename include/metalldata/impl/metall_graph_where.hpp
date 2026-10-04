@@ -38,6 +38,13 @@ struct metall_graph::where_clause {
 
   bool is_edge_clause() const;
 
+  bool is_subgraph_clause() const;
+
+  // Returns this subgraph clause rewritten against the hidden node (or edge)
+  // series that store subgraph membership.
+  where_clause subgraph_as_node_clause() const;
+  where_clause subgraph_as_edge_clause() const;
+
   const auto& predicate() const;
 
   bool evaluate(const std::vector<metall_graph::series_types>& data) const;

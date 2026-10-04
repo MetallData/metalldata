@@ -24,6 +24,21 @@ struct metall_graph::series_name {
   bool empty() const { return m_prefix.empty() && m_unqualified.empty(); }
   bool is_node_series() const { return m_prefix == "node"; }
   bool is_edge_series() const { return m_prefix == "edge"; }
+  // A subgraph is named "subgraph.<name>" and is stored as a pair of hidden
+  // bool series: "node._subgraph_<name>" and "edge._subgraph_<name>".
+  bool is_subgraph_series() const { return m_prefix == "subgraph"; }
+
+  // Hidden series start with '_'. They are internal: not listed among the
+  // node / edge series and not creatable by users.
+  bool is_hidden() const { return m_unqualified.starts_with('_'); }
+
+  // The hidden node / edge series backing this subgraph name.
+  series_name subgraph_node_series() const {
+    return series_name("node", std::string(SUBGRAPH_PREFIX) + m_unqualified);
+  }
+  series_name subgraph_edge_series() const {
+    return series_name("edge", std::string(SUBGRAPH_PREFIX) + m_unqualified);
+  }
 
   bool is_qualified() const { return !m_prefix.empty(); }
 
@@ -64,6 +79,8 @@ struct metall_graph::series_name {
   static const series_name V_COL;
   static const series_name DIR_COL;
   static const series_name NODE_COL;
+
+  static constexpr std::string_view SUBGRAPH_PREFIX = "_subgraph_";
 
  private:
   std::string m_prefix;

@@ -24,7 +24,7 @@ std::optional<T> metall_graph::pl_get_node_field(
 template <typename T>
 bool metall_graph::add_series(
   const metall_graph::series_name& name) {  // "node.color" or "edge.time"
-  if (has_series(name)) {
+  if (has_series(name) || name.is_hidden()) {
     return false;
   }
   if (name.is_node_series()) {

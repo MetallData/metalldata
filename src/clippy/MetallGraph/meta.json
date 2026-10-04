@@ -2,6 +2,7 @@
   "__doc__" : "A graph data structure",
   "initial_selectors" : {
     "edge" : "The edges of the graph",
-    "node": "The nodes of the graph"
+    "node": "The nodes of the graph",
+    "subgraph": "The named subgraphs of the graph"
   }
 }

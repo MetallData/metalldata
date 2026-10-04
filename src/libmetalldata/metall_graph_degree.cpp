@@ -64,6 +64,10 @@ result<> metall_graph::priv_in_out_degree(
       std::format("invalid series name: {}", name.qualified()));
   }
 
+  if (auto chk = priv_check_not_hidden(name); !chk) {
+    return chk;
+  }
+
   if (m_pnodes->contains_series(name.unqualified())) {
     return std::unexpected(
       std::format("series {} already exists", name.qualified()));
@@ -125,6 +129,14 @@ result<> metall_graph::degrees(series_name in_name, series_name out_name,
   if (!out_name.is_node_series()) {
     return std::unexpected(
       std::format("invalid series name: {}", out_name.qualified()));
+  }
+
+  if (auto chk = priv_check_not_hidden(in_name); !chk) {
+    return chk;
+  }
+
+  if (auto chk = priv_check_not_hidden(out_name); !chk) {
+    return chk;
   }
 
   if (m_pnodes->contains_series(in_name.unqualified())) {

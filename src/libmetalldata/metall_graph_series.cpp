@@ -36,11 +36,11 @@ std::map<std::string, std::string> metall_graph::get_edge_selector_info() {
   // collect. Also: the "edge" prefix (and "node" in the corresponding
   // function) need to match the corresponding meta.json values.
   std::map<std::string, std::string> sels;
-  for (const auto& el : m_pedges->get_series_names()) {
-    auto sel = std::format("edge.{}", el);
-    sels[sel] = "default";
+  for (const auto& el : get_edge_series_names()) {
+    sels[el.qualified()] = "default";
   }
-  for (const auto& el : m_pnodes->get_series_names()) {
+  for (const auto& nsn : get_node_series_names()) {
+    auto el = nsn.unqualified();
     auto sel = std::format("{}.{}", series_name::U_COL.qualified(), el);
     sels[sel] = "inherited";
     sel = std::format("{}.{}", series_name::V_COL.qualified(), el);
@@ -54,9 +54,8 @@ std::map<std::string, std::string> metall_graph::get_node_selector_info() {
   // Since the m_pedges schema is identical across ranks, we don't have to
   // collect.
   std::map<std::string, std::string> sels;
-  for (const auto& el : m_pnodes->get_series_names()) {
-    auto sel = std::format("node.{}", el);
-    sels[sel] = "default";
+  for (const auto& el : get_node_series_names()) {
+    sels[el.qualified()] = "default";
   }
   return sels;
 }
@@ -66,6 +65,11 @@ std::map<std::string, std::string> metall_graph::get_selector_info() {
 
   std::map<std::string, std::string> nsels = get_node_selector_info();
   sels.insert(nsels.begin(), nsels.end());
+
+  // The "subgraph" prefix needs to match the corresponding meta.json value.
+  for (const auto& sg : get_subgraph_names()) {
+    sels[sg.qualified()] = "default";
+  }
 
   return sels;
 }
@@ -133,6 +137,11 @@ metall_graph::pl_find_node_series(
 }
 
 bool metall_graph::has_series(const metall_graph::series_name& name) const {
+  if (name.is_subgraph_series()) {
+    return has_series(name.subgraph_node_series()) &&
+           has_series(name.subgraph_edge_series());
+  }
+
   if (name.is_edge_series()) {
     return m_pedges->contains_series(name.unqualified());
   }
@@ -148,7 +157,10 @@ std::vector<metall_graph::series_name> metall_graph::get_node_series_names()
   const {
   std::vector<series_name> sns;
   for (auto n : m_pnodes->get_series_names()) {
-    sns.emplace_back(series_name("node", n));
+    series_name sn("node", n);
+    if (!sn.is_hidden()) {
+      sns.emplace_back(sn);
+    }
   }
   return sns;
 };
@@ -157,7 +169,10 @@ std::vector<metall_graph::series_name> metall_graph::get_edge_series_names()
   const {
   std::vector<series_name> sns;
   for (auto n : m_pedges->get_series_names()) {
-    sns.emplace_back(series_name("edge", n));
+    series_name sn("edge", n);
+    if (!sn.is_hidden()) {
+      sns.emplace_back(sn);
+    }
   }
   return sns;
 };

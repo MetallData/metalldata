@@ -5,6 +5,7 @@
 
 #include <metalldata/metall_graph.hpp>
 #include <ygm/utility/assert.hpp>
+#include <stdexcept>
 #include <vector>
 #include <utility>
 
@@ -17,6 +18,10 @@ metall_graph::priv_where_subgraph(
   // first is node record ids, second is edge record ids.
   std::pair<std::vector<local_node_idx_type>, std::vector<local_edge_idx_type>>
     to_return;
+
+  if (auto chk = priv_check_where(where); !chk) {
+    throw std::runtime_error(chk.error());
+  }
 
   if (where.empty()) {
     // if the where clause is empty, then we just return all nodes and edges.
@@ -70,6 +75,18 @@ metall_graph::priv_where_subgraph(
     // 2. Compute node ids from vertex labels
     nodesalive.for_all_local(
       [&](local_node_idx_type nl) { to_return.first.push_back(nl); });
+  } else if (where.is_subgraph_clause()) {
+    // membership is stored on both nodes and edges, so read each directly.
+    priv_for_all_nodes(
+      [&to_return](local_node_idx_type nid) {
+        to_return.first.push_back(nid);
+      },
+      where);
+    priv_for_all_edges(
+      [&to_return](local_edge_idx_type eid) {
+        to_return.second.push_back(eid);
+      },
+      where);
   }
 
   else {
