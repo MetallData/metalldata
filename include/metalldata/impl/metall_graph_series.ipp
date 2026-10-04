@@ -27,6 +27,10 @@ bool metall_graph::add_series(
   if (has_series(name)) {
     return false;
   }
+  if (!name.is_node_series() && !name.is_edge_series()) {
+    return false;
+  }
+  write_guard wguard(*this);
   if (name.is_node_series()) {
     m_pnodes->add_series<T>(name.unqualified());
     return true;

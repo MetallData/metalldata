@@ -18,6 +18,14 @@ result<> metall_graph::assign(series_name                       name,
       std::format("series {} already exists", name.qualified()));
   }
 
+  if (!name.is_edge_series() && !name.is_node_series()) {
+    return std::unexpected(
+      std::format("unknown series name: {}", name.qualified()));
+  }
+
+  // Must be taken before caching any pointers into the store below.
+  write_guard wguard(*this);
+
   if (name.is_edge_series()) {
     auto pedges_ = m_pedges;
     bool assigned_ok = true;

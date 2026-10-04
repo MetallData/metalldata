@@ -39,7 +39,11 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
   // There are three states:
   // path does not exist: create new, open RW
   // overwrite: remove, then create new, open RW
-  // path exists: open RW
+  // path exists: open read-only
+  //
+  // In every case the store is left open read-only when the constructor
+  // returns. Methods that modify the graph reopen it writable for the duration
+  // of the write (see write_guard).
 
   bool path_exists = std::filesystem::exists(path);
   if (!path_exists || overwrite) {
@@ -52,6 +56,7 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
     comm.barrier();
     m_pmetall_mpi = new metall::utility::metall_mpi_adaptor(
       metall::create_only, m_metall_path, m_comm.get_mpi_comm());
+    m_writable = true;
     auto& manager = m_pmetall_mpi->get_local_manager();
 
     m_pstring_store = manager.construct<string_store_type>(
@@ -70,30 +75,10 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
     add_series<std::string_view>(series_name::V_COL);
     add_series<bool>(series_name::DIR_COL);
 
+    // Initial setup is done: close the store and reopen it read-only.
+    priv_reopen(false);
   } else {  // open existing
-    comm.barrier();
-    m_pmetall_mpi = new metall::utility::metall_mpi_adaptor(
-      metall::open_only, m_metall_path, m_comm.get_mpi_comm());
-    auto& manager = m_pmetall_mpi->get_local_manager();
-
-    m_pstring_store =
-      manager.find<string_store_type>(metall::unique_instance).first;
-    m_pnodes = manager.find<record_store_type>("nodes").first;
-    m_pedges = manager.find<record_store_type>("edges").first;
-    auto gni_ret = manager.find<map_node_to_locator_type>("globalnodeindex");
-    m_pnode_to_locator = gni_ret.first;
-    YGM_ASSERT_RELEASE(gni_ret.second == map_node_to_locator_bucket_count);
-
-    if (!m_pnodes || !m_pedges) {
-      m_comm.cerr0(
-        "Error: Failed to find required data structures in metall store");
-      delete m_pmetall_mpi;
-      m_pmetall_mpi = nullptr;
-      m_pstring_store = nullptr;
-      m_pnodes = nullptr;
-      m_pedges = nullptr;
-      m_pnode_to_locator = nullptr;
-    }
+    priv_reopen(false);
   }
 
   ///\todo Instead of hard crashing, need a nicer fail, maybe .good() method
@@ -121,6 +106,61 @@ metall_graph::metall_graph(ygm::comm& comm, std::string_view path,
   m_node_col_idx = node_series_idx_type{node_col_idx_o.value()};
 }
 
+bool metall_graph::priv_find_persistent_objects() {
+  auto& manager = m_pmetall_mpi->get_local_manager();
+
+  m_pstring_store =
+    manager.find<string_store_type>(metall::unique_instance).first;
+  m_pnodes = manager.find<record_store_type>("nodes").first;
+  m_pedges = manager.find<record_store_type>("edges").first;
+  auto gni_ret = manager.find<map_node_to_locator_type>("globalnodeindex");
+  m_pnode_to_locator = gni_ret.first;
+
+  if (!m_pstring_store || !m_pnodes || !m_pedges || !m_pnode_to_locator) {
+    return false;
+  }
+  YGM_ASSERT_RELEASE(gni_ret.second == map_node_to_locator_bucket_count);
+  return true;
+}
+
+void metall_graph::priv_reopen(bool writable) {
+  // Make sure no messages that touch the store are still in flight.
+  m_comm.barrier();
+
+  // Pointers into the store are invalid once it is closed; the mapping may
+  // land at a different address when it is reopened.
+  m_pstring_store = nullptr;
+  m_pnodes = nullptr;
+  m_pedges = nullptr;
+  m_pnode_to_locator = nullptr;
+
+  // Closing a writable store flushes it to disk.
+  delete m_pmetall_mpi;
+  m_pmetall_mpi = nullptr;
+
+  if (writable) {
+    m_pmetall_mpi = new metall::utility::metall_mpi_adaptor(
+      metall::open_only, m_metall_path, m_comm.get_mpi_comm());
+  } else {
+    m_pmetall_mpi = new metall::utility::metall_mpi_adaptor(
+      metall::open_read_only, m_metall_path, m_comm.get_mpi_comm());
+  }
+  m_writable = writable;
+
+  if (!priv_find_persistent_objects()) {
+    m_comm.cerr0(
+      "Error: Failed to find required data structures in metall store");
+    delete m_pmetall_mpi;
+    m_pmetall_mpi = nullptr;
+    m_pstring_store = nullptr;
+    m_pnodes = nullptr;
+    m_pedges = nullptr;
+    m_pnode_to_locator = nullptr;
+    m_writable = false;
+  }
+  YGM_ASSERT_RELEASE(good());
+}
+
 metall_graph::~metall_graph() {
   // Ensure all processors are together in the destructor
   m_comm.barrier();
@@ -143,9 +183,11 @@ bool metall_graph::drop_series(const series_name& name) {
     return false;
   }
   if (name.is_node_series()) {
+    write_guard wguard(*this);
     return m_pnodes->remove_series(name.unqualified());
   }
   if (name.is_edge_series()) {
+    write_guard wguard(*this);
     return m_pedges->remove_series(name.unqualified());
   }
   m_comm.cerr0("Unknown series name", name.qualified());
@@ -171,10 +213,12 @@ result<> metall_graph::rename_series(const series_name& old_name,
   }
 
   if (old_name.is_node_series()) {
+    write_guard wguard(*this);
     m_pnodes->rename_series(old_name.unqualified(), new_name.unqualified());
     return result<>{};
   }
   if (old_name.is_edge_series()) {
+    write_guard wguard(*this);
     m_pedges->rename_series(old_name.unqualified(), new_name.unqualified());
     return result<>{};
   }
