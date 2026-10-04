@@ -25,6 +25,7 @@ result<> metall_graph::priv_set_edge_column_by_idx(
   using val_type = typename T::mapped_type;
 
   result<> to_return;
+  write_guard wguard(*this);
   // create series
   auto ser_idx = priv_add_edge_series<val_type>(col_name.unqualified());
 
@@ -43,6 +44,7 @@ result<> metall_graph::priv_set_node_column_by_idx(const series_name& col_name,
   using val_type = typename T::mapped_type;
 
   result<> to_return;
+  write_guard wguard(*this);
   // create series
   node_series_idx_type ser_idx;
   if constexpr (std::is_same_v<val_type, std::string>) {
@@ -80,6 +82,7 @@ metalldata::result<> metall_graph::priv_set_node_series(
 
   using val_type = typename T::mapped_type;
 
+  write_guard wguard(*this);
   // create series
   node_series_idx_type nodecol_idx;
   size_t               invalid_nodes = 0;
@@ -108,6 +111,7 @@ metalldata::result<> metall_graph::pasync_set_node_column_by_locator(
 {
   using val_type = typename T::mapped_type;
   result<> to_return;
+  write_guard wguard(*this);
 
   node_series_idx_type ser_idx;
   if constexpr (std::is_same_v<val_type, std::string>) {

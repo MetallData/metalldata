@@ -37,6 +37,9 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
   const std::optional<std::vector<series_name>>&          meta,
   const std::optional<std::map<series_name, data_types>>& tags) {
   result<std::map<std::string, size_t>> to_return;
+  // The store is read-only by default; make it writable for the duration of
+  // the ingest. It returns to read-only when this guard goes out of scope.
+  write_guard wguard(*this);
   // Note: meta is exclusive of col_u and col_v. The metaset should
   // consist of qualified selector names (start with node. or edge.)
   // The parquet file, since it deals with edge data only, should use
@@ -296,6 +299,7 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_nodes(
   std::string_view path, bool recursive, std::string_view col_node,
   bool add_new, const std::optional<std::vector<series_name>>& meta) {
   result<std::map<std::string, size_t>> to_return;
+  write_guard wguard(*this);
 
   std::vector<std::string> paths{std::string(path)};
   ygm::io::parquet_parser  parquetp(m_comm, paths, recursive);

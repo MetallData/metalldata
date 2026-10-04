@@ -257,6 +257,57 @@ class metall_graph {
 
   metall::utility::metall_mpi_adaptor* m_pmetall_mpi = nullptr;
 
+  /// True while the metall store is open in writable mode. The store is kept
+  /// read-only except while a write_guard is alive.
+  bool m_writable = false;
+
+  /**
+   * @brief Closes the metall store (if open) and reopens it either writable
+   * or read-only, then re-locates the persistent data structures.
+   *
+   * Collective: must be called by all ranks. Any pointer, reference, or
+   * string_view into the store obtained before this call is invalidated.
+   *
+   * @param writable true to open read-write, false to open read-only
+   */
+  void priv_reopen(bool writable);
+
+  /// Looks up the persistent data structures in the currently open store and
+  /// caches their addresses. Returns false if any are missing.
+  bool priv_find_persistent_objects();
+
+  /**
+   * @brief RAII guard that makes the metall store writable for its lifetime.
+   *
+   * On construction, reopens the store read-write if it is currently
+   * read-only. On destruction, returns the store to read-only. Guards nest:
+   * an inner guard created while the store is already writable does nothing.
+   *
+   * Collective: must be constructed and destroyed by all ranks together.
+   * Constructing the outermost guard invalidates any pointer, reference, or
+   * string_view into the store, as does destroying it.
+   */
+  class write_guard {
+   public:
+    explicit write_guard(metall_graph& g)
+        : m_graph(g), m_was_writable(g.m_writable) {
+      if (!m_was_writable) {
+        m_graph.priv_reopen(true);
+      }
+    }
+    ~write_guard() {
+      if (!m_was_writable) {
+        m_graph.priv_reopen(false);
+      }
+    }
+    write_guard(const write_guard&) = delete;
+    write_guard& operator=(const write_guard&) = delete;
+
+   private:
+    metall_graph& m_graph;
+    bool          m_was_writable;
+  };
+
   /// Dataframe for vertex metadata
   record_store_type* m_pnodes = nullptr;
   /// Dataframe for directed edges
