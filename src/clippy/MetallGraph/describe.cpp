@@ -36,12 +36,28 @@ int main(int argc, char** argv) try {
 
   metalldata::metall_graph mg(comm, path, false);
 
-  auto nv = mg.num_nodes(where_c);
-  auto ne = mg.num_edges(where_c);
+  metalldata::result<metalldata::metall_graph::graph_stats> statsres =
+    mg.describe(where_c);
 
-  std::map<std::string, std::variant<size_t, std::string>> return_dict;
-  return_dict["nv"] = nv;
-  return_dict["ne"] = ne;
+  std::map<std::string,
+           std::variant<size_t, std::string, std::map<std::string, size_t>>>
+    return_dict;
+  if (statsres.has_value()) {
+    auto stats = statsres.value();
+    return_dict["nv"] = stats.nv;
+    return_dict["ne"] = stats.ne;
+    std::map<std::string, size_t> nonnull_edge_ct;
+    std::map<std::string, size_t> nonnull_node_ct;
+
+    for (const auto& [sname, ct] : stats.non_null_node_ct) {
+      nonnull_node_ct[sname.qualified()] = ct;
+    }
+    return_dict["nonnull_node_count"] = nonnull_node_ct;
+    for (const auto& [sname, ct] : stats.non_null_edge_ct) {
+      nonnull_edge_ct[sname.qualified()] = ct;
+    }
+    return_dict["nonnull_edge_count"] = nonnull_edge_ct;
+  }
   return_dict["path"] = path;
 
   clip.to_return(return_dict);

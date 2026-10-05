@@ -25,3 +25,18 @@ def test_mg_assign(metallgraph):
     is_as_selected(select_data, {"node.gnum": 3}, [], [])
     select_data = metallgraph.select_nodes(where=metallgraph.edge.graphnum != 3)
     is_as_selected(select_data, {}, [], ["node.gnum"])
+
+
+def test_mg_assign_double(metallgraph):
+    metallgraph.assign("node.double_value", 1.25)
+    select_data = metallgraph.select_nodes()
+    is_as_selected(select_data, {"node.double_value": 1.25}, ["node.id"], [])
+
+    metallgraph.assign("edge.double_value", 2.5)
+    select_data = metallgraph.select_edges()
+    is_as_selected(
+        select_data,
+        {"edge.double_value": 2.5},
+        ["edge.u", "edge.v"],
+        [],
+    )
