@@ -85,13 +85,13 @@ int main(int argc, char** argv) {
       world.cout0("Assigning '", color_value, "' to '", name.qualified(),
                   "' where JSONLogic evaluates to true");
 
-      res = graph.assign(name, color_value, where);
+      res = graph.assign_value(name, color_value, where);
     } else {
       // No JSONLogic filter - assign to all edges
       world.cout0("Assigning '", color_value, "' to '", name.qualified(),
                   "' (all edges)");
 
-      res = graph.assign(name, color_value);
+      res = graph.assign_value(name, color_value);
     }
 
     if (!res) {
