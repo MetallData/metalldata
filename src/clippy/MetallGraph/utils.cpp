@@ -91,6 +91,99 @@ bjsn::array rows_to_json(
   return json_rows;
 }
 
+static result<metall_graph::where_clause> json2pred(const bjsn::value &v) {
+  if (v.is_null()) {
+    return metall_graph::where_clause{};
+  }
+  if (!v.is_object()) {
+    return std::unexpected("template predicate must be an expression or null");
+  }
+  const auto &obj = v.get_object();
+  if (obj.empty()) {
+    return metall_graph::where_clause{};
+  }
+  if (!obj.contains("rule")) {
+    return std::unexpected("template predicate invalid (norule)");
+  }
+  return metall_graph::where_clause(obj.at("rule"));
+}
+
+result<metall_graph::pattern_template> parse_pattern_template(
+  const boost::json::object &obj) {
+  metall_graph::pattern_template tmpl;
+  if (!obj.contains("edges") || !obj.at("edges").is_array()) {
+    return std::unexpected("template requires an \"edges\" array");
+  }
+  if (obj.contains("nodes") && !obj.at("nodes").is_object()) {
+    return std::unexpected("template \"nodes\" must be an object");
+  }
+
+  // Vertices are numbered in order of first appearance: "nodes" keys, then
+  // edge endpoints. Vertices without a "nodes" entry are wildcards.
+  std::map<std::string, size_t, std::less<>> name_to_idx;
+  auto vertex_idx = [&](std::string_view name) {
+    auto [it, inserted] =
+      name_to_idx.try_emplace(std::string(name), tmpl.vertex_names.size());
+    if (inserted) {
+      tmpl.vertex_names.emplace_back(name);
+      tmpl.vertex_preds.emplace_back();
+    }
+    return it->second;
+  };
+
+  if (obj.contains("nodes")) {
+    for (const auto &[name, pred_v] : obj.at("nodes").get_object()) {
+      auto pred = json2pred(pred_v);
+      if (!pred) {
+        return std::unexpected(std::format(
+          "template vertex {}: {}", std::string_view(name), pred.error()));
+      }
+      tmpl.vertex_preds[vertex_idx(name)] = std::move(pred.value());
+    }
+  }
+  const size_t num_named = tmpl.vertex_names.size();
+  std::vector<char> in_edge(num_named, 0);
+
+  for (const auto &ev : obj.at("edges").get_array()) {
+    if (!ev.is_array() || ev.get_array().size() < 2 ||
+        ev.get_array().size() > 3) {
+      return std::unexpected(
+        "template edges must be [u, v] or [u, v, predicate]");
+    }
+    const auto &ea = ev.get_array();
+    if (!ea[0].is_string() || !ea[1].is_string()) {
+      return std::unexpected("template edge endpoints must be vertex names");
+    }
+    std::string_view u = ea[0].get_string();
+    std::string_view v = ea[1].get_string();
+    auto pred = ea.size() == 3 ? json2pred(ea[2])
+                               : result<metall_graph::where_clause>{
+                                   metall_graph::where_clause{}};
+    if (!pred) {
+      return std::unexpected(
+        std::format("template edge {} - {}: {}", u, v, pred.error()));
+    }
+    for (auto idx : {vertex_idx(u), vertex_idx(v)}) {
+      if (idx < num_named) {
+        in_edge[idx] = 1;
+      }
+    }
+    tmpl.edges.push_back({vertex_idx(u), vertex_idx(v), std::move(pred.value())});
+  }
+
+  for (size_t q = 0; q < num_named; ++q) {
+    if (!in_edge[q]) {
+      return std::unexpected(std::format("template vertex {} is not in any edge",
+                                         tmpl.vertex_names[q]));
+    }
+  }
+
+  if (auto v = tmpl.validate(); !v) {
+    return std::unexpected(v.error());
+  }
+  return tmpl;
+}
+
 ygm::log_level loglevel_py2ygm(int pyloglevel, ygm::log_level default_level) {
   switch (pyloglevel) {
     case 0:

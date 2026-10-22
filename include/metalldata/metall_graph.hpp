@@ -87,6 +87,10 @@ class metall_graph {
   /// Forward declared, see impl/metall_graph_describe.hpp
   struct graph_stats;
 
+  /// Forward declared, see impl/metall_graph_pattern.hpp
+  struct pattern_template;
+  struct lcc_stats;
+
   metall_graph(ygm::comm& comm, std::string_view path, bool overwrite = false);
 
   ~metall_graph();
@@ -221,6 +225,15 @@ class metall_graph {
 
   result<> connected_components(const series_name&  out_node_series,
                                 const where_clause& where);
+
+  /// PruneJuice Local Constraint Checking (Reza et al., SC18). Iteratively
+  /// prunes the graph (treated as undirected) to a superset of all edges that
+  /// participate in an exact match of `tmpl`. Creates bool edge series
+  /// `out_edge_series`: true for surviving edges, false for other edges
+  /// matching `where`. Surviving nodes are the endpoints of surviving edges.
+  result<lcc_stats> local_constraint_check(const series_name& out_edge_series,
+                                           const pattern_template& tmpl,
+                                           const where_clause&     where);
 
   /// Creates series `name` and sets it to the constant `val` for every row
   /// matching `where`.
@@ -625,6 +638,7 @@ struct std::hash<metalldata::metall_graph::series_types> {
 #include <metalldata/impl/metall_graph_series_name.hpp>
 #include <metalldata/impl/metall_graph_where.hpp>
 #include <metalldata/impl/metall_graph_describe.hpp>
+#include <metalldata/impl/metall_graph_pattern.hpp>
 #include <metalldata/impl/metall_graph_faker.ipp>
 #include <metalldata/impl/metall_graph_priv_for_all.ipp>
 #include <metalldata/impl/metall_graph_set_column.ipp>
