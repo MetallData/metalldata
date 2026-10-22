@@ -10,6 +10,7 @@
 namespace metalldata {
 result<> metall_graph::erase_edges(const where_clause &where) {
   result<> to_return;
+  write_guard wguard(*this);
 
   priv_for_all_edges([&](auto rid) { m_pedges->remove_record(std::to_underlying(rid)); }, where);
 
@@ -29,6 +30,7 @@ result<> metall_graph::erase_edges(
 
   auto idx = idx_o.value();
 
+  write_guard wguard(*this);
   priv_for_all_edges([&](auto rid) {
     auto val_o = pl_get_edge_field<std::string_view>(idx, rid);
     YGM_ASSERT_RELEASE(val_o.has_value());
