@@ -386,41 +386,47 @@ result<metall_graph::lcc_stats> metall_graph::local_constraint_check(
 
   //
   // Output: false for every in-scope edge, then true for survivors.
-  auto out_idx = priv_add_edge_series<bool>(out_name.unqualified());
-  priv_for_all_edges(
-    [&](local_edge_idx_type eid) { pl_set_edge_field(out_idx, eid, false); },
-    where);
-  m_comm.barrier();
-
   size_t local_nodes = 0;
   size_t local_edges = 0;
-  for (const auto& [lid, st] : state) {
-    if (!st.active) {
-      continue;
-    }
-    ++local_nodes;
-    auto self = make_node_locator(m_comm.rank(), lid);
-    for (const auto& nb : st.adj) {
-      if (!(self < nb.nbr)) {
+
+  // Writable only while writing the output; the closing barrier must stay
+  // inside.
+  {
+    write_guard wguard(*this);
+    auto        out_idx = priv_add_edge_series<bool>(out_name.unqualified());
+    priv_for_all_edges(
+      [&](local_edge_idx_type eid) { pl_set_edge_field(out_idx, eid, false); },
+      where);
+    m_comm.barrier();
+
+    for (const auto& [lid, st] : state) {
+      if (!st.active) {
         continue;
       }
-      for (const auto& [el, emask] : nb.edges) {
-        lcc_nbr single{nb.nbr, emask, 0, {}};
-        if (compute_phi(tadj, st.omega, single, nb.recv) == 0) {
+      ++local_nodes;
+      auto self = make_node_locator(m_comm.rank(), lid);
+      for (const auto& nb : st.adj) {
+        if (!(self < nb.nbr)) {
           continue;
         }
-        ++local_edges;
-        m_comm.async(
-          owner(el),
-          [](ygm_ptr_type p, local_edge_idx_type eid,
-             edge_series_idx_type sidx) {
-            p->pl_set_edge_field(sidx, eid, true);
-          },
-          pthis, local(el), out_idx);
+        for (const auto& [el, emask] : nb.edges) {
+          lcc_nbr single{nb.nbr, emask, 0, {}};
+          if (compute_phi(tadj, st.omega, single, nb.recv) == 0) {
+            continue;
+          }
+          ++local_edges;
+          m_comm.async(
+            owner(el),
+            [](ygm_ptr_type p, local_edge_idx_type eid,
+               edge_series_idx_type sidx) {
+              p->pl_set_edge_field(sidx, eid, true);
+            },
+            pthis, local(el), out_idx);
+        }
       }
     }
+    m_comm.barrier();
   }
-  m_comm.barrier();
 
   stats.num_nodes = ygm::sum(local_nodes, m_comm);
   stats.num_edges = ygm::sum(local_edges, m_comm);
