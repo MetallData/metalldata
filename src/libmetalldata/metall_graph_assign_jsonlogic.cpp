@@ -294,6 +294,7 @@ result<> metall_graph::assign_jsonlogic(
 
     // Pass 2: create the series and write the values.
     auto write_all = [&]<typename T>(warning_idx mismatch_warning) {
+      write_guard wguard(*this);
       auto sidx = t.add(std::type_identity<T>{});
       t.for_all([&](auto row_idx) {
         auto v = eval(row_idx);

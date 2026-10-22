@@ -21,6 +21,16 @@ result<> metall_graph::add_faker_series(const metall_graph::series_name& name,
   static_assert(std::is_constructible_v<T, FT>,
                 "Invalid type for data; cannot proceed");
 
+  if (has_series(name)) {
+    return std::unexpected(
+      std::format("{} series {} already exists",
+                  name.is_edge_series() ? "edge" : "node", name.qualified()));
+  }
+  if (!name.is_edge_series() && !name.is_node_series()) {
+    return to_return;
+  }
+  write_guard wguard(*this);
+
   if (name.is_edge_series()) {
     if (has_series(name)) {
       return std::unexpected(
