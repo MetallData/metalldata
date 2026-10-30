@@ -31,6 +31,37 @@
 
 namespace metalldata {
 
+namespace {
+/// Calls fn with a value-initialized instance of the series type used to store
+/// values of parquet type ptype. Returns false, without calling fn, if ptype is
+/// not supported.
+template <typename Fn>
+bool with_series_type(const ygm::io::detail::parquet_data_type& ptype,
+                      Fn&&                                       fn) {
+  if (ptype.equal(parquet::Type::BOOLEAN)) {
+    fn(bool{});
+  } else if (ptype.equal(parquet::Type::INT32) ||
+             ptype.equal(parquet::Type::INT64)) {
+    fn(int64_t{});
+  } else if (ptype.equal(parquet::Type::FLOAT) ||
+             ptype.equal(parquet::Type::DOUBLE)) {
+    fn(double{});
+  } else if (ptype.equal(parquet::Type::BYTE_ARRAY)) {
+    fn(std::string_view{});
+  } else {
+    return false;
+  }
+  return true;
+}
+
+std::string series_type_mismatch(std::string_view                  pcol_name,
+                                 const metall_graph::series_name& name) {
+  return std::format("parquet type for column {} does not match existing "
+                     "series {}",
+                     pcol_name, name.qualified());
+}
+}  // namespace
+
 result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
   std::string_view path, bool recursive, std::string_view col_u,
   std::string_view col_v, bool directed,
@@ -111,30 +142,34 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
       }
       parquet_to_metall[pcol_name] = mapped_name;
 
-      std::string col_errs;
-      bool        add_series_err = false;
-      // Don't try to add series for U_COL and V_COL - they already exist
-      if (pcol_name != col_u && pcol_name != col_v &&
-          !has_series(mapped_name)) {
-        if (pcol_type.equal(parquet::Type::BOOLEAN)) {
-          add_series_err = !add_series<bool>(mapped_name);
-        } else if (pcol_type.equal(parquet::Type::INT32) ||
-                   pcol_type.equal(parquet::Type::INT64)) {
-          add_series_err = !add_series<int64_t>(mapped_name);
-        } else if (pcol_type.equal(parquet::Type::FLOAT) ||
-                   pcol_type.equal(parquet::Type::DOUBLE)) {
-          add_series_err = !add_series<double>(mapped_name);
-        } else if (pcol_type.equal(parquet::Type::BYTE_ARRAY)) {
-          add_series_err = !add_series<std::string_view>(mapped_name);
-        } else {
+      // Don't try to add series for U_COL and V_COL - they already exist.
+      // An existing series must match the parquet column's type; otherwise
+      // setting values would throw on whichever ranks read the file and
+      // desynchronize the collectives.
+      if (pcol_name != col_u && pcol_name != col_v) {
+        std::optional<std::string> series_err;
+        const bool supported = with_series_type(pcol_type, [&](auto tag) {
+          using T = decltype(tag);
+          if (!has_series(mapped_name) && !add_series<T>(mapped_name)) {
+            series_err =
+              std::format("failed to add source column: {}", pcol_name);
+            return;
+          }
+          auto series_idx = pl_find_edge_series(mapped_name);
+          YGM_ASSERT_RELEASE(series_idx.has_value());
+          if (!priv_is_edge_series_type<T>(series_idx.value())) {
+            series_err = series_type_mismatch(pcol_name, mapped_name);
+          }
+        });
+
+        if (!supported) {
           std::stringstream ss;
           ss << "Unsupported column type: " << schema[i].type;
           to_return.add_warning(ss.str());
         }
 
-        if (add_series_err) {
-          return std::unexpected(
-            std::format("failed to add source column: {}", pcol_name));
+        if (series_err) {
+          return std::unexpected(*series_err);
         }
       }
     };
@@ -343,49 +378,31 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_nodes(
       continue;
     }
 
-    if (!has_series(mapped_name)) {
-      bool add_series_err = false;
-      if (pcol_type.equal(parquet::Type::BOOLEAN)) {
-        add_series_err = !add_series<bool>(mapped_name);
-      } else if (pcol_type.equal(parquet::Type::INT32) ||
-                 pcol_type.equal(parquet::Type::INT64)) {
-        add_series_err = !add_series<int64_t>(mapped_name);
-      } else if (pcol_type.equal(parquet::Type::FLOAT) ||
-                 pcol_type.equal(parquet::Type::DOUBLE)) {
-        add_series_err = !add_series<double>(mapped_name);
-      } else if (pcol_type.equal(parquet::Type::BYTE_ARRAY)) {
-        add_series_err = !add_series<std::string_view>(mapped_name);
-      } else {
-        std::stringstream ss;
-        ss << "Unsupported column type: " << pcol_type;
-        to_return.add_warning(ss.str());
-        continue;
+    // An existing series must match the parquet column's type.
+    std::optional<std::string> series_err;
+    const bool supported = with_series_type(pcol_type, [&](auto tag) {
+      using T = decltype(tag);
+      if (!has_series(mapped_name) && !add_series<T>(mapped_name)) {
+        series_err =
+          std::format("failed to add node metadata column: {}", pcol_name);
+        return;
       }
+      metadata_indices[i] = pl_find_node_series(mapped_name);
+      YGM_ASSERT_RELEASE(metadata_indices[i].has_value());
+      if (!priv_is_node_series_type<T>(metadata_indices[i].value())) {
+        series_err = series_type_mismatch(pcol_name, mapped_name);
+      }
+    });
 
-      if (add_series_err) {
-        return std::unexpected(
-          std::format("failed to add node metadata column: {}", pcol_name));
-      }
+    if (!supported) {
+      std::stringstream ss;
+      ss << "Unsupported column type: " << pcol_type;
+      to_return.add_warning(ss.str());
+      continue;
     }
 
-    metadata_indices[i] = pl_find_node_series(mapped_name);
-    YGM_ASSERT_RELEASE(metadata_indices[i].has_value());
-    const auto series_idx = metadata_indices[i].value();
-    const bool compatible_type =
-      (pcol_type.equal(parquet::Type::BOOLEAN) &&
-       priv_is_node_series_type<bool>(series_idx)) ||
-      ((pcol_type.equal(parquet::Type::INT32) ||
-        pcol_type.equal(parquet::Type::INT64)) &&
-       priv_is_node_series_type<int64_t>(series_idx)) ||
-      ((pcol_type.equal(parquet::Type::FLOAT) ||
-        pcol_type.equal(parquet::Type::DOUBLE)) &&
-       priv_is_node_series_type<double>(series_idx)) ||
-      (pcol_type.equal(parquet::Type::BYTE_ARRAY) &&
-       priv_is_node_series_type<std::string_view>(series_idx));
-    if (!compatible_type) {
-      return std::unexpected(std::format(
-        "parquet type for column {} does not match existing series {}",
-        pcol_name, mapped_name.qualified()));
+    if (series_err) {
+      return std::unexpected(*series_err);
     }
   }
 

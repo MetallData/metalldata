@@ -10,17 +10,16 @@ def test_mg_nhops(metallgraph):
     metallgraph.nhops("nhops", 2, ["path-a", "path-f"])
     select_data = metallgraph.select_nodes()
     required_result = {
-        "path-a": {"nhops": 0},
-        "path-f": {"nhops": 0},
-        "path-b": {"nhops": 1},
-        "path-g": {"nhops": 1},
-        "path-c": {"nhops": 2},
+        "path-a": {"node.nhops": 0},
+        "path-f": {"node.nhops": 0},
+        "path-b": {"node.nhops": 1},
+        "path-g": {"node.nhops": 1},
+        "path-c": {"node.nhops": 2},
     }
 
-    for d in select_data:
-        if "nhops" in d:
-            assert d["nhops"] <= 2
+    is_specific(select_data, "node.id", required_result)
 
-    is_specific(select_data, "id", required_result)
-    select_data = metallgraph.select_nodes(where=metallgraph.node.gnum != 3)
-    is_as_selected(select_data, {}, ["id"], ["nhops"])
+    # Every other node (including path-d and path-e, 3+ hops away) is unreached.
+    unreached = [d for d in select_data if d["node.id"] not in required_result]
+    assert len(unreached) == 21 - len(required_result)
+    is_as_selected(unreached, {}, ["node.id"], ["node.nhops"])
