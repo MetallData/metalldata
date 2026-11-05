@@ -19,10 +19,15 @@ git clone https://github.com/LLNL/metalldata.git
 cd metalldata
 mkdir build
 cd build
-cmake ../
+cmake ../ \
+	-DMETALL_FETCH_GIT=https://github.com/karimyoussef91/metall-1.git \
+	-DMETALL_FETCH_TAG=feature/privateer_deps \
+	-DPRIVATEER_FETCH_GIT=https://github.com/LLNL/privateer.git
 make
 pip install llnl-clippy
 ```
+
+The Metall and Privateer remotes are configurable through CMake cache variables. If the Privateer fork uses a branch other than `main`, also pass `-DPRIVATEER_FETCH_TAG=<branch-or-commit>`.
 
 ## License
 
