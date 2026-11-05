@@ -1,11 +1,17 @@
 CompileFlags:
   CompilationDatabase: build
   Compiler: g++
-  Add: 
+  Add:
     - -std=c++23
     - -stdlib=libstdc++
     - -I/workspaces/metalldata/include
+    - -Wall
+    - -Wextra
+    - -Wuninitialized
+    - -Wsometimes-uninitialized
 
 Diagnostics:
   Suppress: [ovl_no_viable_function_in_init]
   UnusedIncludes: None
+  ClangTidy:
+    Add: [cppcoreguidelines-init-variables]

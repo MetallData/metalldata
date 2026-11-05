@@ -212,9 +212,6 @@ class metall_graph {
   result<> degrees(series_name in_name, series_name out_name,
                    const where_clause& where);
 
-  result<> degrees2(series_name in_name, series_name out_name,
-                    const where_clause& where);
-
   result<> nhops(const series_name& out_node_series, size_t nhops,
                  const std::vector<std::string>& sources,
                  const where_clause&             where);
