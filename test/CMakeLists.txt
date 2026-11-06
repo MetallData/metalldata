@@ -32,7 +32,7 @@ message(${CMAKE_BINARY_DIR}/src/clippy)
 #
 # Adds a target for pytest
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
-set(MPIRUN "mpirun --oversubscribe -np 4")
+set(MPIRUN "srun -n 4") # "mpirun --oversubscribe -np 4")
 add_custom_target(pytest
         COMMAND ${CMAKE_COMMAND} -E env
             CLIPPY_BACKEND_PATH=${CMAKE_BINARY_DIR}/src/clippy
