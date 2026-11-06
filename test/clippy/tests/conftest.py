@@ -44,14 +44,16 @@ def is_as_selected(
 def is_specific(
     data_list: list[dict[str, Any]], key: str, keydict: dict[str, dict[str, Any]]
 ):
-    for el in data_list:
-        if key in el:
-            keyval = el[key]
-            if keyval in keydict:
-                assert (
-                    keydict[keyval].items() <= el.items()
-                    and len(keydict[keyval].items()) > 0
-                )
+    """For every entry in `keydict`, asserts that a row whose `key` equals the
+    entry's key exists and contains all of the entry's key/value pairs.
+    `key` and the required fields must be qualified (e.g. "node.id")."""
+    rows = {el[key]: el for el in data_list if key in el}
+    for keyval, required in keydict.items():
+        assert len(required) > 0, f"no required fields given for {keyval!r}"
+        assert keyval in rows, f"no row with {key} == {keyval!r}"
+        assert required.items() <= rows[keyval].items(), (
+            f"{key} == {keyval!r}: expected {required}, got {rows[keyval]}"
+        )
 
 
 @pytest.fixture(scope="session")
