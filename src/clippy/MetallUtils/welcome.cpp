@@ -10,7 +10,7 @@
 
 static const std::string method_name = "welcome";
 static const std::string state_name = "INTERNAL";
-static const std::string sel_state_name = "selectors";
+static const std::string kp_state_name = "keypaths";
 
 int main(int argc, char** argv) try {
   ygm::comm comm(&argc, &argv);

@@ -12,7 +12,7 @@
 
 static const std::string method_name = "rename_series";
 static const std::string state_name = "INTERNAL";
-static const std::string sel_state_name = "selectors";
+static const std::string kp_state_name = "keypaths";
 
 using series_name = metalldata::metall_graph::series_name;
 
@@ -54,7 +54,7 @@ int main(int argc, char** argv) try {
     comm.cerr0(result.error());
     return 1;
   }
-  clip.update_selectors(mg.get_selector_info());
+  clip.update_keypaths(mg.get_keypath_info());
   return 0;
 } catch (const std::runtime_error& e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";

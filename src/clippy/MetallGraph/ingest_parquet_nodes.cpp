@@ -64,7 +64,7 @@ int main(int argc, char** argv) try {
   for (const auto& [warning, count] : result.warnings()) {
     comm.cerr0(std::format("{} : {}", warning, count));
   }
-  clip.update_selectors(graph.get_selector_info());
+  clip.update_keypaths(graph.get_keypath_info());
   clip.to_return(result.value());
   return 0;
 } catch (const std::runtime_error& e) {

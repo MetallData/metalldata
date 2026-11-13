@@ -52,7 +52,7 @@ int main(int argc, char** argv) try {
   }
 
   mg.drop_series(name);
-  clip.update_selectors(mg.get_selector_info());
+  clip.update_keypaths(mg.get_keypath_info());
 
   return 0;
 } catch (const std::runtime_error& e) {

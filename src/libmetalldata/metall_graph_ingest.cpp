@@ -72,9 +72,9 @@ result<std::map<std::string, size_t>> metall_graph::ingest_parquet_edges(
   // the ingest. It returns to read-only when this guard goes out of scope.
   write_guard wguard(*this);
   // Note: meta is exclusive of col_u and col_v. The metaset should
-  // consist of qualified selector names (start with node. or edge.)
+  // consist of qualified keypath names (start with node. or edge.)
   // The parquet file, since it deals with edge data only, should use
-  // unqualified selector names.
+  // unqualified keypath names.
   // Setup parquet reader
 
   std::vector<std::string> paths;

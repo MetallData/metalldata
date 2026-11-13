@@ -31,43 +31,43 @@ metall_graph::series_name::priv_split_series_str(std::string_view str) {
   return std::make_pair(prefix, unqualified);
 }
 
-std::map<std::string, std::string> metall_graph::get_edge_selector_info() {
+std::map<std::string, std::string> metall_graph::get_edge_keypath_info() {
   // Since the m_pedges schema is identical across ranks, we don't have to
   // collect. Also: the "edge" prefix (and "node" in the corresponding
   // function) need to match the corresponding meta.json values.
-  std::map<std::string, std::string> sels;
+  std::map<std::string, std::string> kps;
   for (const auto& el : m_pedges->get_series_names()) {
-    auto sel = std::format("edge.{}", el);
-    sels[sel] = "default";
+    auto kp = std::format("edge.{}", el);
+    kps[kp] = "default";
   }
   for (const auto& el : m_pnodes->get_series_names()) {
-    auto sel = std::format("{}.{}", series_name::U_COL.qualified(), el);
-    sels[sel] = "inherited";
-    sel = std::format("{}.{}", series_name::V_COL.qualified(), el);
-    sels[sel] = "inherited";
+    auto kp = std::format("{}.{}", series_name::U_COL.qualified(), el);
+    kps[kp] = "inherited";
+    kp = std::format("{}.{}", series_name::V_COL.qualified(), el);
+    kps[kp] = "inherited";
   }
 
-  return sels;
+  return kps;
 }
 
-std::map<std::string, std::string> metall_graph::get_node_selector_info() {
+std::map<std::string, std::string> metall_graph::get_node_keypath_info() {
   // Since the m_pedges schema is identical across ranks, we don't have to
   // collect.
-  std::map<std::string, std::string> sels;
+  std::map<std::string, std::string> kps;
   for (const auto& el : m_pnodes->get_series_names()) {
-    auto sel = std::format("node.{}", el);
-    sels[sel] = "default";
+    auto kp = std::format("node.{}", el);
+    kps[kp] = "default";
   }
-  return sels;
+  return kps;
 }
 
-std::map<std::string, std::string> metall_graph::get_selector_info() {
-  std::map<std::string, std::string> sels = get_edge_selector_info();
+std::map<std::string, std::string> metall_graph::get_keypath_info() {
+  std::map<std::string, std::string> kps = get_edge_keypath_info();
 
-  std::map<std::string, std::string> nsels = get_node_selector_info();
-  sels.insert(nsels.begin(), nsels.end());
+  std::map<std::string, std::string> nkps = get_node_keypath_info();
+  kps.insert(nkps.begin(), nkps.end());
 
-  return sels;
+  return kps;
 }
 
 std::pair<std::string_view, std::string_view>
