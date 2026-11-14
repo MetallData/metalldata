@@ -17,7 +17,7 @@
 
 static const std::string method_name = "sample_edges";
 static const std::string state_name = "INTERNAL";
-static const std::string sel_state_name = "selectors";
+static const std::string kp_state_name = "keypaths";
 
 int main(int argc, char** argv) try {
   ygm::comm comm(&argc, &argv);
@@ -58,7 +58,7 @@ int main(int argc, char** argv) try {
   metalldata::metall_graph mg(comm, path, false);
 
   mg.sample_edges(name, k, optseed, where_c);
-  clip.update_selectors(mg.get_selector_info());
+  clip.update_keypaths(mg.get_keypath_info());
   clip.to_return(0);
 
   return 0;

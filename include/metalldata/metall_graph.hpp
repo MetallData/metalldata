@@ -138,16 +138,16 @@ class metall_graph {
     const std::vector<series_name>& ser_inc, Compare comp,
     const where_clause& where);
 
-  std::map<std::string, std::string> get_edge_selector_info();
+  std::map<std::string, std::string> get_edge_keypath_info();
 
-  std::map<std::string, std::string> get_node_selector_info();
+  std::map<std::string, std::string> get_node_keypath_info();
 
-  std::map<std::string, std::string> get_selector_info();
+  std::map<std::string, std::string> get_keypath_info();
 
   template <typename T>
   bool add_series(const series_name& name);
 
-  // drop_series requires a qualified selector name (starts with node. or
+  // drop_series requires a qualified keypath name (starts with node. or
   // edge.)
   bool drop_series(const series_name& name);
 

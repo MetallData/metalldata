@@ -204,7 +204,7 @@ int main(int argc, char** argv) try {
   // Call the generator
   gen(mg, name, where_c);
 
-  clip.update_selectors(mg.get_selector_info());
+  clip.update_keypaths(mg.get_keypath_info());
   return 0;
 } catch (const std::runtime_error& e) {
   std::cerr << "Error in execution: " << e.what() << "; aborting.\n";

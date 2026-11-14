@@ -91,7 +91,7 @@ int main(int argc, char **argv) try {
     comm.cerr0(std::format("{} : {}", warn, count));
   }
 
-  clip.update_selectors(mg.get_selector_info());
+  clip.update_keypaths(mg.get_keypath_info());
 
   // TODO: the return_info dict vals are std::any. This needs explicit JSON
   // serialization if we want to return info from it.

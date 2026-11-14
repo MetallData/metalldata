@@ -176,7 +176,7 @@ metall_graph::~metall_graph() {
   m_pmetall_mpi = nullptr;
 }
 
-// drop_series requires a qualified selector name (starts with node. or edge.)
+// drop_series requires a qualified keypath name (starts with node. or edge.)
 bool metall_graph::drop_series(const series_name& name) {
   if (name.is_reserved()) {
     m_comm.cerr0("Cannot remove reserved column ", name.qualified());
