@@ -12,6 +12,7 @@ endif()
 add_library(libmetalldata STATIC
             metall_graph.cpp
             metall_graph_cc.cpp
+            metall_graph_lcc.cpp
             metall_graph_ingest.cpp
             metall_graph_nhops.cpp
             metall_graph_degree.cpp
