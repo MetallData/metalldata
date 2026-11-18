@@ -223,10 +223,17 @@ function(setup_metall_target exe_name)
     target_compile_definitions(${exe_name} PRIVATE "METALL_DISABLE_CONCURRENCY")
 endfunction()
 
-add_subdirectory(src)
-
 set(ENV_METALLDATA_BUILD_TESTS "$ENV{METALLDATA_BUILD_TESTS}")
 if (METALLDATA_BUILD_TESTS OR ENV_METALLDATA_BUILD_TESTS)
+    set(METALLDATA_TESTS_ENABLED ON)
+endif ()
+
+add_subdirectory(src)
+if(NOT BUILD_ONLY_LIBMETALLDATA)
+  add_subdirectory(py)
+endif()
+
+if (METALLDATA_TESTS_ENABLED)
     enable_testing()
     add_subdirectory(test)
 endif ()

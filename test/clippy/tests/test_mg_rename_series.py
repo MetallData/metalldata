@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 
 import pytest
-from clippy.backends.fs.execution import NonZeroReturnCodeError  # type: ignore
+from metalldata.errors import NonZeroReturnCodeError  # type: ignore
 from conftest import is_as_selected
 
 

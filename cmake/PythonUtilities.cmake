@@ -1,3 +1,10 @@
+# Path of the build-owned Python virtual environment.
+# Output: the variable named by out_var is set to the path.
+function(get_build_venv_root out_var)
+    string(TOLOWER "${PROJECT_NAME}" venv_prefix)
+    set(${out_var} "${CMAKE_BINARY_DIR}/${venv_prefix}-venv" PARENT_SCOPE)
+endfunction()
+
 # Create and activate a Python3 virtual environment
 #
 # Output: PYTHON_VENV_ROOT is set to the path of the virtual environment
@@ -9,7 +16,7 @@ function(setup_python_venv)
         return()
     endif()
 
-    set(PYTHON_VENV_ROOT "${CMAKE_BINARY_DIR}/${PROJECT_NAME}-venv")
+    get_build_venv_root(PYTHON_VENV_ROOT)
     execute_process(
             COMMAND ${Python3_EXECUTABLE} -m venv ${PYTHON_VENV_ROOT}
             RESULT_VARIABLE result

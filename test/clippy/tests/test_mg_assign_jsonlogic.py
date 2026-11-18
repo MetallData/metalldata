@@ -8,7 +8,7 @@
 import re
 
 import pytest
-from clippy.backends.fs.execution import NonZeroReturnCodeError  # type: ignore
+from metalldata.errors import NonZeroReturnCodeError  # type: ignore
 
 
 def jl(rule) -> dict:
