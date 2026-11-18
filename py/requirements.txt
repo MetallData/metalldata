@@ -1,0 +1,3 @@
+# Runtime dependencies of the vendored clippy frontend.
+semver >= 3.0
+jsonlogic-py == 0.2.5

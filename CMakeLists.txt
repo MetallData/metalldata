@@ -224,6 +224,9 @@ function(setup_metall_target exe_name)
 endfunction()
 
 add_subdirectory(src)
+if(NOT BUILD_ONLY_LIBMETALLDATA)
+  add_subdirectory(py)
+endif()
 
 set(ENV_METALLDATA_BUILD_TESTS "$ENV{METALLDATA_BUILD_TESTS}")
 if (METALLDATA_BUILD_TESTS OR ENV_METALLDATA_BUILD_TESTS)

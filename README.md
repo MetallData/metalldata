@@ -21,7 +21,13 @@ mkdir build
 cd build
 cmake ../
 make
-pip install llnl-clippy
+pip install -r ../py/requirements.txt
+```
+
+Then, with `PYTHONPATH=<build>/py`:
+
+```python
+from metalldata import MetallGraph, MetallUtils
 ```
 
 ## License

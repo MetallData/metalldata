@@ -4,8 +4,8 @@
 # SPDX-License-Identifier: MIT
 
 import pytest
-from clippy import MetallGraph  # type: ignore
-from clippy.backends.fs.execution import NonZeroReturnCodeError  # type: ignore
+from metalldata import MetallGraph  # type: ignore
+from metalldata.errors import NonZeroReturnCodeError  # type: ignore
 from conftest import DATA_DIR
 
 # Edge lists come from data/metall_graph/csv/*.csv (s -> t). All edges in the

@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 
 import pytest
-from clippy import MetallGraph  # type: ignore
+from metalldata import MetallGraph  # type: ignore
 from conftest import DATA_DIR, is_as_described, is_as_selected
 
 

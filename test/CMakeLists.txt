@@ -35,12 +35,13 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(MPIRUN "mpirun --oversubscribe -np 4")
 add_custom_target(pytest
         COMMAND ${CMAKE_COMMAND} -E env
-            CLIPPY_BACKEND_PATH=${CMAKE_BINARY_DIR}/src/clippy
+            PYTHONPATH=${CMAKE_BINARY_DIR}/py
             CLIPPY_CMD_PREFIX=${MPIRUN}
             ${Python3_EXECUTABLE} -m pytest tests/
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/test/clippy
     USES_TERMINAL
 )
+add_dependencies(pytest metalldata_py)
 
 
 add_subdirectory(string_table)

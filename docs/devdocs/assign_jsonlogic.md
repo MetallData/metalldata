@@ -198,6 +198,6 @@ Run the tests (`CLIPPY_CMD_PREFIX=mpirun` runs every call on multiple ranks):
 
 ```bash
 cd test/clippy
-CLIPPY_CMD_PREFIX=mpirun CLIPPY_BACKEND_PATH=$PWD/../../build/src/clippy \
+CLIPPY_CMD_PREFIX=mpirun PYTHONPATH=$PWD/../../build/py \
   DATA_DIR=../../data/metall_graph pytest tests/test_mg_assign_jsonlogic.py
 ```

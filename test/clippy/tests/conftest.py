@@ -6,14 +6,14 @@
 from typing import Any
 import pytest
 import shutil
-import clippy
-from clippy import MetallGraph, MetallUtils  # type: ignore
+import metalldata
+from metalldata import MetallGraph, MetallUtils  # type: ignore
 import os
 import logging
 
 DATA_DIR = os.environ.get("DATA_DIR", "../../data/metall_graph")
 
-clippy.logger.setLevel(logging.WARN)
+metalldata.logger.setLevel(logging.WARN)
 logging.getLogger().setLevel(logging.WARN)
 
 
