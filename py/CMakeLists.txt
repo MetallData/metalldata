@@ -38,3 +38,49 @@ add_custom_command(
   COMMENT "Assembling metalldata Python package"
 )
 add_custom_target(metalldata_py ALL DEPENDS ${METALLDATA_PY_STAMP})
+
+#
+# Python virtual environment.
+#
+# By default the build owns ${CMAKE_BINARY_DIR}/metalldata-venv: it installs
+# the requirements below into it and adds a .pth file pointing at this
+# package, so activating the venv is all a user needs to do. With tests
+# enabled, the test and dev requirements are installed as well.
+#
+# If METALLDATA_PYTHON_VENV_ROOT is set, that venv belongs to the user and
+# is left untouched.
+#
+# METALLDATA_VENV_PYTHON is exported to the parent scope for the pytest target.
+#
+option(METALLDATA_SETUP_PY_VENV "Create and populate the build-owned Python venv." ON)
+
+if (METALLDATA_PYTHON_VENV_ROOT)
+  set(METALLDATA_VENV_PYTHON ${METALLDATA_PYTHON_VENV_ROOT}/bin/python PARENT_SCOPE)
+  message(STATUS "metalldata: using ${METALLDATA_PYTHON_VENV_ROOT} without modifying it. "
+                 "Install ${CMAKE_CURRENT_SOURCE_DIR}/requirements.txt into it and set "
+                 "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR} to use the metalldata package.")
+elseif (METALLDATA_SETUP_PY_VENV)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  get_build_venv_root(METALLDATA_VENV_DIR)
+  set(METALLDATA_VENV_PYTHON ${METALLDATA_VENV_DIR}/bin/python PARENT_SCOPE)
+
+  set(METALLDATA_VENV_REQUIREMENTS ${CMAKE_CURRENT_SOURCE_DIR}/requirements.txt)
+  if (METALLDATA_TESTS_ENABLED)
+    list(APPEND METALLDATA_VENV_REQUIREMENTS
+         ${PROJECT_SOURCE_DIR}/test/clippy/requirements.txt
+         ${PROJECT_SOURCE_DIR}/test/clippy/requirements-dev.txt)
+  endif ()
+
+  configure_file(setup_venv.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/setup_venv.cmake @ONLY)
+
+  set(METALLDATA_VENV_STAMP ${CMAKE_CURRENT_BINARY_DIR}/metalldata_venv.stamp)
+  add_custom_command(
+    OUTPUT ${METALLDATA_VENV_STAMP}
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/setup_venv.cmake
+    COMMAND ${CMAKE_COMMAND} -E touch ${METALLDATA_VENV_STAMP}
+    DEPENDS ${METALLDATA_VENV_REQUIREMENTS} ${CMAKE_CURRENT_BINARY_DIR}/setup_venv.cmake
+    COMMENT "Setting up Python venv ${METALLDATA_VENV_DIR}"
+    USES_TERMINAL
+  )
+  add_custom_target(metalldata_venv ALL DEPENDS ${METALLDATA_VENV_STAMP})
+endif ()

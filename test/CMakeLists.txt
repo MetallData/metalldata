@@ -31,17 +31,26 @@ message(${CMAKE_BINARY_DIR}/src/clippy)
 
 #
 # Adds a target for pytest
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
+if (METALLDATA_VENV_PYTHON)
+    set(PYTEST_PYTHON ${METALLDATA_VENV_PYTHON})
+else ()
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    set(PYTEST_PYTHON ${Python3_EXECUTABLE})
+endif ()
 set(MPIRUN "mpirun --oversubscribe -np 4")
 add_custom_target(pytest
         COMMAND ${CMAKE_COMMAND} -E env
             PYTHONPATH=${CMAKE_BINARY_DIR}/py
             CLIPPY_CMD_PREFIX=${MPIRUN}
-            ${Python3_EXECUTABLE} -m pytest tests/
+            ${PYTEST_PYTHON} -m pytest tests/
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/test/clippy
     USES_TERMINAL
 )
-add_dependencies(pytest metalldata_py)
+foreach (dep metalldata_py metalldata_venv)
+    if (TARGET ${dep})
+        add_dependencies(pytest ${dep})
+    endif ()
+endforeach ()
 
 
 add_subdirectory(string_table)

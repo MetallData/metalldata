@@ -197,7 +197,8 @@ Helpers: `jl(rule)` wraps a raw jsonlogic rule as `{"rule": rule}`, `warning_cou
 Run the tests (`CLIPPY_CMD_PREFIX=mpirun` runs every call on multiple ranks):
 
 ```bash
+source build/metalldata-venv/bin/activate
 cd test/clippy
-CLIPPY_CMD_PREFIX=mpirun PYTHONPATH=$PWD/../../build/py \
+CLIPPY_CMD_PREFIX=mpirun \
   DATA_DIR=../../data/metall_graph pytest tests/test_mg_assign_jsonlogic.py
 ```

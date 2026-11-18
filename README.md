@@ -21,14 +21,20 @@ mkdir build
 cd build
 cmake ../
 make
-pip install -r ../py/requirements.txt
 ```
 
-Then, with `PYTHONPATH=<build>/py`:
+The build creates a Python virtual environment in `build/metalldata-venv` with the
+`metalldata` package on its path:
 
-```python
-from metalldata import MetallGraph, MetallUtils
+```bash
+source metalldata-venv/bin/activate
+python -c "from metalldata import MetallGraph, MetallUtils"
 ```
+
+Configure with `-DMETALLDATA_BUILD_TESTS=ON` to also get the test and development
+tools (pytest, IPython, ruff, mypy) in that venv. To use your own venv instead, pass
+`-DMETALLDATA_PYTHON_VENV_ROOT=<path>`; the build won't modify it, so install
+`py/requirements.txt` into it and set `PYTHONPATH=<build>/py`.
 
 ## License
 
